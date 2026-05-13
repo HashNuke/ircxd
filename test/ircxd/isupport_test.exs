@@ -164,6 +164,16 @@ defmodule Ircxd.ISupportTest do
            )
   end
 
+  test "reads channel MODE command limits" do
+    assert ISupport.mode_limit(%{"MODES" => "4"}) == 4
+    assert ISupport.mode_limit(%{"MODES" => "20"}) == 20
+    assert ISupport.mode_limit(%{"MODES" => true}) == :unlimited
+    assert ISupport.mode_limit(%{"MODES" => "0"}) == nil
+    assert ISupport.mode_limit(%{"MODES" => "-1"}) == nil
+    assert ISupport.mode_limit(%{"MODES" => "abc"}) == nil
+    assert ISupport.mode_limit(%{}) == 3
+  end
+
   test "reads typed integer, character-list, and flag values" do
     isupport = %{
       "CHANTYPES" => "#&",

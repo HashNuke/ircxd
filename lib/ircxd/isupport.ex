@@ -146,6 +146,14 @@ defmodule Ircxd.ISupport do
     positive_integer(isupport, "MAXTARGETS")
   end
 
+  def mode_limit(isupport) when is_map(isupport) do
+    case Map.fetch(isupport, "MODES") do
+      {:ok, true} -> :unlimited
+      {:ok, value} -> parse_positive_integer_value(value)
+      :error -> 3
+    end
+  end
+
   def target_limit(isupport, command) when is_map(isupport) and is_binary(command) do
     normalized_command = String.upcase(command)
 
