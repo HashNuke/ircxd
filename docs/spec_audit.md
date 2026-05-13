@@ -139,7 +139,8 @@ Implemented and tested:
 - Multi-prefix, userhost-in-names, no-implicit-names, WHOX.
 - MONITOR and extended-monitor events.
 - Standard replies: `FAIL`, `WARN`, `NOTE`, including case-insensitive
-  command/code normalization and malformed reply errors.
+  command/code normalization, malformed reply errors, and opt-in real-server
+  `FAIL SETNAME INVALID_REALNAME` emission from InspIRCd with `m_setname`.
 - STS policy parsing, invalid-policy event emission, SNI TLS options,
   `CAP REQ sts` suppression, and ignored `CAP DEL sts`.
 - UTF8ONLY outbound validation.
@@ -153,10 +154,6 @@ Remaining IRCv3 stable gaps:
 - Full WebSocket transport adapters are intentionally not bundled yet; only the
   adapter behaviour, payload validation, and send/close dispatch helpers exist.
   Optional adapter close callbacks are handled without raising.
-- More real-server coverage is still desirable for `standard-replies`; scripted
-  parsing and real capability negotiation are covered, but deterministic
-  `FAIL`, `WARN`, or `NOTE` emission has not been reproduced against local
-  InspIRCd.
 - STS is parsed and exposed, but automatic policy persistence/enforcement is
   left to host applications.
 
@@ -193,16 +190,12 @@ Current local InspIRCd integration covers:
   `account-notify`.
 - `sasl`, `account-tag`, account registration/login/logout, and tagged account
   delivery against an opt-in Atheme services fixture on `127.0.0.1:6670`.
-- `standard-replies` capability advertisement and negotiation.
+- `standard-replies` capability advertisement and negotiation, plus opt-in
+  real `FAIL` emission coverage through `scripts/run_standard_replies_integration.sh`.
 - `LIST`, `VERSION`, `ISON`, WHOX, channel modes, topics, and ban lists.
 - Nickname collision retry.
 
 Remaining real-server work:
 
-- Add real-server `FAIL`, `WARN`, or `NOTE` emission coverage if a deterministic
-  InspIRCd command/module path is available; the current local config advertises
-  `standard-replies` but probed commands returned legacy numerics. A disposable
-  InspIRCd fixture with `m_setname` loaded was also probed with an invalid
-  `SETNAME` while `standard-replies` was negotiated; no `FAIL` was emitted.
 - Keep integration connection count under the local connection cap; prefer
   extending existing integration tests when possible.

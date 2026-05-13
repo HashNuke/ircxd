@@ -49,7 +49,7 @@ Status meanings:
 | MONITOR and extended-monitor | covered | `test/ircxd/monitor_test.exs`, `test/ircxd/client_monitor_test.exs`, `test/ircxd/client_extended_monitor_test.exs` | No current stable gap. |
 | Server time | covered | `test/ircxd/client_server_time_order_test.exs`, `test/ircxd/client_server_time_auto_flush_test.exs`, `test/ircxd/client_integration_test.exs` | No current stable gap. |
 | SNI | covered | `test/ircxd/client_tls_test.exs` | No current stable gap. |
-| Standard replies | partial | `test/ircxd/standard_reply_test.exs`, `test/ircxd/client_standard_reply_test.exs`, `test/ircxd/client_integration_test.exs` | Real-server negotiation is covered; add real `FAIL`/`WARN`/`NOTE` emission only when a deterministic InspIRCd path is available. |
+| Standard replies | covered | `test/ircxd/standard_reply_test.exs`, `test/ircxd/client_standard_reply_test.exs`, `test/ircxd/client_integration_test.exs`, `test/ircxd/client_standard_replies_integration_test.exs` | Parser, scripted client events, real negotiation, and opt-in real `FAIL` emission are covered. |
 | STS | partial | `test/ircxd/sts_test.exs`, `test/ircxd/client_sts_test.exs`, `docs/host_boundaries.md` | Policy persistence and enforcement are host-owned; parser and client event/error boundaries are covered. Add adapter tests only if an API is added. |
 | UTF8ONLY | covered | `test/ircxd/client_utf8_only_test.exs` | No current stable gap. |
 | WEBIRC | covered | `test/ircxd/webirc_test.exs`, `test/ircxd/client_webirc_test.exs` | No current stable gap. |
@@ -57,10 +57,7 @@ Status meanings:
 
 ## Stable Work Queue
 
-1. `Real-server standard replies`: find a deterministic InspIRCd module or
-   command path for actual `FAIL`, `WARN`, or `NOTE` emission and add an
-   integration test.
-2. `Host-boundary adapter tests`: storage, STS persistence, DCC transport, and
+1. `Host-boundary adapter tests`: storage, STS persistence, DCC transport, and
    WebSocket transport boundaries are documented; add adapter behaviour tests
    when new adapter APIs are introduced.
 
