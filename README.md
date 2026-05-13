@@ -192,6 +192,9 @@ and verification gates.
 See `docs/host_boundaries.md` for what belongs in `ircxd` core versus embedding
 applications.
 
+See `docs/websocket_adapters.md` for WebSocket adapter examples, including a
+Phoenix Channels adapter shape.
+
 Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 
 - Message format: tags, source, command, middle params, trailing params.

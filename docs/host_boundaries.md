@@ -67,6 +67,9 @@ The bundled `Ircxd.WebSocket.MemoryAdapter` exists for tests and adapter-boundar
 verification. Production Phoenix/Cowboy/Bandit adapters can live in the host app
 or optional packages without coupling `ircxd` core to a specific web stack.
 
+See `docs/websocket_adapters.md` for concrete adapter examples, including a
+Phoenix Channels adapter shape.
+
 ## Test Expectations
 
 Protocol behavior should be covered in `ircxd` with parser tests, scripted IRC
