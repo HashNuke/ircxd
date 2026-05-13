@@ -96,4 +96,44 @@ defmodule Ircxd.ClientReadMarkerTest do
 
     refute_receive {:scripted_irc_line, "MARKREAD #chan"}, 250
   end
+
+  test "rejects MARKREAD after draft/read-marker is deleted" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :draft/read-marker"]
+
+           "CAP REQ draft/read-marker", _state ->
+             [":irc.test CAP * ACK :draft/read-marker"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome", ":irc.test CAP * DEL :draft/read-marker"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        caps: ["draft/read-marker"],
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+    assert_receive {:ircxd, {:cap_del, ["draft/read-marker"]}}, 1_000
+
+    assert {:error, {:capability_not_enabled, "draft/read-marker"}} =
+             Ircxd.Client.markread_get(client, "#chan")
+
+    refute_receive {:scripted_irc_line, "MARKREAD #chan"}, 250
+  end
 end
