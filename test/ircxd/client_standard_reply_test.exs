@@ -20,7 +20,8 @@ defmodule Ircxd.ClientStandardReplyTest do
                ":irc.test 001 nick :Welcome",
                "FAIL * NEED_REGISTRATION :register first",
                "WARN AUTHENTICATE RATE_LIMITED PLAIN :slow down",
-               "NOTE * SERVER_NOTICE :maintenance soon"
+               "NOTE * SERVER_NOTICE :maintenance soon",
+               "FAIL authenticate rate_limited plain :retry later"
              ]
 
            _line, _state ->
@@ -67,6 +68,17 @@ defmodule Ircxd.ClientStandardReplyTest do
                        command: "*",
                        code: "SERVER_NOTICE",
                        description: "maintenance soon"
+                     }}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:standard_reply,
+                     %{
+                       type: :fail,
+                       command: "AUTHENTICATE",
+                       code: "RATE_LIMITED",
+                       context: ["plain"],
+                       description: "retry later"
                      }}},
                    1_000
   end

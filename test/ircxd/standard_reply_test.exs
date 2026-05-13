@@ -36,6 +36,18 @@ defmodule Ircxd.StandardReplyTest do
                 }}
     end
 
+    test "normalizes case-insensitive command and code fields" do
+      assert StandardReply.parse("fail", ["authENTicate", "rate_limited", "plain", "slow down"]) ==
+               {:ok,
+                %{
+                  type: :fail,
+                  command: "AUTHENTICATE",
+                  code: "RATE_LIMITED",
+                  context: ["plain"],
+                  description: "slow down"
+                }}
+    end
+
     test "rejects malformed replies" do
       assert StandardReply.parse("FAIL", ["*", "NEED_REGISTRATION"]) ==
                {:error, :missing_description}

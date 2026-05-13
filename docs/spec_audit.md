@@ -126,7 +126,8 @@ Implemented and tested:
   marking.
 - Multi-prefix, userhost-in-names, no-implicit-names, WHOX.
 - MONITOR and extended-monitor events.
-- Standard replies: `FAIL`, `WARN`, `NOTE`.
+- Standard replies: `FAIL`, `WARN`, `NOTE`, including case-insensitive
+  command/code normalization.
 - STS policy parsing, SNI TLS options, `CAP REQ sts` suppression, and ignored
   `CAP DEL sts`.
 - UTF8ONLY outbound validation.

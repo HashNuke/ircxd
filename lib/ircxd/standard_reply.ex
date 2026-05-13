@@ -37,8 +37,8 @@ defmodule Ircxd.StandardReply do
       {:ok,
        %{
          type: type,
-         command: command,
-         code: code,
+         command: normalize_command(command),
+         code: String.upcase(code),
          context: context,
          description: description
        }}
@@ -54,4 +54,7 @@ defmodule Ircxd.StandardReply do
       :error -> {:error, :invalid_type}
     end
   end
+
+  defp normalize_command("*"), do: "*"
+  defp normalize_command(command), do: String.upcase(command)
 end
