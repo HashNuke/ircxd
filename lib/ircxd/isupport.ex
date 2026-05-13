@@ -92,6 +92,25 @@ defmodule Ircxd.ISupport do
     |> Map.new(fn {command, limit} -> {String.upcase(command), limit} end)
   end
 
+  def target_limit(isupport, command) when is_map(isupport) and is_binary(command) do
+    isupport
+    |> targmax()
+    |> Map.get(String.upcase(command))
+  end
+
+  def target_limit(_isupport, _command), do: nil
+
+  def target_allowed?(_isupport, _command, count) when not is_integer(count) or count < 0,
+    do: false
+
+  def target_allowed?(isupport, command, count) do
+    case target_limit(isupport, command) do
+      nil -> true
+      :unlimited -> true
+      limit when is_integer(limit) -> count <= limit
+    end
+  end
+
   def integer(isupport, key, default \\ nil) when is_map(isupport) and is_binary(key) do
     case Map.fetch(isupport, key) do
       {:ok, value} -> parse_integer_value(value, default)

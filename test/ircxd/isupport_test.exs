@@ -71,6 +71,21 @@ defmodule Ircxd.ISupportTest do
              ISupport.targmax(%{"TARGMAX" => "privmsg:3,WHOIS:1,JOIN:"})
   end
 
+  test "checks command target limits from TARGMAX" do
+    isupport = %{"TARGMAX" => "privmsg:3,WHOIS:1,JOIN:"}
+
+    assert ISupport.target_limit(isupport, "privmsg") == 3
+    assert ISupport.target_limit(isupport, "WHOIS") == 1
+    assert ISupport.target_limit(isupport, "join") == :unlimited
+    assert ISupport.target_limit(isupport, "NOTICE") == nil
+
+    assert ISupport.target_allowed?(isupport, "PRIVMSG", 3)
+    refute ISupport.target_allowed?(isupport, "PRIVMSG", 4)
+    assert ISupport.target_allowed?(isupport, "JOIN", 100)
+    assert ISupport.target_allowed?(isupport, "NOTICE", 10)
+    refute ISupport.target_allowed?(isupport, "WHOIS", -1)
+  end
+
   test "reads typed integer, character-list, and flag values" do
     isupport = %{
       "CHANTYPES" => "#&",
