@@ -60,6 +60,7 @@ The library currently provides:
 - Work-in-progress `soju.im/FILEHOST` ISUPPORT token helper.
 - CTCP encode/decode helpers.
 - DCC CTCP query parser/encoder helpers for `CHAT` and `SEND` negotiation.
+- Parsed DCC payloads on CTCP `PRIVMSG` and `NOTICE` events.
 - Modern IRC formatting control-code parser and stripper.
 - ISUPPORT, NAMES, source mask, casemapping, server-time, msgid, label, batch, and account helpers.
 - Callback-style event delivery through `:notify` or `Ircxd.Handler`.

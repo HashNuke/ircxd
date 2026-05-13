@@ -51,7 +51,8 @@ Implemented and tested:
   strikethrough, monospace, reverse, numeric colors, hex colors, and reset.
 - DCC CTCP query parsing/encoding for `CHAT` and `SEND` negotiation. Direct DCC
   sockets, file writes, and user-consent policy are intentionally left to host
-  applications.
+  applications. Parsed DCC payloads are exposed on CTCP `PRIVMSG` and `NOTICE`
+  events.
 - Registration: `PASS`, `NICK`, `USER`, `001` through `004`, PING/PONG.
 - Capability negotiation core through `CAP LS 302`, `REQ`, `ACK`, `NAK`, `NEW`,
   and `DEL`.

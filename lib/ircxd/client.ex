@@ -24,6 +24,7 @@ defmodule Ircxd.Client do
   alias Ircxd.AccountExtban
   alias Ircxd.ChatHistory
   alias Ircxd.ClientTagDeny
+  alias Ircxd.DCC
   alias Ircxd.FileHost
   alias Ircxd.Metadata
   alias Ircxd.Message
@@ -870,6 +871,7 @@ defmodule Ircxd.Client do
 
   defp event_for(%Message{command: "PRIVMSG", source: source, params: [target, body]} = message) do
     parsed_source = Source.parse(source)
+    ctcp = Ircxd.CTCP.decode(body)
 
     {:privmsg,
      %{
@@ -878,7 +880,8 @@ defmodule Ircxd.Client do
        nick: parsed_source && parsed_source.nick,
        target: target,
        body: body,
-       ctcp: Ircxd.CTCP.decode(body),
+       ctcp: ctcp,
+       dcc: dcc_from_ctcp(ctcp),
        server_time: tag_value(message, &Tags.server_time/1),
        msgid: Tags.msgid(message),
        reply_to_msgid: Tags.reply_to_msgid(message),
@@ -892,6 +895,7 @@ defmodule Ircxd.Client do
 
   defp event_for(%Message{command: "NOTICE", source: source, params: [target, body]} = message) do
     parsed_source = Source.parse(source)
+    ctcp = Ircxd.CTCP.decode(body)
 
     {:notice,
      %{
@@ -900,7 +904,8 @@ defmodule Ircxd.Client do
        nick: parsed_source && (parsed_source.nick || parsed_source.server),
        target: target,
        body: body,
-       ctcp: Ircxd.CTCP.decode(body),
+       ctcp: ctcp,
+       dcc: dcc_from_ctcp(ctcp),
        server_time: tag_value(message, &Tags.server_time/1),
        msgid: Tags.msgid(message),
        reply_to_msgid: Tags.reply_to_msgid(message),
@@ -1520,6 +1525,16 @@ defmodule Ircxd.Client do
   end
 
   defp event_for(message), do: {:raw, message}
+
+  defp dcc_from_ctcp({:ok, ctcp}) do
+    case DCC.parse(ctcp) do
+      {:ok, dcc} -> dcc
+      {:error, :not_dcc} -> nil
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp dcc_from_ctcp(_ctcp), do: nil
 
   defp whois_event("311", params), do: {:whois_user, Whois.parse_user(params)}
   defp whois_event("314", params), do: {:whowas_user, Whois.parse_whowas_user(params)}
