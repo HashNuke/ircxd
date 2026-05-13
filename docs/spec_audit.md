@@ -60,6 +60,8 @@ Implemented and tested:
   `ISON`, `TRACE`, `USERS`, and `SERVLIST` response events.
 - WHOWAS `314` and `369` typed events.
 - Away status numerics: `301`, `305`, and `306`.
+- Redirect/retry/operator/admin numerics: `010`, `263`, `381`, `382`, `670`,
+  and `691`.
 - Operator/server/service helper commands: `OPER`, `KILL`, `SQUERY`,
   `CONNECT`, `SQUIT`, `REHASH`, `RESTART`, `SUMMON`, `WALLOPS`.
 - Common error numerics as typed `:irc_error` events.

@@ -1235,6 +1235,9 @@ defmodule Ircxd.Client do
             message: message
           }}
 
+  defp event_for(%Message{command: "010", params: [_me, hostname, port, text]} = message),
+    do: {:bounce, %{hostname: hostname, port: port, text: text, message: message}}
+
   defp event_for(%Message{command: "321", params: params} = message),
     do: {:list_start, %{params: params, message: message}}
 
@@ -1272,6 +1275,9 @@ defmodule Ircxd.Client do
        when command in ["251", "252", "253", "254", "255", "265", "266"] do
     {:lusers, %{code: command, params: params, text: List.last(params), message: message}}
   end
+
+  defp event_for(%Message{command: "263", params: [_me, command, text]} = message),
+    do: {:try_again, %{command: command, text: text, message: message}}
 
   defp event_for(%Message{command: "391", params: [_me, server, time]} = message),
     do: {:time, %{server: server, time: time, message: message}}
@@ -1354,6 +1360,18 @@ defmodule Ircxd.Client do
 
   defp event_for(%Message{command: "395", params: [_me, text]} = message),
     do: {:users_disabled, %{text: text, message: message}}
+
+  defp event_for(%Message{command: "381", params: [_me, text]} = message),
+    do: {:youre_oper, %{text: text, message: message}}
+
+  defp event_for(%Message{command: "382", params: [_me, config_file, text]} = message),
+    do: {:rehashing, %{config_file: config_file, text: text, message: message}}
+
+  defp event_for(%Message{command: "670", params: [_me, text]} = message),
+    do: {:starttls, %{text: text, message: message}}
+
+  defp event_for(%Message{command: "691", params: [_me, text]} = message),
+    do: {:starttls_failed, %{text: text, message: message}}
 
   defp event_for(%Message{command: "351", params: [_me, version, server | rest]} = message),
     do:

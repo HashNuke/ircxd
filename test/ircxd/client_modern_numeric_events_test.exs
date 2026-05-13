@@ -15,7 +15,9 @@ defmodule Ircxd.ClientModernNumericEventsTest do
            "CAP END", _state ->
              [
                ":irc.test 001 nick :Welcome",
+               ":irc.test 010 nick irc2.test 6697 :Please use this server/port instead",
                ":irc.test 351 nick InspIRCd-3 irc.test :Boringville",
+               ":irc.test 263 nick LIST :Server load is temporarily too heavy",
                ":irc.test 212 nick PRIVMSG 42 1 2 3",
                ":irc.test 219 nick u :End of /STATS report",
                ":irc.test 704 nick LIST :Start of help",
@@ -43,7 +45,11 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                ":irc.test 392 nick :UserID Terminal Host",
                ":irc.test 393 nick :alice pts/0 example.test",
                ":irc.test 394 nick :End of users",
-               ":irc.test 395 nick :USERS has been disabled"
+               ":irc.test 395 nick :USERS has been disabled",
+               ":irc.test 381 nick :You are now an IRC operator",
+               ":irc.test 382 nick ircd.conf :Rehashing",
+               ":irc.test 670 nick :STARTTLS successful",
+               ":irc.test 691 nick :STARTTLS failed"
              ]
 
            _line, _state ->
@@ -62,8 +68,21 @@ defmodule Ircxd.ClientModernNumericEventsTest do
       )
 
     assert_receive {:ircxd,
+                    {:bounce,
+                     %{
+                       hostname: "irc2.test",
+                       port: "6697",
+                       text: "Please use this server/port instead"
+                     }}},
+                   1_000
+
+    assert_receive {:ircxd,
                     {:version,
                      %{version: "InspIRCd-3", server: "irc.test", comments: "Boringville"}}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:try_again, %{command: "LIST", text: "Server load is temporarily too heavy"}}},
                    1_000
 
     assert_receive {:ircxd,
@@ -159,5 +178,9 @@ defmodule Ircxd.ClientModernNumericEventsTest do
     assert_receive {:ircxd, {:users, %{text: "alice pts/0 example.test"}}}, 1_000
     assert_receive {:ircxd, {:users_end, %{text: "End of users"}}}, 1_000
     assert_receive {:ircxd, {:users_disabled, %{text: "USERS has been disabled"}}}, 1_000
+    assert_receive {:ircxd, {:youre_oper, %{text: "You are now an IRC operator"}}}, 1_000
+    assert_receive {:ircxd, {:rehashing, %{config_file: "ircd.conf", text: "Rehashing"}}}, 1_000
+    assert_receive {:ircxd, {:starttls, %{text: "STARTTLS successful"}}}, 1_000
+    assert_receive {:ircxd, {:starttls_failed, %{text: "STARTTLS failed"}}}, 1_000
   end
 end
