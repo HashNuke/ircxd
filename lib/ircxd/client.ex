@@ -43,6 +43,8 @@ defmodule Ircxd.Client do
 
   def join(client, channel), do: GenServer.call(client, {:send, "JOIN", [channel]})
 
+  def names(client, target), do: GenServer.call(client, {:send, "NAMES", [target]})
+
   def part(client, channel, reason \\ ""),
     do: GenServer.call(client, {:send, "PART", [channel, reason]})
 
@@ -513,6 +515,11 @@ defmodule Ircxd.Client do
             {:names, %{symbol: symbol, channel: channel, names: Names.parse_names(names)}}
           )
 
+        state = emit(state, {:message, message})
+        {:noreply, state}
+
+      {:ok, %Message{command: "366", params: [_nick, channel | _rest]} = message} ->
+        state = emit(state, {:names_end, %{channel: channel, message: message}})
         state = emit(state, {:message, message})
         {:noreply, state}
 

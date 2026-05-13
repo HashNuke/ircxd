@@ -18,7 +18,7 @@ The library currently provides:
 - Configurable SASL failure policy: continue registration or abort with `QUIT`.
 - SASL mechanism fallback across configured mechanisms such as `EXTERNAL` then `PLAIN`.
 - Automatic `PING`/`PONG`.
-- `JOIN`, `PART`, `TOPIC`, `MODE`, `KICK`, `PRIVMSG`, `NOTICE`, `TAGMSG`, `QUIT`, and raw command helpers.
+- `JOIN`, `NAMES`, `PART`, `TOPIC`, `MODE`, `KICK`, `PRIVMSG`, `NOTICE`, `TAGMSG`, `QUIT`, and raw command helpers.
 - Outbound IRCv3 tagged messages for client-only tags and labeled responses.
 - IRCv3 `BATCH`, labeled-response, identity, presence, and standard-reply events.
 - IRCv3 labeled-response `ACK` events and batch-level labeled-response aggregation.
@@ -30,6 +30,7 @@ The library currently provides:
 - IRCv3 Bot Mode helper, message tag, WHO, and WHOIS events.
 - IRCv3 STS policy parsing and CAP negotiation handling.
 - IRCv3 `UTF8ONLY` outbound parameter enforcement.
+- IRCv3 `no-implicit-names` negotiation with explicit `NAMES` helper/events.
 - IRCv3 `multi-prefix` NAMES parsing.
 - Draft IRCv3 account registration and verification command helpers/events.
 - Draft IRCv3 pre-away `AWAY *` helper/events.
@@ -146,6 +147,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 `sts` policy parsing, policy events, no `CAP REQ sts`, and ignored `CAP DEL sts`.
 - IRCv3 `UTF8ONLY` ISUPPORT handling that rejects outbound non-UTF-8 parameters.
 - IRCv3 `ACCOUNTEXTBAN`/`EXTBAN` account ban mask construction.
+- IRCv3 `no-implicit-names` explicit `NAMES` flow and `366 RPL_ENDOFNAMES` event.
 - IRCv3 `MONITOR` command helpers and `730`-`734` numeric events.
 - IRCv3 `setname` command/events and `invite-notify` events.
 - Draft IRCv3 `REGISTER`/`VERIFY` helpers, success/verification-required events, and required capability checks.
