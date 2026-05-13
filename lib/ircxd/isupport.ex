@@ -208,6 +208,23 @@ defmodule Ircxd.ISupport do
     |> String.graphemes()
   end
 
+  def elist(isupport) when is_map(isupport) do
+    isupport
+    |> characters("ELIST")
+    |> Enum.map(&String.downcase/1)
+  end
+
+  def list_extension?(isupport, extension)
+      when is_map(isupport) and is_binary(extension) and byte_size(extension) == 1 do
+    extension = String.downcase(extension)
+
+    isupport
+    |> elist()
+    |> Enum.member?(extension)
+  end
+
+  def list_extension?(_isupport, _extension), do: false
+
   def enabled?(isupport, key) when is_map(isupport) and is_binary(key) do
     case Map.fetch(isupport, key) do
       {:ok, false} -> false

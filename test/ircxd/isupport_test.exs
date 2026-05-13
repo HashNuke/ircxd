@@ -189,6 +189,22 @@ defmodule Ircxd.ISupportTest do
     refute ISupport.enabled?(isupport, "MISSING")
   end
 
+  test "reads ELIST list extension flags case-insensitively" do
+    isupport = %{"ELIST" => "MU"}
+
+    assert ISupport.elist(isupport) == ["m", "u"]
+    assert ISupport.elist(%{"ELIST" => true}) == []
+    assert ISupport.elist(%{}) == []
+
+    assert ISupport.list_extension?(isupport, "M")
+    assert ISupport.list_extension?(isupport, "m")
+    assert ISupport.list_extension?(isupport, "u")
+    refute ISupport.list_extension?(isupport, "t")
+    refute ISupport.list_extension?(%{}, "m")
+    refute ISupport.list_extension?(isupport, nil)
+    refute ISupport.list_extension?(isupport, "mu")
+  end
+
   test "reads positive length-limit values for stable ISUPPORT tokens" do
     isupport = %{
       "AWAYLEN" => "160",
