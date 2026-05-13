@@ -54,8 +54,9 @@ Implemented and tested:
   intentionally left to host applications. Parsed DCC payloads are exposed on
   CTCP `PRIVMSG` and `NOTICE` events, including reverse/port-0 detection.
 - Registration: `PASS`, `NICK`, `USER`, `001` through `004`, PING/PONG.
-- Capability negotiation core through `CAP LS 302`, multiline `LS`
-  aggregation, initial and host-driven `REQ`, `ACK`, `NAK`, `NEW`, and `DEL`.
+- Capability negotiation core through `CAP LS 302`, multiline `LS`/`LIST`
+  aggregation, initial and host-driven `REQ`, `ACK`, `NAK`, `NEW`, `DEL`, active
+  capability listing, and `CAP REQ :-cap` disable acknowledgements.
 - Structured ISUPPORT helpers for `PREFIX`, `CHANMODES`, `CHANLIMIT`,
   `MAXLIST`, and `TARGMAX` parameter values, plus typed integer, character-list,
   and feature-flag readers for common tokens.
@@ -94,7 +95,8 @@ Remaining Modern IRC gaps:
 
 Implemented and tested:
 
-- Capability negotiation and cap-notify lifecycle.
+- Capability negotiation, active-capability listing/disable flows, and
+  cap-notify lifecycle.
 - Message Tags, client-only tags, label tag gating before and after
   `CAP DEL`, and client-tag-deny.
 - SASL `PLAIN`, `EXTERNAL`, and `SCRAM-SHA-256`, including capability

@@ -124,6 +124,106 @@ defmodule Ircxd.ClientCapLifecycleTest do
     assert {:error, :missing_capabilities} = Ircxd.Client.request_capabilities(client, [])
   end
 
+  test "lists active capabilities with multiline CAP LIST replies" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :message-tags server-time"]
+
+           "CAP REQ :message-tags server-time", _state ->
+             [":irc.test CAP * ACK :message-tags server-time"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome"]
+
+           "CAP LIST", _state ->
+             [
+               ":irc.test CAP * LIST * :message-tags",
+               ":irc.test CAP * LIST :server-time"
+             ]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        caps: ["message-tags", "server-time"],
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+
+    assert :ok = Ircxd.Client.cap_list(client)
+    assert_receive {:scripted_irc_line, "CAP LIST"}, 1_000
+
+    assert_receive {:ircxd, {:cap_list, %{"message-tags" => true, "server-time" => true}}},
+                   1_000
+  end
+
+  test "removes active capabilities when CAP ACK disables them" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :message-tags"]
+
+           "CAP REQ message-tags", _state ->
+             [":irc.test CAP * ACK :message-tags"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome"]
+
+           "CAP REQ -message-tags", _state ->
+             [":irc.test CAP * ACK :-message-tags"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        caps: ["message-tags"],
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+
+    assert :ok = Ircxd.Client.typing(client, "#elixir", :active)
+    assert_receive {:scripted_irc_line, "@+typing=active TAGMSG #elixir"}, 1_000
+
+    assert :ok = Ircxd.Client.disable_capabilities(client, ["message-tags"])
+    assert_receive {:scripted_irc_line, "CAP REQ -message-tags"}, 1_000
+    assert_receive {:ircxd, {:cap_ack, ["-message-tags"]}}, 1_000
+
+    assert {:error, {:capability_not_enabled, "message-tags"}} =
+             Ircxd.Client.typing(client, "#elixir", :done)
+
+    assert {:error, {:capabilities_not_enabled, ["message-tags"]}} =
+             Ircxd.Client.disable_capabilities(client, ["message-tags"])
+
+    assert {:error, :missing_capabilities} = Ircxd.Client.disable_capabilities(client, [])
+
+    refute_receive {:scripted_irc_line, "@+typing=done TAGMSG #elixir"}, 250
+  end
+
   test "aggregates multiline CAP LS replies before requesting capabilities" do
     server =
       start_supervised!(

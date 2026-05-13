@@ -16,8 +16,9 @@ The library currently provides:
 - Optional reconnect after transport close.
 - Registration with `CAP LS 302`, `NICK`, and `USER`.
 - Optional server password registration with `PASS`.
-- Capability request/ack flow for supported server capabilities.
-- IRCv3 multiline `CAP LS` aggregation before capability requests.
+- Capability request/ack flow for supported server capabilities, including
+  active-capability listing and disabling negotiated capabilities.
+- IRCv3 multiline `CAP LS`/`LIST` aggregation before capability requests.
 - Host-driven capability requests for capabilities advertised later via
   `CAP NEW`.
 - SASL PLAIN negotiation support.

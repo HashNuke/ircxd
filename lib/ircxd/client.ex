@@ -51,6 +51,12 @@ defmodule Ircxd.Client do
     GenServer.call(client, {:request_caps, List.wrap(caps)})
   end
 
+  def disable_capabilities(client, caps) do
+    GenServer.call(client, {:disable_caps, List.wrap(caps)})
+  end
+
+  def cap_list(client), do: GenServer.call(client, :cap_list)
+
   def pass(client, password), do: GenServer.call(client, {:send, "PASS", [password]})
   def nick(client, nick), do: GenServer.call(client, {:send, "NICK", [nick]})
   def join(client, channel), do: GenServer.call(client, {:send, "JOIN", [channel]})
@@ -413,6 +419,7 @@ defmodule Ircxd.Client do
       handler: nil,
       handler_state: nil,
       active_batches: %{},
+      cap_list_buffer: %{},
       multiline_batches: %{},
       labeled_response_batches: %{},
       labeled_requests: %{},
@@ -480,6 +487,27 @@ defmodule Ircxd.Client do
       end
 
     case result do
+      :ok -> {:reply, :ok, state}
+      error -> {:reply, error, state}
+    end
+  end
+
+  def handle_call({:disable_caps, caps}, _from, state) do
+    caps = caps |> Enum.map(&to_string/1) |> Enum.uniq()
+
+    result =
+      with :ok <- ensure_active_caps(state, caps) do
+        send_message(state, "CAP", ["REQ", caps |> Enum.map(&("-" <> &1)) |> Enum.join(" ")])
+      end
+
+    case result do
+      :ok -> {:reply, :ok, state}
+      error -> {:reply, error, state}
+    end
+  end
+
+  def handle_call(:cap_list, _from, state) do
+    case send_message(state, "CAP", ["LIST"]) do
       :ok -> {:reply, :ok, state}
       error -> {:reply, error, state}
     end
@@ -626,6 +654,7 @@ defmodule Ircxd.Client do
           isupport_batches: %{},
           metadata_batches: %{},
           net_batches: %{},
+          cap_list_buffer: %{},
           seen_msgids: MapSet.new(),
           server_time_buffer: [],
           server_time_flush_timer: nil,
@@ -661,9 +690,27 @@ defmodule Ircxd.Client do
           {:noreply, state}
         end
 
+      {:ok, %Message{command: "CAP", params: [_nick, "LIST" | params]} = message} ->
+        state = collect_cap_list(state, List.last(params) || "")
+        state = emit(state, {:message, message})
+
+        if cap_list_complete?(message) do
+          state = emit(state, {:cap_list, state.cap_list_buffer})
+          {:noreply, %{state | cap_list_buffer: %{}}}
+        else
+          {:noreply, state}
+        end
+
       {:ok, %Message{command: "CAP", params: [_nick, "ACK", caps]} = message} ->
         acked_caps = String.split(caps, " ", trim: true)
-        state = %{state | active_caps: MapSet.union(state.active_caps, MapSet.new(acked_caps))}
+        {disabled_caps, enabled_caps} = split_acked_caps(acked_caps)
+
+        active_caps =
+          state.active_caps
+          |> MapSet.union(MapSet.new(enabled_caps))
+          |> MapSet.difference(MapSet.new(disabled_caps))
+
+        state = %{state | active_caps: active_caps}
         state = emit(state, {:cap_ack, acked_caps})
         state = emit(state, {:message, message})
 
@@ -844,6 +891,10 @@ defmodule Ircxd.Client do
     %{state | available_caps: Map.merge(state.available_caps, parse_caps(caps))}
   end
 
+  defp collect_cap_list(state, caps) do
+    %{state | cap_list_buffer: Map.merge(state.cap_list_buffer, parse_caps(caps))}
+  end
+
   defp parse_caps(caps) do
     caps
     |> String.split(" ", trim: true)
@@ -855,8 +906,18 @@ defmodule Ircxd.Client do
     end)
   end
 
-  defp cap_list_complete?(%Message{params: [_nick, "LS", "*" | _]}), do: false
+  defp cap_list_complete?(%Message{params: [_nick, subcommand, "*" | _]})
+       when subcommand in ["LS", "LIST"],
+       do: false
+
   defp cap_list_complete?(_), do: true
+
+  defp split_acked_caps(acked_caps) do
+    Enum.reduce(acked_caps, {[], []}, fn
+      "-" <> cap, {disabled, enabled} -> {[cap | disabled], enabled}
+      cap, {disabled, enabled} -> {disabled, [cap | enabled]}
+    end)
+  end
 
   defp request_caps_or_end(state) do
     requested =
@@ -2204,6 +2265,15 @@ defmodule Ircxd.Client do
     case Enum.reject(caps, &Map.has_key?(state.available_caps, &1)) do
       [] -> :ok
       missing -> {:error, {:capabilities_not_available, missing}}
+    end
+  end
+
+  defp ensure_active_caps(_state, []), do: {:error, :missing_capabilities}
+
+  defp ensure_active_caps(state, caps) do
+    case Enum.reject(caps, &MapSet.member?(state.active_caps, &1)) do
+      [] -> :ok
+      missing -> {:error, {:capabilities_not_enabled, missing}}
     end
   end
 
