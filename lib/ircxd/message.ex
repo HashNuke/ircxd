@@ -13,6 +13,7 @@ defmodule Ircxd.Message do
   @max_message_bytes_without_crlf @max_message_bytes - 2
   @max_client_tag_data_bytes 4094
   @max_received_tag_section_bytes 8191
+  @max_params 15
 
   @type t :: %__MODULE__{
           tags: %{optional(String.t()) => String.t() | true},
@@ -29,16 +30,20 @@ defmodule Ircxd.Message do
          {tags, rest} <- parse_tags(line),
          {source, rest} <- parse_source(rest),
          {command, rest} <- next_token(rest),
-         false <- is_nil(command) do
+         false <- is_nil(command),
+         true <- valid_command?(command),
+         {:ok, params} <- validate_params(parse_params(rest)) do
       {:ok,
        %__MODULE__{
          tags: tags,
          source: source,
          command: String.upcase(command),
-         params: parse_params(rest)
+         params: params
        }}
     else
       true -> {:error, :empty}
+      false -> {:error, :invalid_command}
+      {:error, :too_many_params} -> {:error, :too_many_params}
       _ -> {:error, :invalid}
     end
   end
@@ -95,6 +100,7 @@ defmodule Ircxd.Message do
   def max_message_bytes_without_crlf, do: @max_message_bytes_without_crlf
   def max_client_tag_data_bytes, do: @max_client_tag_data_bytes
   def max_received_tag_section_bytes, do: @max_received_tag_section_bytes
+  def max_params, do: @max_params
 
   def escape_tag_value(value) when is_binary(value) do
     value
@@ -164,6 +170,9 @@ defmodule Ircxd.Message do
       {param, rest} -> [param | parse_params(rest)]
     end
   end
+
+  defp validate_params(params) when length(params) <= @max_params, do: {:ok, params}
+  defp validate_params(_params), do: {:error, :too_many_params}
 
   defp serialize_tags(tags) when tags == %{}, do: nil
 

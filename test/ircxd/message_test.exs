@@ -69,6 +69,20 @@ defmodule Ircxd.MessageTest do
     refute Message.valid_wire_size?(String.duplicate("a", 511) <> "\r\n")
   end
 
+  test "rejects invalid command tokens while parsing" do
+    assert Message.parse("BAD-COMMAND #chan :hello") == {:error, :invalid_command}
+    assert Message.parse("12 PRIVMSG #chan :hello") == {:error, :invalid_command}
+  end
+
+  test "enforces the Modern IRC parameter limit" do
+    params = Enum.map(1..15, &"p#{&1}") |> Enum.join(" ")
+    too_many_params = Enum.map(1..16, &"p#{&1}") |> Enum.join(" ")
+
+    assert {:ok, %Message{params: parsed_params}} = Message.parse("COMMAND #{params}")
+    assert length(parsed_params) == 15
+    assert Message.parse("COMMAND #{too_many_params}") == {:error, :too_many_params}
+  end
+
   test "recognizes IRCv3 message-tag size limits separately from the message body" do
     tag_data = String.duplicate("a", 4094)
     received_tag_data = String.duplicate("a", 8189)

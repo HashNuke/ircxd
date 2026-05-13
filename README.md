@@ -6,6 +6,7 @@ applications.
 The library currently provides:
 
 - Modern IRC line parsing and serialization.
+- Modern IRC command-token and parameter-count validation.
 - IRCv3 message tag parsing, escaping, and serialization.
 - Optional IRCv3 `msgid` duplicate marking hooks.
 - Optional manual ordered flush for timestamped `server-time` events.
@@ -121,6 +122,7 @@ Expected evidence in irssi:
 Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 
 - Message format: tags, source, command, middle params, trailing params.
+- Modern IRC command-token validation and 15-parameter limit enforcement.
 - IRCv3 tag escaping for `;`, space, CR, LF, and backslash.
 - IRCv3 message tag data limits and duplicate-tag last-value handling.
 - IRCv3 `TAGMSG` send and receive handling.
