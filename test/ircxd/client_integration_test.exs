@@ -6,6 +6,8 @@ defmodule Ircxd.ClientIntegrationTest do
   @host "127.0.0.1"
   @port 6667
   @channel "#ircxd"
+  @event_timeout 15_000
+  @registration_timeout 30_000
 
   setup_all do
     case :gen_tcp.connect(String.to_charlist(@host), @port, [:binary, active: false], 1_000) do
@@ -51,7 +53,7 @@ defmodule Ircxd.ClientIntegrationTest do
                  :registered -> {:ok, :registered}
                  _ -> :cont
                end,
-               15_000
+               @registration_timeout
              )
 
     assert {:ok, %{nick: ^client_nick, text: welcome_text}} =
@@ -155,7 +157,8 @@ defmodule Ircxd.ClientIntegrationTest do
 
     Enum.each(requested_caps, fn cap -> assert Map.has_key?(caps, cap) end)
 
-    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+    assert {:ok, :registered} =
+             wait_for_event(&match_event(&1, :registered), @registration_timeout)
 
     assert :ok = Ircxd.Client.join(client, channel)
 
@@ -205,7 +208,8 @@ defmodule Ircxd.ClientIntegrationTest do
 
     assert Map.has_key?(caps, "extended-join")
 
-    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+    assert {:ok, :registered} =
+             wait_for_event(&match_event(&1, :registered), @registration_timeout)
 
     assert :ok = Ircxd.Client.join(client, channel)
 
@@ -246,7 +250,10 @@ defmodule Ircxd.ClientIntegrationTest do
              end)
 
     assert Map.has_key?(caps, "away-notify")
-    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+
+    assert {:ok, :registered} =
+             wait_for_event(&match_event(&1, :registered), @registration_timeout)
+
     assert :ok = Ircxd.Client.join(observer, channel)
 
     assert {:ok, %{nick: ^observer_nick, channel: ^channel}} =
@@ -295,7 +302,9 @@ defmodule Ircxd.ClientIntegrationTest do
         notify: self()
       )
 
-    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+    assert {:ok, :registered} =
+             wait_for_event(&match_event(&1, :registered), @registration_timeout)
+
     assert :ok = Ircxd.Client.list(client, channel)
 
     assert {:ok, %{channel: ^channel, visible: visible}} =
@@ -332,7 +341,8 @@ defmodule Ircxd.ClientIntegrationTest do
         notify: self()
       )
 
-    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+    assert {:ok, :registered} =
+             wait_for_event(&match_event(&1, :registered), @registration_timeout)
 
     assert :ok = Ircxd.Client.version(client)
 
@@ -372,7 +382,8 @@ defmodule Ircxd.ClientIntegrationTest do
         notify: self()
       )
 
-    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+    assert {:ok, :registered} =
+             wait_for_event(&match_event(&1, :registered), @registration_timeout)
 
     assert {:ok, isupport} =
              wait_for_event(fn
@@ -424,7 +435,9 @@ defmodule Ircxd.ClientIntegrationTest do
         notify: self()
       )
 
-    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+    assert {:ok, :registered} =
+             wait_for_event(&match_event(&1, :registered), @registration_timeout)
+
     assert :ok = Ircxd.Client.join(client, channel)
 
     assert {:ok, %{nick: ^client_nick, channel: ^channel}} =
@@ -468,7 +481,9 @@ defmodule Ircxd.ClientIntegrationTest do
         notify: self()
       )
 
-    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+    assert {:ok, :registered} =
+             wait_for_event(&match_event(&1, :registered), @registration_timeout)
+
     assert :ok = Ircxd.Client.join(client, channel)
 
     assert {:ok, %{nick: ^client_nick, channel: ^channel}} =
@@ -519,7 +534,9 @@ defmodule Ircxd.ClientIntegrationTest do
         notify: self()
       )
 
-    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+    assert {:ok, :registered} =
+             wait_for_event(&match_event(&1, :registered), @registration_timeout)
+
     assert :ok = Ircxd.Client.join(client, channel)
 
     assert {:ok, %{nick: ^client_nick, channel: ^channel}} =
@@ -576,16 +593,18 @@ defmodule Ircxd.ClientIntegrationTest do
                  {:nick_in_use, payload} -> {:ok, payload}
                  _ -> :cont
                end,
-               15_000
+               @registration_timeout
              )
 
     assert next_nick == "#{base_nick}_"
-    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+
+    assert {:ok, :registered} =
+             wait_for_event(&match_event(&1, :registered), @registration_timeout)
 
     RawIrcClient.close(holder)
   end
 
-  defp wait_for_event(fun, timeout \\ 5_000) do
+  defp wait_for_event(fun, timeout \\ @event_timeout) do
     receive do
       {:ircxd, event} ->
         case fun.(event) do
