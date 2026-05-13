@@ -84,6 +84,7 @@ Implemented and tested:
 - WHOWAS `314` and `369` typed events.
 - Optional WHOIS `276`, `307`, `320`, and `378` typed events.
 - Away status numerics: `301`, `305`, and `306`.
+- SASL/account status numerics: `900`, `901`, `902`, and `903` through `908`.
 - Redirect/retry/operator/admin numerics: `010`, `263`, `381`, `382`, `670`,
   and `691`.
 - Stats uptime and invite-list numerics: `242`, `336`, and `337`.

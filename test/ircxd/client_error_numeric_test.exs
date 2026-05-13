@@ -56,7 +56,8 @@ defmodule Ircxd.ClientErrorNumericTest do
                ":irc.test 502 nick :Cannot change mode for other users",
                ":irc.test 524 nick * :Help not found",
                ":irc.test 525 nick #chan :Key is not well-formed",
-               ":irc.test 696 nick #chan k bad-key :Invalid mode parameter"
+               ":irc.test 696 nick #chan k bad-key :Invalid mode parameter",
+               ":irc.test 723 nick kill:remote :Insufficient oper privileges"
              ]
 
            _line, _state ->
@@ -116,6 +117,7 @@ defmodule Ircxd.ClientErrorNumericTest do
     assert_error("524", "*", "Help not found")
     assert_error("525", "#chan", "Key is not well-formed")
     assert_error("696", "#chan", "Invalid mode parameter")
+    assert_error("723", "kill:remote", "Insufficient oper privileges")
   end
 
   defp assert_error(code, target, reason) do

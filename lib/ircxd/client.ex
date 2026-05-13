@@ -775,7 +775,7 @@ defmodule Ircxd.Client do
         {:noreply, state}
 
       {:ok, %Message{command: command} = message}
-      when command in ["904", "905", "906", "907"] ->
+      when command in ["902", "904", "905", "906", "907"] ->
         handle_sasl_failure(state, command, message)
 
       {:ok, %Message{command: "001"} = message} ->
@@ -1419,6 +1419,12 @@ defmodule Ircxd.Client do
 
   defp event_for(%Message{command: "306", params: [_me, text]} = message),
     do: {:now_away, %{text: text, message: message}}
+
+  defp event_for(%Message{command: "900", params: [_me, userhost, account, text]} = message),
+    do: {:logged_in, %{userhost: userhost, account: account, text: text, message: message}}
+
+  defp event_for(%Message{command: "901", params: [_me, userhost, text]} = message),
+    do: {:logged_out, %{userhost: userhost, text: text, message: message}}
 
   defp event_for(
          %Message{command: "234", params: [_me, name, server, mask, type, hopcount, info]} =

@@ -22,7 +22,10 @@ defmodule Ircxd.ClientSASLTest do
              ["AUTHENTICATE +"]
 
            "AUTHENTICATE " <> _payload, _state ->
-             [":irc.test 903 nick :SASL authentication successful"]
+             [
+               ":irc.test 900 nick nick!user@example.test nick :You are now logged in as nick",
+               ":irc.test 903 nick :SASL authentication successful"
+             ]
 
            "CAP END", _state ->
              [":irc.test 001 nick :Welcome"]
@@ -51,7 +54,56 @@ defmodule Ircxd.ClientSASLTest do
     assert_receive {:scripted_irc_line, "CAP REQ sasl"}, 1_000
     assert_receive {:scripted_irc_line, "AUTHENTICATE PLAIN"}, 1_000
     assert_receive {:scripted_irc_line, "AUTHENTICATE " <> ^expected_payload}, 1_000
+
+    assert_receive {:ircxd,
+                    {:logged_in,
+                     %{
+                       userhost: "nick!user@example.test",
+                       account: "nick",
+                       text: "You are now logged in as nick"
+                     }}},
+                   1_000
+
     assert_receive {:ircxd, :sasl_success}, 1_000
+    assert_receive {:scripted_irc_line, "CAP END"}, 1_000
+    assert_receive {:ircxd, :registered}, 1_000
+  end
+
+  test "handles SASL nick-locked failure numeric" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :sasl"]
+
+           "CAP REQ sasl", _state ->
+             [":irc.test CAP * ACK :sasl"]
+
+           "AUTHENTICATE PLAIN", _state ->
+             [":irc.test 902 nick :You must use a nick assigned to you"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, _client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        sasl: {:plain, "nick", "secret"},
+        notify: self()
+      )
+
+    assert_receive {:ircxd, {:sasl_failure, %{code: "902", policy: :continue}}}, 1_000
     assert_receive {:scripted_irc_line, "CAP END"}, 1_000
     assert_receive {:ircxd, :registered}, 1_000
   end

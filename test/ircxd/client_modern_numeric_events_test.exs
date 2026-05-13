@@ -48,6 +48,7 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                ":irc.test 301 nick alice :gone fishing",
                ":irc.test 305 nick :You are no longer marked as being away",
                ":irc.test 306 nick :You have been marked as being away",
+               ":irc.test 901 nick nick!user@example.test :You are now logged out",
                ":irc.test 234 nick NickServ services.test * 0 1 :Nickname service",
                ":irc.test 235 nick * 0 :End of service listing",
                ":irc.test 200 nick Link irc.test irc2.test :0 0",
@@ -222,6 +223,14 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                    1_000
 
     assert_receive {:ircxd, {:now_away, %{text: "You have been marked as being away"}}}, 1_000
+
+    assert_receive {:ircxd,
+                    {:logged_out,
+                     %{
+                       userhost: "nick!user@example.test",
+                       text: "You are now logged out"
+                     }}},
+                   1_000
 
     assert_receive {:ircxd,
                     {:servlist,
