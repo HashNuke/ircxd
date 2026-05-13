@@ -168,18 +168,12 @@ scripts/run_standard_replies_integration.sh
 Manual irssi check:
 
 ```bash
-tmux new-session -d -s ircxd-irssi "irssi -n irssiuser"
-tmux send-keys -t ircxd-irssi "/connect 127.0.0.1 6667" Enter
-tmux send-keys -t ircxd-irssi "/join #ircxd-manual" Enter
-mix run -e '{:ok, pid} = Ircxd.start_link(host: "127.0.0.1", port: 6667, tls: false, nick: "ircxdmanual", username: "ircxdmanual", realname: "ircxd manual", caps: ["server-time", "echo-message"], notify: self()); receive do {:ircxd, :registered} -> :ok after 15000 -> exit(:timeout) end; Ircxd.Client.join(pid, "#ircxd-manual"); Process.sleep(500); Ircxd.Client.privmsg(pid, "#ircxd-manual", "hello from ircxd manual test"); Process.sleep(1000)'
-tmux capture-pane -pt ircxd-irssi -S -120
+scripts/run_irssi_manual_check.sh
 ```
 
-Expected evidence in irssi:
-
-```text
-< ircxdmanual> hello from ircxd manual test
-```
+The script starts `irssi` inside a temporary `tmux` session, connects to the
+local InspIRCd server, sends a message from `ircxd`, checks the irssi pane, and
+cleans up the session.
 
 ## Spec Coverage
 

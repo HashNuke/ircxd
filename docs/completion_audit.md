@@ -14,6 +14,7 @@ IRCv3 features, which are intentionally not being expanded unless reprioritized.
 | IRCv3 stable support | Stable matrix rows in `docs/stable_spec_matrix.md`; tests for CAP, tags, SASL, account tracking, presence, batch, labeled-response, monitor, STS boundaries, UTF8ONLY, WEBIRC, WebSocket boundaries, and standard replies | Covered for stable protocol |
 | IRCv3 draft/WIP support | `docs/ircv3_index_audit.md` plus existing draft helper tests for metadata, chathistory, multiline, channel rename, redaction, read markers, account registration, pre-away, reactions, channel context, extended-isupport, and SNI option handling | Partial by policy; drafts are not current completion scope |
 | Local InspIRCd compatibility tests | `test/ircxd/client_integration_test.exs` against `127.0.0.1:6667` | Covered |
+| Optional irssi cross-client check | `scripts/run_irssi_manual_check.sh` starts irssi in tmux and verifies an `ircxd` message is visible | Covered by optional manual gate |
 | Services-backed IRCv3 tests | `scripts/run_services_integration.sh`, `test/ircxd/client_services_integration_test.exs` | Covered by opt-in gate |
 | Real standard-replies emission test | `scripts/run_standard_replies_integration.sh`, `test/ircxd/client_standard_replies_integration_test.exs` | Covered by opt-in gate |
 | Automated tests | Parser/unit tests, scripted IRC server tests, local InspIRCd tests, and opt-in disposable real-server fixtures | Covered |
@@ -49,6 +50,12 @@ Expected current result:
 
 ```text
 1 test, 0 failures
+```
+
+Optional irssi cross-client check:
+
+```bash
+scripts/run_irssi_manual_check.sh
 ```
 
 Opt-in services fixture:
