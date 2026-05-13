@@ -84,7 +84,8 @@ Implemented and tested:
   `HELP`, `INFO`, `LINKS`, `WHO`, `WHOX`, `WHOIS`, `WHOWAS`, parsed
   `USERHOST`, `ISON`, `TRACE`, `USERS`, and `SERVLIST` response events.
 - WHOWAS `314` and `369` typed events.
-- Optional WHOIS `276`, `307`, `320`, and `378` typed events.
+- Optional WHOIS `276`, `307`, `320`, `330`, `335`, `338`, `378`, `379`,
+  and `671` typed events.
 - Away status numerics: `301`, `305`, and `306`.
 - SASL/account status numerics: `900`, `901`, `902`, and `903` through `908`.
 - Redirect/retry/operator/admin numerics: `010`, `263`, `381`, `382`, `670`,
@@ -149,9 +150,10 @@ Remaining IRCv3 stable gaps:
 
 - Full WebSocket transport adapters are intentionally not bundled yet; only the
   adapter behaviour and payload validation exist.
-- More real-server coverage is still desirable for capabilities not advertised
-  by the local InspIRCd config, especially account services and standard
-  replies.
+- More real-server coverage is still desirable for `standard-replies`; scripted
+  parsing and real capability negotiation are covered, but deterministic
+  `FAIL`, `WARN`, or `NOTE` emission has not been reproduced against local
+  InspIRCd.
 - STS is parsed and exposed, but automatic policy persistence/enforcement is
   left to host applications.
 
