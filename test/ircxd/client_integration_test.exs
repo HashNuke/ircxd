@@ -267,6 +267,49 @@ defmodule Ircxd.ClientIntegrationTest do
     RawIrcClient.close(holder)
   end
 
+  test "receives VERSION and ISON numerics from InspIRCd" do
+    holder_nick = "isonuser#{System.unique_integer([:positive])}"
+    client_nick = "ircxdquery#{System.unique_integer([:positive])}"
+
+    {:ok, holder} = RawIrcClient.connect(host: @host, port: @port, nick: holder_nick)
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: @host,
+        port: @port,
+        tls: false,
+        nick: client_nick,
+        username: client_nick,
+        realname: "Ircxd Query Test",
+        notify: self()
+      )
+
+    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+
+    assert :ok = Ircxd.Client.version(client)
+
+    assert {:ok, %{version: version, server: "irc.local"}} =
+             wait_for_event(fn
+               {:version, payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert String.contains?(version, "InspIRCd")
+
+    assert :ok = Ircxd.Client.ison(client, [holder_nick, "definitely-not-online"])
+
+    assert {:ok, %{nicks: nicks}} =
+             wait_for_event(fn
+               {:ison, payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert holder_nick in nicks
+    refute "definitely-not-online" in nicks
+
+    RawIrcClient.close(holder)
+  end
+
   test "retries nickname when the requested nick is in use" do
     base_nick = "taken#{System.unique_integer([:positive])}"
     {:ok, holder} = RawIrcClient.connect(host: @host, port: @port, nick: base_nick)

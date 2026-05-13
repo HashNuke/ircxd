@@ -98,8 +98,8 @@ defmodule Ircxd.ClientCoreCommandsTest do
     assert_receive {:scripted_irc_line, "HELP list"}, 1_000
     assert_receive {:scripted_irc_line, "INFO irc.example.test"}, 1_000
     assert_receive {:scripted_irc_line, "LINKS remote.example.test *.example.test"}, 1_000
-    assert_receive {:scripted_irc_line, "USERHOST alice,bob"}, 1_000
-    assert_receive {:scripted_irc_line, "ISON alice,bob"}, 1_000
+    assert_receive {:scripted_irc_line, "USERHOST alice bob"}, 1_000
+    assert_receive {:scripted_irc_line, "ISON alice bob"}, 1_000
     assert_receive {:scripted_irc_line, "WALLOPS :network notice"}, 1_000
     assert_receive {:scripted_irc_line, "OPER root secret"}, 1_000
     assert_receive {:scripted_irc_line, "KILL badnick :bad behavior"}, 1_000

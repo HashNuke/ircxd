@@ -193,9 +193,9 @@ defmodule Ircxd.Client do
     do: GenServer.call(client, {:send, "LINKS", [remote_server, mask]})
 
   def userhost(client, nicks),
-    do: GenServer.call(client, {:send, "USERHOST", [join_targets(nicks)]})
+    do: GenServer.call(client, {:send, "USERHOST", List.wrap(nicks)})
 
-  def ison(client, nicks), do: GenServer.call(client, {:send, "ISON", [join_targets(nicks)]})
+  def ison(client, nicks), do: GenServer.call(client, {:send, "ISON", List.wrap(nicks)})
 
   def wallops(client, message), do: GenServer.call(client, {:send, "WALLOPS", [message]})
 
