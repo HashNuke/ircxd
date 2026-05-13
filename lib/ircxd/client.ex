@@ -215,6 +215,7 @@ defmodule Ircxd.Client do
       multiline_batches: %{},
       labeled_response_batches: %{},
       labeled_requests: %{},
+      metadata_batches: %{},
       multiline_ref: 0
     }
 
@@ -325,6 +326,7 @@ defmodule Ircxd.Client do
           multiline_batches: %{},
           labeled_response_batches: %{},
           labeled_requests: %{},
+          metadata_batches: %{},
           seen_msgids: MapSet.new(),
           server_time_buffer: [],
           server_time_flush_timer: nil,
@@ -820,6 +822,7 @@ defmodule Ircxd.Client do
         state = %{state | active_batches: Map.put(state.active_batches, ref, batch)}
         state = maybe_start_multiline(state, ref, batch)
         state = maybe_start_labeled_response_batch(state, ref, batch)
+        state = maybe_start_metadata_batch(state, ref, batch)
         state = emit(state, {:batch_start, Map.put(batch, :ref, ref)})
         state = emit(state, {:message, message})
         {:noreply, state}
@@ -829,6 +832,7 @@ defmodule Ircxd.Client do
         state = %{state | active_batches: active_batches}
         state = maybe_emit_multiline(state, ref, batch)
         state = maybe_emit_labeled_response_batch(state, ref, batch)
+        state = maybe_emit_metadata_batch(state, ref, batch)
         state = emit(state, {:batch_end, %{ref: ref, batch: batch}})
         state = emit(state, {:message, message})
         {:noreply, state}
@@ -985,6 +989,7 @@ defmodule Ircxd.Client do
       ref ->
         state = maybe_collect_multiline(state, ref, event, message)
         state = maybe_collect_labeled_response_batch(state, ref, event)
+        state = maybe_collect_metadata_batch(state, ref, event)
 
         emit(
           state,
@@ -1105,6 +1110,44 @@ defmodule Ircxd.Client do
 
   defp maybe_emit_labeled_response_batch(state, ref, _batch) do
     %{state | labeled_response_batches: Map.delete(state.labeled_response_batches, ref)}
+  end
+
+  defp maybe_start_metadata_batch(state, ref, %{type: "metadata", params: params}) do
+    metadata_batch = %{target: List.first(params), entries: []}
+    %{state | metadata_batches: Map.put(state.metadata_batches, ref, metadata_batch)}
+  end
+
+  defp maybe_start_metadata_batch(state, _ref, _batch), do: state
+
+  defp maybe_collect_metadata_batch(state, ref, {event_name, _payload} = event)
+       when event_name in [:metadata_reply, :standard_reply] do
+    case Map.fetch(state.metadata_batches, ref) do
+      {:ok, batch} ->
+        batch = %{batch | entries: batch.entries ++ [event]}
+        %{state | metadata_batches: Map.put(state.metadata_batches, ref, batch)}
+
+      :error ->
+        state
+    end
+  end
+
+  defp maybe_collect_metadata_batch(state, _ref, _event), do: state
+
+  defp maybe_emit_metadata_batch(state, ref, %{type: "metadata"}) do
+    {batch, metadata_batches} = Map.pop(state.metadata_batches, ref)
+    state = %{state | metadata_batches: metadata_batches}
+
+    case batch do
+      %{entries: entries, target: target} ->
+        emit(state, {:metadata_batch, %{ref: ref, target: target, entries: entries}})
+
+      _ ->
+        state
+    end
+  end
+
+  defp maybe_emit_metadata_batch(state, ref, _batch) do
+    %{state | metadata_batches: Map.delete(state.metadata_batches, ref)}
   end
 
   defp send_message(%{transport: nil}, _command, _params), do: {:error, :not_connected}
