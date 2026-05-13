@@ -29,6 +29,22 @@ defmodule Ircxd.ISupportTest do
     assert {"BAD", "a\\xZZ"} = ISupport.parse_token("BAD=a\\xZZ")
   end
 
+  test "treats empty ISUPPORT values as valueless tokens" do
+    assert {"MODES", true} = ISupport.parse_token("MODES=")
+    assert {"SILENCE", true} = ISupport.parse_token("SILENCE=")
+
+    assert %{"MODES" => true, "SILENCE" => true} =
+             ISupport.parse_params([
+               "nick",
+               "MODES=",
+               "SILENCE=",
+               "are supported by this server"
+             ])
+
+    assert ISupport.mode_limit(%{"MODES" => true}) == :unlimited
+    assert ISupport.silence_limit(%{"SILENCE" => true}) == :unlimited
+  end
+
   test "parses PREFIX mode to membership prefix mappings" do
     assert [
              %{mode: "q", prefix: "~"},

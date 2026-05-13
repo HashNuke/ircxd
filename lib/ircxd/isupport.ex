@@ -16,6 +16,7 @@ defmodule Ircxd.ISupport do
 
   def parse_token(token) do
     case String.split(token, "=", parts: 2) do
+      [key, ""] -> {key, true}
       [key, value] -> {key, unescape_value(value)}
       [key] -> {key, true}
     end
