@@ -15,6 +15,7 @@ The library currently provides:
 - TLS Server Name Indication (SNI), with an optional override for IP or proxy connects.
 - Optional reconnect after transport close.
 - Registration with `CAP LS 302`, `NICK`, and `USER`.
+- Optional server password registration with `PASS`.
 - Capability request/ack flow for supported server capabilities.
 - SASL PLAIN negotiation support.
 - SASL SCRAM-SHA-256 negotiation support.
@@ -22,7 +23,7 @@ The library currently provides:
 - SASL mechanism fallback across configured mechanisms such as `EXTERNAL` then `PLAIN`.
 - SASL v3.2 mechanism-list events from `908 RPL_SASLMECHS`.
 - Automatic `PING`/`PONG`.
-- `JOIN`, `NAMES`, `PART`, `TOPIC`, `MODE`, `KICK`, `PRIVMSG`, `NOTICE`, `TAGMSG`, `QUIT`, and raw command helpers.
+- Modern IRC helpers for registration, channel operations, server queries, user queries, messaging, and raw commands.
 - Outbound IRCv3 tagged messages for client-only tags and labeled responses.
 - IRCv3 `BATCH`, labeled-response, identity, presence, and standard-reply events.
 - IRCv3 stable `netsplit` and `netjoin` batch aggregation events.
@@ -149,6 +150,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Wire size constants for the 512-byte IRC message limit.
 - Client registration against InspIRCd.
 - Capability listing and ACK flow against InspIRCd.
+- Modern IRC `PASS` startup ordering and core command helper serialization.
 - Capability `NAK`, `NEW`, and `DEL` handling against scripted servers.
 - Channel join and bidirectional channel messaging against InspIRCd.
 - IRCv3 `echo-message` self-echo and `server-time` metadata against InspIRCd.

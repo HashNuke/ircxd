@@ -9,6 +9,7 @@ defmodule Ircxd.Client do
     * `:tls` - true for implicit TLS.
     * `:sni` - TLS Server Name Indication hostname, defaults to `:host`.
     * `:tls_options` - additional Erlang `:ssl.connect/4` options.
+    * `:password` - optional server password sent with `PASS` before registration.
     * `:nick` - desired nickname.
     * `:username` - username sent in registration.
     * `:realname` - realname sent in registration.
@@ -44,9 +45,23 @@ defmodule Ircxd.Client do
     GenServer.start_link(__MODULE__, opts, Keyword.take(opts, [:name]))
   end
 
+  def pass(client, password), do: GenServer.call(client, {:send, "PASS", [password]})
+  def nick(client, nick), do: GenServer.call(client, {:send, "NICK", [nick]})
   def join(client, channel), do: GenServer.call(client, {:send, "JOIN", [channel]})
 
   def names(client, target), do: GenServer.call(client, {:send, "NAMES", [target]})
+
+  def list(client, channels \\ nil, server \\ nil)
+  def list(client, nil, nil), do: GenServer.call(client, {:send, "LIST", []})
+
+  def list(client, channels, nil),
+    do: GenServer.call(client, {:send, "LIST", [join_targets(channels)]})
+
+  def list(client, channels, server),
+    do: GenServer.call(client, {:send, "LIST", [join_targets(channels), server]})
+
+  def invite(client, nick, channel),
+    do: GenServer.call(client, {:send, "INVITE", [nick, channel]})
 
   def part(client, channel, reason \\ ""),
     do: GenServer.call(client, {:send, "PART", [channel, reason]})
@@ -125,6 +140,41 @@ defmodule Ircxd.Client do
 
   def quit(client, reason \\ "leaving"), do: GenServer.call(client, {:send, "QUIT", [reason]})
   def raw(client, command, params \\ []), do: GenServer.call(client, {:send, command, params})
+
+  def motd(client, target \\ nil)
+  def motd(client, nil), do: GenServer.call(client, {:send, "MOTD", []})
+  def motd(client, target), do: GenServer.call(client, {:send, "MOTD", [target]})
+
+  def version(client, target \\ nil)
+  def version(client, nil), do: GenServer.call(client, {:send, "VERSION", []})
+  def version(client, target), do: GenServer.call(client, {:send, "VERSION", [target]})
+
+  def admin(client, target \\ nil)
+  def admin(client, nil), do: GenServer.call(client, {:send, "ADMIN", []})
+  def admin(client, target), do: GenServer.call(client, {:send, "ADMIN", [target]})
+
+  def lusers(client, mask \\ nil, target \\ nil)
+  def lusers(client, nil, nil), do: GenServer.call(client, {:send, "LUSERS", []})
+  def lusers(client, mask, nil), do: GenServer.call(client, {:send, "LUSERS", [mask]})
+  def lusers(client, mask, target), do: GenServer.call(client, {:send, "LUSERS", [mask, target]})
+
+  def time(client, target \\ nil)
+  def time(client, nil), do: GenServer.call(client, {:send, "TIME", []})
+  def time(client, target), do: GenServer.call(client, {:send, "TIME", [target]})
+
+  def stats(client, query \\ nil, target \\ nil)
+  def stats(client, nil, nil), do: GenServer.call(client, {:send, "STATS", []})
+  def stats(client, query, nil), do: GenServer.call(client, {:send, "STATS", [query]})
+  def stats(client, query, target), do: GenServer.call(client, {:send, "STATS", [query, target]})
+
+  def help(client, subject \\ nil)
+  def help(client, nil), do: GenServer.call(client, {:send, "HELP", []})
+  def help(client, subject), do: GenServer.call(client, {:send, "HELP", [subject]})
+
+  def info(client, target \\ nil)
+  def info(client, nil), do: GenServer.call(client, {:send, "INFO", []})
+  def info(client, target), do: GenServer.call(client, {:send, "INFO", [target]})
+
   def who(client, mask, options \\ nil)
   def who(client, mask, nil), do: GenServer.call(client, {:send, "WHO", [mask]})
   def who(client, mask, options), do: GenServer.call(client, {:send, "WHO", [mask, options]})
@@ -132,6 +182,20 @@ defmodule Ircxd.Client do
   def whowas(client, nick, count \\ nil)
   def whowas(client, nick, nil), do: GenServer.call(client, {:send, "WHOWAS", [nick]})
   def whowas(client, nick, count), do: GenServer.call(client, {:send, "WHOWAS", [nick, count]})
+
+  def links(client, remote_server \\ nil, mask \\ nil)
+  def links(client, nil, nil), do: GenServer.call(client, {:send, "LINKS", []})
+
+  def links(client, remote_server, nil),
+    do: GenServer.call(client, {:send, "LINKS", [remote_server]})
+
+  def links(client, remote_server, mask),
+    do: GenServer.call(client, {:send, "LINKS", [remote_server, mask]})
+
+  def userhost(client, nicks),
+    do: GenServer.call(client, {:send, "USERHOST", [join_targets(nicks)]})
+
+  def wallops(client, message), do: GenServer.call(client, {:send, "WALLOPS", [message]})
 
   def bot_mode(client, enabled \\ true), do: GenServer.call(client, {:bot_mode, enabled})
 
@@ -254,6 +318,7 @@ defmodule Ircxd.Client do
       tls: Keyword.get(opts, :tls, false),
       sni: Keyword.get(opts, :sni, Keyword.fetch!(opts, :host)),
       tls_options: Keyword.get(opts, :tls_options, []),
+      password: Keyword.get(opts, :password),
       nick: Keyword.fetch!(opts, :nick),
       username: Keyword.get(opts, :username, Keyword.fetch!(opts, :nick)),
       realname: Keyword.get(opts, :realname, Keyword.fetch!(opts, :nick)),
@@ -302,6 +367,7 @@ defmodule Ircxd.Client do
     with {:ok, transport, socket} <- connect(state) do
       state = %{state | transport: transport, socket: socket}
       maybe_send_webirc(state)
+      maybe_send_pass(state)
       send_message(state, "CAP", ["LS", "302"])
       send_message(state, "NICK", [state.nick])
       send_message(state, "USER", [state.username, "0", "*", state.realname])
@@ -418,6 +484,10 @@ defmodule Ircxd.Client do
   defp maybe_send_webirc(%{webirc: webirc} = state) do
     send_message(state, "WEBIRC", WebIRC.params(webirc))
   end
+
+  defp maybe_send_pass(%{password: nil}), do: :ok
+  defp maybe_send_pass(%{password: ""}), do: :ok
+  defp maybe_send_pass(%{password: password} = state), do: send_message(state, "PASS", [password])
 
   defp handle_disconnect(state) do
     state = emit(state, :disconnected)
