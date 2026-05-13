@@ -30,6 +30,15 @@ defmodule Ircxd.WhoisTest do
     assert %{nick: "nick", text: "is connecting from *@example.test"} =
              Whois.parse_host(["me", "nick", "is connecting from *@example.test"])
 
+    assert %{nick: "nick", text: "actually using host real.example.test"} =
+             Whois.parse_actual_host(["me", "nick", "actually using host real.example.test"])
+
+    assert %{nick: "nick", modes: ["+i", "+w"]} =
+             Whois.parse_modes(["me", "nick", "+i +w"])
+
+    assert %{nick: "nick", text: "is using a secure connection"} =
+             Whois.parse_secure(["me", "nick", "is using a secure connection"])
+
     assert %{nick: "nick", idle_seconds: 12, signon: 1234} =
              Whois.parse_idle(["me", "nick", "12", "1234"])
 

@@ -30,7 +30,10 @@ defmodule Ircxd.ClientQueryEventsTest do
                ":irc.test 319 me nick :@#chan +#other",
                ":irc.test 330 me nick acct :is logged in as",
                ":irc.test 320 me nick :is using a secure connection",
+               ":irc.test 338 me nick :actually using host real.example.test",
                ":irc.test 378 me nick :is connecting from *@example.test",
+               ":irc.test 379 me nick :+i +w",
+               ":irc.test 671 me nick :is using a secure connection",
                ":irc.test 317 me nick 12 1234 :seconds idle, signon time",
                ":irc.test 318 me nick :End of WHOIS list"
              ]
@@ -74,7 +77,14 @@ defmodule Ircxd.ClientQueryEventsTest do
     assert_event({:whois_channels, %{nick: "nick", channels: ["@#chan", "+#other"]}})
     assert_event({:whois_account, %{nick: "nick", account: "acct"}})
     assert_event({:whois_special, %{nick: "nick", text: "is using a secure connection"}})
+
+    assert_event(
+      {:whois_actual_host, %{nick: "nick", text: "actually using host real.example.test"}}
+    )
+
     assert_event({:whois_host, %{nick: "nick", text: "is connecting from *@example.test"}})
+    assert_event({:whois_modes, %{nick: "nick", modes: ["+i", "+w"]}})
+    assert_event({:whois_secure, %{nick: "nick", text: "is using a secure connection"}})
     assert_event({:whois_idle, %{nick: "nick", idle_seconds: 12, signon: 1234}})
     assert_event({:whois_end, %{nick: "nick"}})
 
