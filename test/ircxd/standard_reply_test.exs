@@ -49,10 +49,18 @@ defmodule Ircxd.StandardReplyTest do
     end
 
     test "rejects malformed replies" do
+      assert StandardReply.parse("FAIL", []) == {:error, :missing_command}
+      assert StandardReply.parse("FAIL", ["AUTHENTICATE"]) == {:error, :missing_code}
+
       assert StandardReply.parse("FAIL", ["*", "NEED_REGISTRATION"]) ==
                {:error, :missing_description}
 
       assert StandardReply.parse("ERROR", ["*", "CODE", "description"]) == {:error, :invalid_type}
+
+      assert StandardReply.parse("FAIL", [:bad, "CODE", "description"]) ==
+               {:error, :invalid_command}
+
+      assert StandardReply.parse("FAIL", ["*", :bad, "description"]) == {:error, :invalid_code}
     end
   end
 end

@@ -138,7 +138,7 @@ Implemented and tested:
 - Multi-prefix, userhost-in-names, no-implicit-names, WHOX.
 - MONITOR and extended-monitor events.
 - Standard replies: `FAIL`, `WARN`, `NOTE`, including case-insensitive
-  command/code normalization.
+  command/code normalization and malformed reply errors.
 - STS policy parsing, invalid-policy event emission, SNI TLS options,
   `CAP REQ sts` suppression, and ignored `CAP DEL sts`.
 - UTF8ONLY outbound validation.
