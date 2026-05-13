@@ -112,12 +112,12 @@ Implemented and tested:
 - Multiline receive aggregation and outbound multiline helpers.
 - Client-initiated batch helper with required capability checks and nested-batch
   rejection.
+- Extended-isupport command helper and `draft/isupport` batch aggregation.
 - Channel rename, message redaction, read markers, account registration,
   pre-away, draft reactions, and draft channel-context helpers.
 
 Remaining draft/WIP gaps:
 
-- `draft/extended-isupport` is not implemented.
 - `draft/filehost` is not implemented.
 - Draft implementations should be rechecked before release because draft specs
   may change.

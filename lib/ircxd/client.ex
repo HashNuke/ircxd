@@ -340,6 +340,8 @@ defmodule Ircxd.Client do
          ChatHistory.params({:targets, first_timestamp, second_timestamp, limit})}
       )
 
+  def isupport(client), do: GenServer.call(client, :send_isupport)
+
   def raw_tagged(client, command, params, tags),
     do: GenServer.call(client, {:send, %Message{command: command, params: params, tags: tags}})
 
@@ -403,6 +405,7 @@ defmodule Ircxd.Client do
       multiline_batches: %{},
       labeled_response_batches: %{},
       labeled_requests: %{},
+      isupport_batches: %{},
       metadata_batches: %{},
       net_batches: %{},
       multiline_ref: 0
@@ -478,6 +481,18 @@ defmodule Ircxd.Client do
 
   def handle_call({:client_tag_denied?, tag}, _from, state) do
     {:reply, ClientTagDeny.denied?(state.isupport["CLIENTTAGDENY"], tag), state}
+  end
+
+  def handle_call(:send_isupport, _from, state) do
+    result =
+      with :ok <- require_active_cap(state, "draft/extended-isupport") do
+        send_message(state, "ISUPPORT", [])
+      end
+
+    case result do
+      :ok -> {:reply, :ok, state}
+      error -> {:reply, error, state}
+    end
   end
 
   def handle_call(:flush_server_time, _from, state) do
@@ -576,6 +591,7 @@ defmodule Ircxd.Client do
           multiline_batches: %{},
           labeled_response_batches: %{},
           labeled_requests: %{},
+          isupport_batches: %{},
           metadata_batches: %{},
           net_batches: %{},
           seen_msgids: MapSet.new(),
@@ -693,7 +709,7 @@ defmodule Ircxd.Client do
       {:ok, %Message{command: "005"} = message} ->
         tokens = ISupport.parse_params(message.params)
         state = %{state | isupport: Map.merge(state.isupport, tokens)}
-        state = emit(state, {:isupport, tokens})
+        state = emit_event(state, {:isupport, tokens}, message)
         state = emit(state, {:message, message})
         {:noreply, state}
 
@@ -1460,6 +1476,7 @@ defmodule Ircxd.Client do
         state = %{state | active_batches: Map.put(state.active_batches, ref, batch)}
         state = maybe_start_multiline(state, ref, batch)
         state = maybe_start_labeled_response_batch(state, ref, batch)
+        state = maybe_start_isupport_batch(state, ref, batch)
         state = maybe_start_metadata_batch(state, ref, batch)
         state = maybe_start_net_batch(state, ref, batch)
         state = emit(state, {:batch_start, Map.put(batch, :ref, ref)})
@@ -1471,6 +1488,7 @@ defmodule Ircxd.Client do
         state = %{state | active_batches: active_batches}
         state = maybe_emit_multiline(state, ref, batch)
         state = maybe_emit_labeled_response_batch(state, ref, batch)
+        state = maybe_emit_isupport_batch(state, ref, batch)
         state = maybe_emit_metadata_batch(state, ref, batch)
         state = maybe_emit_net_batch(state, ref, batch)
         state = emit(state, {:batch_end, %{ref: ref, batch: batch}})
@@ -1694,6 +1712,7 @@ defmodule Ircxd.Client do
       ref ->
         state = maybe_collect_multiline(state, ref, event, message)
         state = maybe_collect_labeled_response_batch(state, ref, event)
+        state = maybe_collect_isupport_batch(state, ref, event)
         state = maybe_collect_metadata_batch(state, ref, event)
         state = maybe_collect_net_batch(state, ref, event)
 
@@ -1817,6 +1836,48 @@ defmodule Ircxd.Client do
   defp maybe_emit_labeled_response_batch(state, ref, _batch) do
     %{state | labeled_response_batches: Map.delete(state.labeled_response_batches, ref)}
   end
+
+  defp maybe_start_isupport_batch(state, ref, %{type: "draft/isupport"}) do
+    %{state | isupport_batches: Map.put(state.isupport_batches, ref, %{entries: []})}
+  end
+
+  defp maybe_start_isupport_batch(state, _ref, _batch), do: state
+
+  defp maybe_collect_isupport_batch(state, ref, {:isupport, tokens}) do
+    case Map.fetch(state.isupport_batches, ref) do
+      {:ok, batch} ->
+        batch = %{batch | entries: batch.entries ++ [tokens]}
+        %{state | isupport_batches: Map.put(state.isupport_batches, ref, batch)}
+
+      :error ->
+        state
+    end
+  end
+
+  defp maybe_collect_isupport_batch(state, _ref, _event), do: state
+
+  defp maybe_emit_isupport_batch(state, ref, %{type: "draft/isupport"}) do
+    {batch, isupport_batches} = Map.pop(state.isupport_batches, ref)
+    state = %{state | isupport_batches: isupport_batches}
+
+    case batch do
+      %{entries: entries} ->
+        emit(
+          state,
+          {:isupport_batch,
+           %{ref: ref, tokens: merge_isupport_entries(entries), entries: entries}}
+        )
+
+      _ ->
+        state
+    end
+  end
+
+  defp maybe_emit_isupport_batch(state, ref, _batch) do
+    %{state | isupport_batches: Map.delete(state.isupport_batches, ref)}
+  end
+
+  defp merge_isupport_entries(entries), do: Enum.reduce(entries, %{}, &Map.merge(&2, &1))
 
   defp maybe_start_metadata_batch(state, ref, %{type: "metadata", params: params}) do
     metadata_batch = %{target: List.first(params), entries: []}
