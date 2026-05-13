@@ -186,8 +186,8 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - SASL PLAIN client negotiation against a scripted IRC server.
 - SASL SCRAM-SHA-256 RFC 7677 payloads and scripted negotiation.
 - SASL failure policy for default continue and configured abort.
-- SASL `EXTERNAL` payloads, advertised-mechanism filtering, and fallback to
-  `PLAIN`.
+- SASL `EXTERNAL` payloads, advertised-mechanism filtering before `CAP REQ`,
+  and fallback to `PLAIN`.
 - SASL v3.2 `908 RPL_SASLMECHS` parsing without treating the mechanism list as failure.
 - Modern IRC state-change events: `NICK`, `JOIN`, `PART`, `QUIT`, `KICK`, `TOPIC`, `MODE`, and `ERROR`.
 - Modern IRC away status numerics: `301`, `305`, and `306`.

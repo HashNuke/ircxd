@@ -2167,7 +2167,14 @@ defmodule Ircxd.Client do
   end
 
   defp maybe_include_sasl(caps, %{sasl: nil}), do: caps
-  defp maybe_include_sasl(caps, _state), do: ["sasl" | caps]
+
+  defp maybe_include_sasl(caps, state) do
+    if available_sasl_mechanisms(state) == [] do
+      caps
+    else
+      ["sasl" | caps]
+    end
+  end
 
   defp normalize_sasl(nil), do: []
   defp normalize_sasl({:plain, _username, _password} = mechanism), do: [mechanism]

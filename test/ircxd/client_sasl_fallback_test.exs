@@ -114,4 +114,38 @@ defmodule Ircxd.ClientSASLFallbackTest do
     assert_receive {:scripted_irc_line, "CAP END"}, 1_000
     assert_receive {:ircxd, :registered}, 1_000
   end
+
+  test "does not request SASL when no configured mechanisms are advertised" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :sasl=EXTERNAL server-time"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, _client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        sasl: {:plain, "nick", "secret"},
+        notify: self()
+      )
+
+    refute_receive {:scripted_irc_line, "CAP REQ sasl"}, 250
+    refute_receive {:scripted_irc_line, "AUTHENTICATE PLAIN"}, 250
+    assert_receive {:scripted_irc_line, "CAP END"}, 1_000
+    assert_receive {:ircxd, :registered}, 1_000
+  end
 end
