@@ -63,6 +63,7 @@ The library currently provides:
 - DCC CTCP query parser/encoder helpers for `CHAT`, `SEND`, `RESUME`, and
   `ACCEPT` negotiation.
 - Parsed DCC payloads on CTCP `PRIVMSG` and `NOTICE` events.
+- DCC reverse/port-0 detection for host-owned connection policy.
 - Modern IRC formatting control-code parser and stripper.
 - ISUPPORT, NAMES, source mask, casemapping, server-time, msgid, label, batch, and account helpers.
 - Callback-style event delivery through `:notify` or `Ircxd.Handler`.

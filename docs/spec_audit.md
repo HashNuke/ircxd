@@ -52,7 +52,7 @@ Implemented and tested:
 - DCC CTCP query parsing/encoding for `CHAT`, `SEND`, `RESUME`, and `ACCEPT`
   negotiation. Direct DCC sockets, file writes, and user-consent policy are
   intentionally left to host applications. Parsed DCC payloads are exposed on
-  CTCP `PRIVMSG` and `NOTICE` events.
+  CTCP `PRIVMSG` and `NOTICE` events, including reverse/port-0 detection.
 - Registration: `PASS`, `NICK`, `USER`, `001` through `004`, PING/PONG.
 - Capability negotiation core through `CAP LS 302`, `REQ`, `ACK`, `NAK`, `NEW`,
   and `DEL`.

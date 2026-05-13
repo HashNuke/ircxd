@@ -12,6 +12,7 @@ defmodule Ircxd.DCCTest do
               host: "127.0.0.1",
               raw_host: "2130706433",
               port: 9000,
+              reverse?: false,
               extra: []
             }} = DCC.parse(%CTCP{command: "DCC", params: "CHAT chat 2130706433 9000"})
   end
@@ -24,6 +25,7 @@ defmodule Ircxd.DCCTest do
               host: "2001:db8::1",
               raw_host: "2001:db8::1",
               port: 0,
+              reverse?: true,
               extra: ["12345"]
             }} = DCC.parse("DCC SEND \"file name.txt\" 2001:db8::1 0 12345")
   end

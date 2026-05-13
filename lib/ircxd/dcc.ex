@@ -15,6 +15,7 @@ defmodule Ircxd.DCC do
             raw_host: nil,
             port: nil,
             position: nil,
+            reverse?: false,
             extra: []
 
   @type t :: %__MODULE__{
@@ -24,6 +25,7 @@ defmodule Ircxd.DCC do
           raw_host: String.t(),
           port: non_neg_integer(),
           position: non_neg_integer() | nil,
+          reverse?: boolean(),
           extra: [String.t()]
         }
 
@@ -46,6 +48,7 @@ defmodule Ircxd.DCC do
          raw_host: raw_host,
          port: port,
          position: position,
+         reverse?: port == 0,
          extra: extra
        }}
     else

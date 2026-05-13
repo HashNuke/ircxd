@@ -47,6 +47,7 @@ defmodule Ircxd.ClientDCCTest do
                          argument: "file name.txt",
                          host: "127.0.0.1",
                          port: 9000,
+                         reverse?: false,
                          extra: ["12345"]
                        }
                      }}},
@@ -60,7 +61,8 @@ defmodule Ircxd.ClientDCCTest do
                          type: "CHAT",
                          argument: "chat",
                          host: "2001:db8::1",
-                         port: 0
+                         port: 0,
+                         reverse?: true
                        }
                      }}},
                    1_000
