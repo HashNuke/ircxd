@@ -131,6 +131,9 @@ The local InspIRCd used during development had these IRCv3 modules enabled:
 <module name="ircv3_labeledresponse">
 ```
 
+The `ircv3` module advertises capabilities such as `account-notify`,
+`away-notify`, `extended-join`, and `standard-replies` in the local build.
+
 Run tests:
 
 ```bash

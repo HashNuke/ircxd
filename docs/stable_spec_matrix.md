@@ -36,7 +36,7 @@ Status meanings:
 | Message Tags | covered | `test/ircxd/message_test.exs`, `test/ircxd/tags_test.exs`, `test/ircxd/client_tagged_messages_test.exs` | Add tag parsing/gating cases as a message-tags slice. |
 | Client-only tags: reply and typing | covered | `test/ircxd/client_reply_tag_test.exs`, `test/ircxd/client_tagmsg_test.exs` | Draft client-only tags are tracked separately. |
 | SASL | covered | `test/ircxd/client_sasl_test.exs`, `test/ircxd/client_sasl_fallback_test.exs`, `test/ircxd/client_sasl_scram_test.exs`, `test/ircxd/sasl_test.exs` | Real service-backed auth remains a real-server gap. |
-| Account tracking | covered | `test/ircxd/client_identity_events_test.exs`, `test/ircxd/account_extban_test.exs`, `test/ircxd/client_account_extban_test.exs` | Add service-backed tests as one account-services slice. |
+| Account tracking | partial | `test/ircxd/client_identity_events_test.exs`, `test/ircxd/account_extban_test.exs`, `test/ircxd/client_account_extban_test.exs`, `test/ircxd/client_integration_test.exs` | Real `account-notify` negotiation is covered; account login/logout and account-tag need services-backed integration. |
 | Away notifications | covered | `test/ircxd/client_presence_events_test.exs`, `test/ircxd/client_integration_test.exs` | No current stable gap. |
 | Batch and netsplit/netjoin | covered | `test/ircxd/client_batch_test.exs`, `test/ircxd/client_net_batch_test.exs`, `test/ircxd/batch_test.exs` | Keep future batch-type work grouped. |
 | Bot mode | covered | `test/ircxd/client_bot_mode_test.exs`, `test/ircxd/isupport_test.exs` | No current stable gap. |
@@ -63,7 +63,7 @@ Status meanings:
    command path for actual `FAIL`, `WARN`, or `NOTE` emission and add an
    integration test.
 3. `Real-server account services`: extend local services/config if practical,
-   then test SASL/account-tag/account-notify against a real server.
+   then test SASL/account login/logout and account-tag against a real server.
 4. `Host-boundary adapter tests`: storage, STS persistence, DCC transport, and
    WebSocket transport boundaries are documented; add adapter behaviour tests
    when new adapter APIs are introduced.

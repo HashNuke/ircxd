@@ -179,7 +179,8 @@ Remaining draft/WIP gaps:
 Current local InspIRCd integration covers:
 
 - Registration, `001` through `004`, ISUPPORT, NAMES, JOIN, PRIVMSG.
-- `server-time`, `echo-message`, `extended-join`, `away-notify`.
+- `server-time`, `echo-message`, `extended-join`, `away-notify`,
+  `account-notify`.
 - `standard-replies` capability advertisement and negotiation.
 - `LIST`, `VERSION`, `ISON`, WHOX, channel modes, topics, and ban lists.
 - Nickname collision retry.
@@ -190,6 +191,8 @@ Remaining real-server work:
   InspIRCd command/module path is available; the current local config advertises
   `standard-replies` but probed commands returned legacy numerics.
 - Add service/account-backed tests if the local InspIRCd config is extended with
-  services suitable for SASL/account-notify/account-tag.
+  services suitable for SASL/account-notify/account-tag; the current local
+  config advertises `account-notify` but has no services-backed account source
+  and does not advertise `account-tag`.
 - Keep integration connection count under the local connection cap; prefer
   extending existing integration tests when possible.

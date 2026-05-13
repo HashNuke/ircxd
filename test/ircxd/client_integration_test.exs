@@ -210,6 +210,33 @@ defmodule Ircxd.ClientIntegrationTest do
              wait_for_event(&match_event(&1, :registered), @registration_timeout)
   end
 
+  test "negotiates IRCv3 account-notify with InspIRCd" do
+    client_nick = "ircxdacct#{System.unique_integer([:positive])}"
+
+    {:ok, _client} =
+      Ircxd.start_link(
+        host: @host,
+        port: @port,
+        tls: false,
+        nick: client_nick,
+        username: client_nick,
+        realname: "Ircxd Account Notify Test",
+        caps: ["account-notify"],
+        notify: self()
+      )
+
+    assert {:ok, caps} =
+             wait_for_event(fn
+               {:cap_ls, caps} -> {:ok, caps}
+               _ -> :cont
+             end)
+
+    assert Map.has_key?(caps, "account-notify")
+
+    assert {:ok, :registered} =
+             wait_for_event(&match_event(&1, :registered), @registration_timeout)
+  end
+
   test "receives extended-join metadata from InspIRCd" do
     channel = "#ircxdext#{System.unique_integer([:positive])}"
     client_nick = "ircxdext#{System.unique_integer([:positive])}"
