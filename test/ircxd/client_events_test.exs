@@ -3,6 +3,19 @@ defmodule Ircxd.ClientEventsTest do
 
   alias Ircxd.ScriptedIrcServer
 
+  defmodule TestHandler do
+    @behaviour Ircxd.Handler
+
+    @impl true
+    def init(owner), do: {:ok, %{owner: owner, count: 0}}
+
+    @impl true
+    def handle_event(event, %{owner: owner, count: count}) do
+      send(owner, {:handler_event, count, event})
+      {:ok, %{owner: owner, count: count + 1}}
+    end
+  end
+
   test "emits Modern IRC state-change events" do
     server =
       start_supervised!(
@@ -55,6 +68,44 @@ defmodule Ircxd.ClientEventsTest do
     assert_event({:part, %{nick: "new", channel: "#chan", reason: "bye"}})
     assert_event({:quit, %{nick: "new", reason: "gone"}})
     assert_event({:error, %{reason: "closing link"}})
+  end
+
+  test "delivers events through a stateful handler callback" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :"]
+
+           "CAP END", _state ->
+             [
+               ":irc.test 001 nick :Welcome",
+               ":alice!a@example.test PRIVMSG nick :hello through handler"
+             ]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, _client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        handler: {TestHandler, self()}
+      )
+
+    assert_receive {:handler_event, 0, {:connected, %{host: "127.0.0.1"}}}, 1_000
+    assert_receive {:handler_event, _count, :registered}, 1_000
+
+    assert_receive {:handler_event, _count,
+                    {:privmsg, %{nick: "alice", target: "nick", body: "hello through handler"}}},
+                   1_000
   end
 
   defp assert_event(expected) do

@@ -192,6 +192,9 @@ and verification gates.
 See `docs/host_boundaries.md` for what belongs in `ircxd` core versus embedding
 applications.
 
+See `docs/embedding_events.md` for event callback examples and persistence
+boundary guidance.
+
 See `docs/websocket_adapters.md` for WebSocket adapter examples, including a
 Phoenix Channels adapter shape.
 

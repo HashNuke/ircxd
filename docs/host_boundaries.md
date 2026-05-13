@@ -48,6 +48,9 @@ state for `{:mention, payload}`-style application events, or broadcast through a
 Channel. Those storage and broadcast decisions should not be added to `ircxd`
 core.
 
+See `docs/embedding_events.md` for callback examples and persistence boundary
+guidance.
+
 ## WebSocket Adapters
 
 `Ircxd.WebSocket` validates IRCv3 WebSocket subprotocols and one-line payloads.
