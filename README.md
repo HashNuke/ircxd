@@ -168,8 +168,8 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Typed registration numerics `001` through `004`.
 - Source masks such as `nick!user@host` and server names.
 - ISUPPORT `005` tokens, `CHANTYPES` channel detection, `STATUSMSG` target
-  detection, concrete `PREFIX`, `CHANLIMIT`, and `MAXLIST` lookups, `TARGMAX`
-  target-count checks, and NAMES `353` prefixes.
+  detection, concrete `PREFIX`, `CHANMODES`, `CHANLIMIT`, and `MAXLIST`
+  lookups, `TARGMAX` target-count checks, and NAMES `353` prefixes.
 - IRCv3 `userhost-in-names` full hostmask entries in NAMES replies.
 - ASCII-only IRC casemapping and ISUPPORT `CASEMAPPING` helpers for `ascii`,
   `rfc1459`, and `strict-rfc1459` comparisons.

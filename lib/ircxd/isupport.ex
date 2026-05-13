@@ -78,6 +78,21 @@ defmodule Ircxd.ISupport do
     }
   end
 
+  def channel_mode_type(isupport, mode)
+      when is_map(isupport) and is_binary(mode) and byte_size(mode) == 1 do
+    modes = chanmodes(isupport)
+
+    cond do
+      String.contains?(modes.type_a, mode) -> :list
+      String.contains?(modes.type_b, mode) -> :always_arg
+      String.contains?(modes.type_c, mode) -> :set_arg
+      String.contains?(modes.type_d, mode) -> :never_arg
+      true -> nil
+    end
+  end
+
+  def channel_mode_type(_isupport, _mode), do: nil
+
   def chanlimit(isupport) when is_map(isupport) do
     isupport
     |> Map.get("CHANLIMIT", "")
