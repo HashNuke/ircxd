@@ -196,6 +196,7 @@ defmodule Ircxd.Client do
       seen_msgids: MapSet.new(),
       server_time_order: Keyword.get(opts, :server_time_order, false),
       server_time_buffer: [],
+      server_time_flush_timer: nil,
       available_caps: %{},
       current_nick: Keyword.fetch!(opts, :nick),
       nick_retry_fun: Keyword.get(opts, :nick_retry_fun, &default_nick_retry/2),
@@ -246,6 +247,10 @@ defmodule Ircxd.Client do
   def handle_info({:tcp_error, _socket, reason}, state), do: {:stop, reason, state}
   def handle_info({:ssl_error, _socket, reason}, state), do: {:stop, reason, state}
 
+  def handle_info(:flush_server_time, state) do
+    {:noreply, flush_server_time_buffer(%{state | server_time_flush_timer: nil})}
+  end
+
   @impl true
   def handle_call({:send, %Message{} = message}, _from, state) do
     case send_message(state, message) do
@@ -262,17 +267,7 @@ defmodule Ircxd.Client do
   end
 
   def handle_call(:flush_server_time, _from, state) do
-    state =
-      state.server_time_buffer
-      |> Enum.sort_by(fn %{time: time, index: index} ->
-        {DateTime.to_unix(time, :microsecond), index}
-      end)
-      |> Enum.reduce(%{state | server_time_buffer: []}, fn %{event: event, message: message},
-                                                           state ->
-        emit_event_now(state, event, message)
-      end)
-
-    {:reply, :ok, state}
+    {:reply, :ok, flush_server_time_buffer(state)}
   end
 
   def handle_call({:send_multiline, command, target, body, opts}, _from, state) do
@@ -332,6 +327,7 @@ defmodule Ircxd.Client do
           labeled_requests: %{},
           seen_msgids: MapSet.new(),
           server_time_buffer: [],
+          server_time_flush_timer: nil,
           reconnect_attempts: attempt
         })
 
@@ -855,10 +851,23 @@ defmodule Ircxd.Client do
         index: length(state.server_time_buffer)
       }
 
-      %{state | server_time_buffer: [entry | state.server_time_buffer]}
+      state
+      |> Map.update!(:server_time_buffer, &[entry | &1])
+      |> maybe_schedule_server_time_flush()
     else
       emit_event_now(state, event, message)
     end
+  end
+
+  defp flush_server_time_buffer(state) do
+    state.server_time_buffer
+    |> Enum.sort_by(fn %{time: time, index: index} ->
+      {DateTime.to_unix(time, :microsecond), index}
+    end)
+    |> Enum.reduce(%{state | server_time_buffer: []}, fn %{event: event, message: message},
+                                                         state ->
+      emit_event_now(state, event, message)
+    end)
   end
 
   defp emit_event_now(state, event, message) do
@@ -876,7 +885,21 @@ defmodule Ircxd.Client do
     match?(%DateTime{}, server_time_from_event(event))
   end
 
+  defp buffer_server_time?(%{server_time_order: opts}, event) when is_list(opts) do
+    Keyword.has_key?(opts, :flush_after) and match?(%DateTime{}, server_time_from_event(event))
+  end
+
   defp buffer_server_time?(_state, _event), do: false
+
+  defp maybe_schedule_server_time_flush(
+         %{server_time_order: opts, server_time_flush_timer: nil} = state
+       )
+       when is_list(opts) do
+    delay = Keyword.fetch!(opts, :flush_after)
+    %{state | server_time_flush_timer: Process.send_after(self(), :flush_server_time, delay)}
+  end
+
+  defp maybe_schedule_server_time_flush(state), do: state
 
   defp server_time_from_event({_name, %{server_time: %DateTime{} = server_time}}), do: server_time
   defp server_time_from_event(_event), do: nil

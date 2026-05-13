@@ -9,6 +9,7 @@ The library currently provides:
 - IRCv3 message tag parsing, escaping, and serialization.
 - Optional IRCv3 `msgid` duplicate marking hooks.
 - Optional manual ordered flush for timestamped `server-time` events.
+- Optional automatic timed flush for timestamp-ordered `server-time` events.
 - TCP and implicit TLS transports.
 - Optional reconnect after transport close.
 - Registration with `CAP LS 302`, `NICK`, and `USER`.
@@ -112,6 +113,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 `time`, `msgid`, `label`, `batch`, and `account` tags.
 - Optional IRCv3 `msgid` duplicate marking and `:duplicate_msgid` events.
 - Optional buffering and timestamp-ordered manual flush for `server-time` events.
+- Optional automatic timed flush for buffered `server-time` events.
 - Wire size constants for the 512-byte IRC message limit.
 - Client registration against InspIRCd.
 - Capability listing and ACK flow against InspIRCd.
@@ -139,5 +141,5 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Outbound IRCv3 tagged messages.
 
 This is not yet complete coverage of every IRCv3 extension. The next slices
-should add automatic server-time flushing policy, deeper metadata batch/failure
-coverage, and broader real-server coverage for draft extensions.
+should add deeper metadata batch/failure coverage and broader real-server
+coverage for draft extensions.
