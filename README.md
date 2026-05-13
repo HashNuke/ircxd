@@ -120,6 +120,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Capability listing and ACK flow against InspIRCd.
 - Capability `NAK`, `NEW`, and `DEL` handling against scripted servers.
 - Channel join and bidirectional channel messaging against InspIRCd.
+- IRCv3 `echo-message` self-echo and `server-time` metadata against InspIRCd.
 - Nickname collision retry against InspIRCd.
 - Optional reconnect after a transport close.
 - SASL PLAIN client negotiation against a scripted IRC server.

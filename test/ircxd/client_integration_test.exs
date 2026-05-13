@@ -82,6 +82,56 @@ defmodule Ircxd.ClientIntegrationTest do
     RawIrcClient.close(observer)
   end
 
+  test "negotiates IRCv3 echo metadata with InspIRCd" do
+    channel = "#ircxdv3#{System.unique_integer([:positive])}"
+    client_nick = "ircxdv3#{System.unique_integer([:positive])}"
+    requested_caps = ["echo-message", "server-time"]
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: @host,
+        port: @port,
+        tls: false,
+        nick: client_nick,
+        username: client_nick,
+        realname: "Ircxd IRCv3 Test",
+        caps: requested_caps,
+        notify: self()
+      )
+
+    assert {:ok, caps} =
+             wait_for_event(fn
+               {:cap_ls, caps} -> {:ok, caps}
+               _ -> :cont
+             end)
+
+    Enum.each(requested_caps, fn cap -> assert Map.has_key?(caps, cap) end)
+
+    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+
+    assert :ok = Ircxd.Client.join(client, channel)
+
+    assert {:ok, %{nick: ^client_nick, channel: ^channel}} =
+             wait_for_event(fn
+               {:join, payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert :ok = Ircxd.Client.privmsg(client, channel, "echo metadata from ircxd")
+
+    assert {:ok,
+            %{
+              nick: ^client_nick,
+              target: ^channel,
+              body: "echo metadata from ircxd",
+              server_time: %DateTime{}
+            }} =
+             wait_for_event(fn
+               {:privmsg, %{nick: ^client_nick, target: ^channel} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+  end
+
   test "retries nickname when the requested nick is in use" do
     base_nick = "taken#{System.unique_integer([:positive])}"
     {:ok, holder} = RawIrcClient.connect(host: @host, port: @port, nick: base_nick)
