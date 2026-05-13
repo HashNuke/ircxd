@@ -8,7 +8,9 @@ defmodule Ircxd.MixProject do
       elixir: "~> 1.19",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      description: description(),
+      docs: docs()
     ]
   end
 
@@ -23,8 +25,46 @@ defmodule Ircxd.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
+      {:ex_doc, "~> 0.38", only: :dev, runtime: false}
+    ]
+  end
+
+  defp description do
+    "IRC v2/Modern IRC and IRCv3 client library for Elixir applications."
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      extras: [
+        "README.md",
+        "docs/completion_audit.md",
+        "docs/spec_audit.md",
+        "docs/stable_spec_matrix.md",
+        "docs/ircv3_index_audit.md",
+        "docs/host_boundaries.md",
+        "docs/embedding_events.md",
+        "docs/dcc_boundaries.md",
+        "docs/sts_boundaries.md",
+        "docs/websocket_adapters.md",
+        "docs/specs.md"
+      ],
+      groups_for_extras: [
+        Audits: [
+          "docs/completion_audit.md",
+          "docs/spec_audit.md",
+          "docs/stable_spec_matrix.md",
+          "docs/ircv3_index_audit.md"
+        ],
+        "Embedding Guides": [
+          "docs/host_boundaries.md",
+          "docs/embedding_events.md",
+          "docs/dcc_boundaries.md",
+          "docs/sts_boundaries.md",
+          "docs/websocket_adapters.md"
+        ],
+        References: ["docs/specs.md"]
+      ]
     ]
   end
 

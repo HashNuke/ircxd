@@ -10,6 +10,8 @@ defmodule Ircxd.CTCP do
 
   defstruct command: nil, params: nil
 
+  @type t :: %__MODULE__{command: String.t(), params: String.t()}
+
   def encode(command, params \\ "") do
     params = to_string(params)
 
