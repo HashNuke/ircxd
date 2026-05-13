@@ -1,0 +1,42 @@
+defmodule Ircxd.ClientFileHostTest do
+  use ExUnit.Case, async: false
+
+  alias Ircxd.ScriptedIrcServer
+
+  test "exposes the soju.im/FILEHOST upload URL from ISUPPORT" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :"]
+
+           "CAP END", _state ->
+             [
+               ":irc.test 001 nick :Welcome",
+               ":irc.test 005 nick soju.im/FILEHOST=https://irc.example.org/upload :are supported by this server"
+             ]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        notify: self()
+      )
+
+    assert_receive {:ircxd,
+                    {:isupport, %{"soju.im/FILEHOST" => "https://irc.example.org/upload"}}},
+                   1_000
+
+    assert {:ok, "https://irc.example.org/upload"} = Ircxd.Client.filehost_upload_url(client)
+  end
+end

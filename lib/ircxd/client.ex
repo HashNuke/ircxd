@@ -24,6 +24,7 @@ defmodule Ircxd.Client do
   alias Ircxd.AccountExtban
   alias Ircxd.ChatHistory
   alias Ircxd.ClientTagDeny
+  alias Ircxd.FileHost
   alias Ircxd.Metadata
   alias Ircxd.Message
   alias Ircxd.Monitor
@@ -341,6 +342,7 @@ defmodule Ircxd.Client do
       )
 
   def isupport(client), do: GenServer.call(client, :send_isupport)
+  def filehost_upload_url(client), do: GenServer.call(client, :filehost_upload_url)
 
   def raw_tagged(client, command, params, tags),
     do: GenServer.call(client, {:send, %Message{command: command, params: params, tags: tags}})
@@ -481,6 +483,10 @@ defmodule Ircxd.Client do
 
   def handle_call({:client_tag_denied?, tag}, _from, state) do
     {:reply, ClientTagDeny.denied?(state.isupport["CLIENTTAGDENY"], tag), state}
+  end
+
+  def handle_call(:filehost_upload_url, _from, state) do
+    {:reply, FileHost.upload_url(state.isupport, state.tls), state}
   end
 
   def handle_call(:send_isupport, _from, state) do

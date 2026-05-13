@@ -113,12 +113,13 @@ Implemented and tested:
 - Client-initiated batch helper with required capability checks and nested-batch
   rejection.
 - Extended-isupport command helper and `draft/isupport` batch aggregation.
+- Work-in-progress `soju.im/FILEHOST` ISUPPORT token helper and upload URL
+  safety checks.
 - Channel rename, message redaction, read markers, account registration,
   pre-away, draft reactions, and draft channel-context helpers.
 
 Remaining draft/WIP gaps:
 
-- `draft/filehost` is not implemented.
 - Draft implementations should be rechecked before release because draft specs
   may change.
 
