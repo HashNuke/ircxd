@@ -163,6 +163,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - WHOX `354` numerics against InspIRCd.
 - Channel mode `324` and creation time `329` numerics against InspIRCd.
 - Topic `332` and `333` numerics against InspIRCd.
+- Ban list `367` and `368` numerics against InspIRCd.
 - Nickname collision retry against InspIRCd.
 - Optional reconnect after a transport close.
 - SASL PLAIN client negotiation against a scripted IRC server.

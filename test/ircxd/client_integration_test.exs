@@ -487,6 +487,58 @@ defmodule Ircxd.ClientIntegrationTest do
     assert String.to_integer(set_at) > 0
   end
 
+  test "receives ban list numerics from InspIRCd" do
+    channel = "#ircxdban#{System.unique_integer([:positive])}"
+    client_nick = "ircxdban#{System.unique_integer([:positive])}"
+    mask = "*!*@example.test"
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: @host,
+        port: @port,
+        tls: false,
+        nick: client_nick,
+        username: client_nick,
+        realname: "Ircxd Ban Test",
+        notify: self()
+      )
+
+    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+    assert :ok = Ircxd.Client.join(client, channel)
+
+    assert {:ok, %{nick: ^client_nick, channel: ^channel}} =
+             wait_for_event(fn
+               {:join, %{nick: ^client_nick, channel: ^channel} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert :ok = Ircxd.Client.mode(client, channel, "+b", [mask])
+
+    assert {:ok, %{target: ^channel, modes: "+b", params: [^mask]}} =
+             wait_for_event(fn
+               {:mode, %{target: ^channel, modes: "+b"} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert :ok = Ircxd.Client.mode(client, channel, "+b")
+
+    assert {:ok, %{channel: ^channel, mask: ^mask, params: params}} =
+             wait_for_event(fn
+               {:ban_list, %{channel: ^channel, mask: ^mask} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert [setter, set_at] = params
+    assert setter =~ client_nick
+    assert String.to_integer(set_at) > 0
+
+    assert {:ok, %{channel: ^channel}} =
+             wait_for_event(fn
+               {:ban_list_end, %{channel: ^channel} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+  end
+
   test "retries nickname when the requested nick is in use" do
     base_nick = "taken#{System.unique_integer([:positive])}"
     {:ok, holder} = RawIrcClient.connect(host: @host, port: @port, nick: base_nick)
