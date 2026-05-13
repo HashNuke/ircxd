@@ -36,7 +36,7 @@ IRCXD_INCLUDE_IRSSI=1 scripts/run_verification_gates.sh
 ```
 
 Latest optional full-gate evidence, including irssi, was refreshed on
-2026-05-13.
+2026-05-13 after commit `46649c9`.
 
 Format check:
 
