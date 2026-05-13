@@ -147,4 +147,44 @@ defmodule Ircxd.ClientMetadataTest do
 
     refute_receive {:scripted_irc_line, "METADATA alice GET profile.website"}, 250
   end
+
+  test "rejects METADATA after metadata is deleted" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :metadata"]
+
+           "CAP REQ metadata", _state ->
+             [":irc.test CAP * ACK :metadata"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome", ":irc.test CAP * DEL :metadata"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        caps: ["metadata"],
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+    assert_receive {:ircxd, {:cap_del, ["metadata"]}}, 1_000
+
+    assert {:error, {:capability_not_enabled, "metadata"}} =
+             Ircxd.Client.metadata_get(client, "alice", ["profile.website"])
+
+    refute_receive {:scripted_irc_line, "METADATA alice GET profile.website"}, 250
+  end
 end
