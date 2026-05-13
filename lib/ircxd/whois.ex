@@ -15,6 +15,9 @@ defmodule Ircxd.Whois do
   def parse_operator([_me, nick, text]), do: %{nick: nick, text: text}
   def parse_operator(_params), do: nil
 
+  def parse_bot([_me, nick, message]), do: %{nick: nick, message: message, bot?: true}
+  def parse_bot(_params), do: nil
+
   def parse_idle([_me, nick, idle_seconds, signon | _rest]) do
     %{nick: nick, idle_seconds: parse_int(idle_seconds), signon: parse_int(signon)}
   end

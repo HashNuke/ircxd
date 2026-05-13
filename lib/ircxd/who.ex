@@ -3,7 +3,12 @@ defmodule Ircxd.Who do
   Parsers for WHO/WHOX replies.
   """
 
-  def parse_reply([_me, channel, username, host, server, nick, flags, hops_and_realname]) do
+  def parse_reply(params, bot_flag \\ nil)
+
+  def parse_reply(
+        [_me, channel, username, host, server, nick, flags, hops_and_realname],
+        bot_flag
+      ) do
     {hops, realname} = parse_hops_realname(hops_and_realname)
 
     %{
@@ -15,13 +20,14 @@ defmodule Ircxd.Who do
       flags: flags,
       away?: String.contains?(flags, "G"),
       oper?: String.contains?(flags, "*"),
+      bot?: bot?(flags, bot_flag),
       prefixes: membership_prefixes(flags),
       hops: hops,
       realname: realname
     }
   end
 
-  def parse_reply(_params), do: nil
+  def parse_reply(_params, _bot_flag), do: nil
 
   def parse_whox([_me, _token | fields]) do
     parse_whox_fields(fields)
@@ -49,6 +55,9 @@ defmodule Ircxd.Who do
     |> String.graphemes()
     |> Enum.filter(&(&1 in ["~", "&", "@", "%", "+"]))
   end
+
+  defp bot?(_flags, nil), do: false
+  defp bot?(flags, bot_flag), do: String.contains?(flags, bot_flag)
 
   defp parse_int(value) do
     case Integer.parse(value) do

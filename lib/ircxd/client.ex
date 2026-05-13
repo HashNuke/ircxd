@@ -106,6 +106,8 @@ defmodule Ircxd.Client do
   def whowas(client, nick, nil), do: GenServer.call(client, {:send, "WHOWAS", [nick]})
   def whowas(client, nick, count), do: GenServer.call(client, {:send, "WHOWAS", [nick, count]})
 
+  def bot_mode(client, enabled \\ true), do: GenServer.call(client, {:bot_mode, enabled})
+
   def register_account(client, account, email, password),
     do: GenServer.call(client, {:send, "REGISTER", [account, email, password]})
 
@@ -232,6 +234,7 @@ defmodule Ircxd.Client do
       server_time_flush_timer: nil,
       available_caps: %{},
       active_caps: MapSet.new(),
+      isupport: %{},
       current_nick: Keyword.fetch!(opts, :nick),
       nick_retry_fun: Keyword.get(opts, :nick_retry_fun, &default_nick_retry/2),
       sasl: Keyword.get(opts, :sasl),
@@ -301,6 +304,21 @@ defmodule Ircxd.Client do
     end
   end
 
+  def handle_call({:bot_mode, enabled}, _from, state) do
+    case Map.fetch(state.isupport, "BOT") do
+      {:ok, mode} when is_binary(mode) ->
+        sign = if enabled, do: "+", else: "-"
+
+        case send_message(state, "MODE", [state.current_nick, sign <> mode]) do
+          :ok -> {:reply, :ok, state}
+          error -> {:reply, error, state}
+        end
+
+      _ ->
+        {:reply, {:error, :bot_mode_not_supported}, state}
+    end
+  end
+
   def handle_call(:flush_server_time, _from, state) do
     {:reply, :ok, flush_server_time_buffer(state)}
   end
@@ -357,6 +375,7 @@ defmodule Ircxd.Client do
           registered?: false,
           available_caps: %{},
           active_caps: MapSet.new(),
+          isupport: %{},
           active_batches: %{},
           multiline_batches: %{},
           labeled_response_batches: %{},
@@ -461,7 +480,9 @@ defmodule Ircxd.Client do
         {:noreply, state}
 
       {:ok, %Message{command: "005"} = message} ->
-        state = emit(state, {:isupport, ISupport.parse_params(message.params)})
+        tokens = ISupport.parse_params(message.params)
+        state = %{state | isupport: Map.merge(state.isupport, tokens)}
+        state = emit(state, {:isupport, tokens})
         state = emit(state, {:message, message})
         {:noreply, state}
 
@@ -485,7 +506,7 @@ defmodule Ircxd.Client do
         {:noreply, state}
 
       {:ok, %Message{command: "352"} = message} ->
-        state = emit(state, {:who_reply, Who.parse_reply(message.params)})
+        state = emit(state, {:who_reply, Who.parse_reply(message.params, state.isupport["BOT"])})
         state = emit(state, {:message, message})
         {:noreply, state}
 
@@ -512,7 +533,19 @@ defmodule Ircxd.Client do
         {:noreply, state}
 
       {:ok, %Message{command: command} = message}
-      when command in ["311", "312", "313", "317", "319", "330", "338", "379", "671", "318"] ->
+      when command in [
+             "311",
+             "312",
+             "313",
+             "317",
+             "319",
+             "330",
+             "335",
+             "338",
+             "379",
+             "671",
+             "318"
+           ] ->
         state = emit_event(state, whois_event(command, message.params), message)
         state = emit(state, {:message, message})
         {:noreply, state}
@@ -581,6 +614,7 @@ defmodule Ircxd.Client do
        msgid: Tags.msgid(message),
        batch: Tags.batch(message),
        account: Tags.account(message),
+       bot?: Tags.bot?(message),
        message: message
      }}
   end
@@ -600,6 +634,7 @@ defmodule Ircxd.Client do
        msgid: Tags.msgid(message),
        batch: Tags.batch(message),
        account: Tags.account(message),
+       bot?: Tags.bot?(message),
        message: message
      }}
   end
@@ -618,6 +653,7 @@ defmodule Ircxd.Client do
        msgid: Tags.msgid(message),
        batch: Tags.batch(message),
        account: Tags.account(message),
+       bot?: Tags.bot?(message),
        message: message
      }}
   end
@@ -917,6 +953,7 @@ defmodule Ircxd.Client do
   defp whois_event("311", params), do: {:whois_user, Whois.parse_user(params)}
   defp whois_event("312", params), do: {:whois_server, Whois.parse_server(params)}
   defp whois_event("313", params), do: {:whois_operator, Whois.parse_operator(params)}
+  defp whois_event("335", params), do: {:whois_bot, Whois.parse_bot(params)}
   defp whois_event("317", params), do: {:whois_idle, Whois.parse_idle(params)}
   defp whois_event("319", params), do: {:whois_channels, Whois.parse_channels(params)}
   defp whois_event("330", params), do: {:whois_account, Whois.parse_account(params)}

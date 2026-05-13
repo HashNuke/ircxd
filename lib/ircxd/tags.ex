@@ -27,4 +27,7 @@ defmodule Ircxd.Tags do
   def account(%{tags: tags}), do: account(tags)
   def account(%{"account" => "*"}), do: nil
   def account(tags) when is_map(tags), do: Map.get(tags, "account")
+
+  def bot?(%{tags: tags}), do: bot?(tags)
+  def bot?(tags) when is_map(tags), do: Map.has_key?(tags, "bot")
 end
