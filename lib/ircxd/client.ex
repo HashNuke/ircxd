@@ -1171,6 +1171,56 @@ defmodule Ircxd.Client do
   defp event_for(%Message{command: "302", params: [_me, replies]} = message),
     do: {:userhost, %{replies: String.split(replies, " ", trim: true), message: message}}
 
+  defp event_for(%Message{command: "351", params: [_me, version, server | rest]} = message),
+    do:
+      {:version,
+       %{version: version, server: server, comments: List.first(rest), message: message}}
+
+  defp event_for(%Message{command: "212", params: [_me, command, count | rest]} = message),
+    do: {:stats_command, %{command: command, count: count, params: rest, message: message}}
+
+  defp event_for(%Message{command: "219", params: [_me, query, text]} = message),
+    do: {:stats_end, %{query: query, text: text, message: message}}
+
+  defp event_for(%Message{command: "704", params: [_me, subject, text]} = message),
+    do: {:help_start, %{subject: subject, text: text, message: message}}
+
+  defp event_for(%Message{command: "705", params: [_me, subject, text]} = message),
+    do: {:help, %{subject: subject, text: text, message: message}}
+
+  defp event_for(%Message{command: "706", params: [_me, subject, text]} = message),
+    do: {:help_end, %{subject: subject, text: text, message: message}}
+
+  defp event_for(%Message{command: "221", params: [_me, modes]} = message),
+    do: {:user_mode, %{modes: modes, message: message}}
+
+  defp event_for(%Message{command: "324", params: [_me, channel, modes | params]} = message),
+    do: {:channel_mode, %{channel: channel, modes: modes, params: params, message: message}}
+
+  defp event_for(%Message{command: "329", params: [_me, channel, created_at]} = message),
+    do: {:channel_created, %{channel: channel, created_at: created_at, message: message}}
+
+  defp event_for(%Message{command: "341", params: [_me, nick, channel]} = message),
+    do: {:inviting, %{nick: nick, channel: channel, message: message}}
+
+  defp event_for(%Message{command: "367", params: [_me, channel, mask | rest]} = message),
+    do: {:ban_list, %{channel: channel, mask: mask, params: rest, message: message}}
+
+  defp event_for(%Message{command: "368", params: [_me, channel, text]} = message),
+    do: {:ban_list_end, %{channel: channel, text: text, message: message}}
+
+  defp event_for(%Message{command: "346", params: [_me, channel, mask | rest]} = message),
+    do: {:invite_exception_list, %{channel: channel, mask: mask, params: rest, message: message}}
+
+  defp event_for(%Message{command: "347", params: [_me, channel, text]} = message),
+    do: {:invite_exception_list_end, %{channel: channel, text: text, message: message}}
+
+  defp event_for(%Message{command: "348", params: [_me, channel, mask | rest]} = message),
+    do: {:exception_list, %{channel: channel, mask: mask, params: rest, message: message}}
+
+  defp event_for(%Message{command: "349", params: [_me, channel, text]} = message),
+    do: {:exception_list_end, %{channel: channel, text: text, message: message}}
+
   defp event_for(%Message{command: command, params: params} = message)
        when command in ["FAIL", "WARN", "NOTE"] do
     case StandardReply.parse(command, params) do

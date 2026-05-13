@@ -166,6 +166,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - SASL v3.2 `908 RPL_SASLMECHS` parsing without treating the mechanism list as failure.
 - Modern IRC state-change events: `NICK`, `JOIN`, `PART`, `QUIT`, `KICK`, `TOPIC`, `MODE`, and `ERROR`.
 - Modern IRC server-query numeric events for `LIST`, `MOTD`, `ADMIN`, `LUSERS`, `TIME`, `INFO`, `LINKS`, and `USERHOST`.
+- Modern IRC numeric events for `VERSION`, `STATS`, `HELP`, user/channel modes, invites, and channel mask lists.
 - IRCv3 `extended-join` account and realname metadata.
 - IRCv3 `account-tag`, `account-notify`, `away-notify`, and `chghost` events.
 - IRCv3 `multi-prefix` rank-ordered prefixes in `RPL_NAMREPLY`.
