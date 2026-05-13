@@ -69,7 +69,22 @@ defmodule Ircxd.ClientCoreCommandsTest do
     assert :ok = Ircxd.Client.info(client, "irc.example.test")
     assert :ok = Ircxd.Client.links(client, "remote.example.test", "*.example.test")
     assert :ok = Ircxd.Client.userhost(client, ["alice", "bob"])
+    assert :ok = Ircxd.Client.ison(client, ["alice", "bob"])
     assert :ok = Ircxd.Client.wallops(client, "network notice")
+    assert :ok = Ircxd.Client.oper(client, "root", "secret")
+    assert :ok = Ircxd.Client.kill(client, "badnick", "bad behavior")
+    assert :ok = Ircxd.Client.squery(client, "NickServ", "HELP")
+    assert :ok = Ircxd.Client.trace(client, "irc.example.test")
+
+    assert :ok =
+             Ircxd.Client.connect_server(client, "irc2.example.test", 7000, "irc.example.test")
+
+    assert :ok = Ircxd.Client.squit(client, "irc2.example.test", "maintenance")
+    assert :ok = Ircxd.Client.rehash(client)
+    assert :ok = Ircxd.Client.restart(client)
+    assert :ok = Ircxd.Client.summon(client, "alice", "irc.example.test", "#elixir")
+    assert :ok = Ircxd.Client.users(client, "irc.example.test")
+    assert :ok = Ircxd.Client.servlist(client, "*Serv", "0")
 
     assert_receive {:scripted_irc_line, "NICK nick2"}, 1_000
     assert_receive {:scripted_irc_line, "LIST #elixir,#erlang irc.example.test"}, 1_000
@@ -84,6 +99,18 @@ defmodule Ircxd.ClientCoreCommandsTest do
     assert_receive {:scripted_irc_line, "INFO irc.example.test"}, 1_000
     assert_receive {:scripted_irc_line, "LINKS remote.example.test *.example.test"}, 1_000
     assert_receive {:scripted_irc_line, "USERHOST alice,bob"}, 1_000
+    assert_receive {:scripted_irc_line, "ISON alice,bob"}, 1_000
     assert_receive {:scripted_irc_line, "WALLOPS :network notice"}, 1_000
+    assert_receive {:scripted_irc_line, "OPER root secret"}, 1_000
+    assert_receive {:scripted_irc_line, "KILL badnick :bad behavior"}, 1_000
+    assert_receive {:scripted_irc_line, "SQUERY NickServ HELP"}, 1_000
+    assert_receive {:scripted_irc_line, "TRACE irc.example.test"}, 1_000
+    assert_receive {:scripted_irc_line, "CONNECT irc2.example.test 7000 irc.example.test"}, 1_000
+    assert_receive {:scripted_irc_line, "SQUIT irc2.example.test maintenance"}, 1_000
+    assert_receive {:scripted_irc_line, "REHASH"}, 1_000
+    assert_receive {:scripted_irc_line, "RESTART"}, 1_000
+    assert_receive {:scripted_irc_line, "SUMMON alice irc.example.test #elixir"}, 1_000
+    assert_receive {:scripted_irc_line, "USERS irc.example.test"}, 1_000
+    assert_receive {:scripted_irc_line, "SERVLIST *Serv 0"}, 1_000
   end
 end

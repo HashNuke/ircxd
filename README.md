@@ -23,7 +23,7 @@ The library currently provides:
 - SASL mechanism fallback across configured mechanisms such as `EXTERNAL` then `PLAIN`.
 - SASL v3.2 mechanism-list events from `908 RPL_SASLMECHS`.
 - Automatic `PING`/`PONG`.
-- Modern IRC helpers for registration, channel operations, server queries, user queries, messaging, and raw commands.
+- Modern IRC helpers for registration, channel operations, server/operator queries, service queries, user queries, messaging, and raw commands.
 - Outbound IRCv3 tagged messages for client-only tags and labeled responses.
 - IRCv3 `BATCH`, labeled-response, identity, presence, and standard-reply events.
 - IRCv3 stable `netsplit` and `netjoin` batch aggregation events.
@@ -151,6 +151,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Client registration against InspIRCd.
 - Capability listing and ACK flow against InspIRCd.
 - Modern IRC `PASS` startup ordering and core command helper serialization.
+- Modern IRC helper serialization for operator, server-link, service, trace, status, and legacy query commands.
 - Capability `NAK`, `NEW`, and `DEL` handling against scripted servers.
 - Channel join and bidirectional channel messaging against InspIRCd.
 - IRCv3 `echo-message` self-echo and `server-time` metadata against InspIRCd.

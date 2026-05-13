@@ -195,7 +195,54 @@ defmodule Ircxd.Client do
   def userhost(client, nicks),
     do: GenServer.call(client, {:send, "USERHOST", [join_targets(nicks)]})
 
+  def ison(client, nicks), do: GenServer.call(client, {:send, "ISON", [join_targets(nicks)]})
+
   def wallops(client, message), do: GenServer.call(client, {:send, "WALLOPS", [message]})
+
+  def oper(client, name, password), do: GenServer.call(client, {:send, "OPER", [name, password]})
+
+  def kill(client, nick, comment),
+    do: GenServer.call(client, {:send, "KILL", [nick, comment]})
+
+  def squery(client, service, text),
+    do: GenServer.call(client, {:send, "SQUERY", [service, text]})
+
+  def trace(client, target \\ nil)
+  def trace(client, nil), do: GenServer.call(client, {:send, "TRACE", []})
+  def trace(client, target), do: GenServer.call(client, {:send, "TRACE", [target]})
+
+  def connect_server(client, target_server, port, remote_server \\ nil)
+
+  def connect_server(client, target_server, port, nil),
+    do: GenServer.call(client, {:send, "CONNECT", [target_server, to_string(port)]})
+
+  def connect_server(client, target_server, port, remote_server),
+    do:
+      GenServer.call(client, {:send, "CONNECT", [target_server, to_string(port), remote_server]})
+
+  def squit(client, server, comment),
+    do: GenServer.call(client, {:send, "SQUIT", [server, comment]})
+
+  def rehash(client), do: GenServer.call(client, {:send, "REHASH", []})
+  def restart(client), do: GenServer.call(client, {:send, "RESTART", []})
+
+  def summon(client, user, target \\ nil, channel \\ nil)
+  def summon(client, user, nil, nil), do: GenServer.call(client, {:send, "SUMMON", [user]})
+
+  def summon(client, user, target, nil),
+    do: GenServer.call(client, {:send, "SUMMON", [user, target]})
+
+  def summon(client, user, target, channel),
+    do: GenServer.call(client, {:send, "SUMMON", [user, target, channel]})
+
+  def users(client, target \\ nil)
+  def users(client, nil), do: GenServer.call(client, {:send, "USERS", []})
+  def users(client, target), do: GenServer.call(client, {:send, "USERS", [target]})
+
+  def servlist(client, mask \\ nil, type \\ nil)
+  def servlist(client, nil, nil), do: GenServer.call(client, {:send, "SERVLIST", []})
+  def servlist(client, mask, nil), do: GenServer.call(client, {:send, "SERVLIST", [mask]})
+  def servlist(client, mask, type), do: GenServer.call(client, {:send, "SERVLIST", [mask, type]})
 
   def bot_mode(client, enabled \\ true), do: GenServer.call(client, {:bot_mode, enabled})
 
