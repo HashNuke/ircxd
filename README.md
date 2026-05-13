@@ -180,6 +180,9 @@ Expected evidence in irssi:
 See `docs/spec_audit.md` for the current prompt-to-artifact audit and known
 remaining gaps.
 
+See `docs/completion_audit.md` for the current requirement-to-artifact checklist
+and verification gates.
+
 See `docs/host_boundaries.md` for what belongs in `ircxd` core versus embedding
 applications.
 
