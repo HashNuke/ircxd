@@ -91,6 +91,12 @@ defmodule Ircxd.Client do
 
   def typing(_client, _target, _status), do: {:error, :invalid_typing_status}
 
+  def react(client, target, reply_to_msgid, reaction),
+    do: reaction_tagmsg(client, target, reply_to_msgid, "+draft/react", reaction)
+
+  def unreact(client, target, reply_to_msgid, reaction),
+    do: reaction_tagmsg(client, target, reply_to_msgid, "+draft/unreact", reaction)
+
   def redact(client, target, msgid, reason \\ nil)
 
   def redact(client, target, msgid, nil),
@@ -1088,6 +1094,7 @@ defmodule Ircxd.Client do
       |> maybe_emit_duplicate_msgid(event)
       |> emit(event)
       |> maybe_emit_typing(event)
+      |> maybe_emit_reaction(event)
       |> maybe_emit_labeled_response(event, message)
       |> maybe_emit_batched(event, message)
 
@@ -1165,6 +1172,41 @@ defmodule Ircxd.Client do
   end
 
   defp maybe_emit_typing(state, _event), do: state
+
+  defp maybe_emit_reaction(
+         state,
+         {:tagmsg,
+          %{
+            source: source,
+            raw_source: raw_source,
+            nick: nick,
+            target: target,
+            tags: tags,
+            message: message
+          }}
+       ) do
+    case reaction_from_tags(tags) do
+      nil ->
+        state
+
+      %{action: action, reaction: reaction, reply_to_msgid: reply_to_msgid} ->
+        emit(state, {
+          :reaction,
+          %{
+            source: source,
+            raw_source: raw_source,
+            nick: nick,
+            target: target,
+            action: action,
+            reaction: reaction,
+            reply_to_msgid: reply_to_msgid,
+            message: message
+          }
+        })
+    end
+  end
+
+  defp maybe_emit_reaction(state, _event), do: state
 
   defp maybe_emit_labeled_response(state, event, message) do
     state = maybe_ack_labeled_request(state, event)
@@ -1502,6 +1544,34 @@ defmodule Ircxd.Client do
   defp parse_typing_status("paused"), do: :paused
   defp parse_typing_status("done"), do: :done
   defp parse_typing_status(status), do: {:unknown, status}
+
+  defp reaction_tagmsg(_client, _target, "", _tag, _reaction), do: {:error, :missing_reply_msgid}
+  defp reaction_tagmsg(_client, _target, nil, _tag, _reaction), do: {:error, :missing_reply_msgid}
+
+  defp reaction_tagmsg(_client, _target, _reply_to_msgid, _tag, ""),
+    do: {:error, :missing_reaction}
+
+  defp reaction_tagmsg(_client, _target, _reply_to_msgid, _tag, nil),
+    do: {:error, :missing_reaction}
+
+  defp reaction_tagmsg(client, target, reply_to_msgid, tag, reaction),
+    do: tagmsg(client, target, %{tag => reaction, "+reply" => reply_to_msgid})
+
+  defp reaction_from_tags(%{
+         "+draft/react" => _reaction,
+         "+draft/unreact" => _unreaction
+       }),
+       do: nil
+
+  defp reaction_from_tags(%{"+draft/react" => reaction, "+reply" => reply_to_msgid}) do
+    %{action: :react, reaction: reaction, reply_to_msgid: reply_to_msgid}
+  end
+
+  defp reaction_from_tags(%{"+draft/unreact" => reaction, "+reply" => reply_to_msgid}) do
+    %{action: :unreact, reaction: reaction, reply_to_msgid: reply_to_msgid}
+  end
+
+  defp reaction_from_tags(_tags), do: nil
 
   defp select_first_sasl_mechanism(state), do: %{state | sasl_index: 0}
 
