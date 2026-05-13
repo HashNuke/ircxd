@@ -60,6 +60,9 @@ that implements `Ircxd.WebSocket.Adapter`:
 @callback close(state(), term()) :: :ok | {:error, term()}
 ```
 
+`close/2` is optional. `Ircxd.WebSocket.close/3` returns
+`{:error, :unsupported_close}` for adapters that only support sending frames.
+
 The bundled `Ircxd.WebSocket.MemoryAdapter` exists for tests and adapter-boundary
 verification. Production Phoenix/Cowboy/Bandit adapters can live in the host app
 or optional packages without coupling `ircxd` core to a specific web stack.

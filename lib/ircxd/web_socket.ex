@@ -61,7 +61,11 @@ defmodule Ircxd.WebSocket do
   end
 
   def close(adapter, adapter_state, reason) do
-    adapter.close(adapter_state, reason)
+    if function_exported?(adapter, :close, 2) do
+      adapter.close(adapter_state, reason)
+    else
+      {:error, :unsupported_close}
+    end
   end
 
   defp strip_crlf(line) do

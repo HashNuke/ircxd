@@ -21,6 +21,16 @@ defmodule Ircxd.WebSocketTest do
     end
   end
 
+  defmodule SendOnlyAdapter do
+    @behaviour Ircxd.WebSocket.Adapter
+
+    @impl true
+    def send_frame(owner, mode, payload) do
+      send(owner, {:send_only_frame, mode, payload})
+      :ok
+    end
+  end
+
   test "lists IRCv3 WebSocket subprotocols in preference order" do
     assert WebSocket.subprotocols() == ["binary.ircv3.net", "text.ircv3.net"]
     assert WebSocket.subprotocols([:text, :binary]) == ["text.ircv3.net", "binary.ircv3.net"]
@@ -74,6 +84,10 @@ defmodule Ircxd.WebSocketTest do
   test "delegates websocket close through an adapter" do
     assert :ok = WebSocket.close(TestAdapter, self(), :normal)
     assert_receive {:closed, :normal}
+  end
+
+  test "reports unsupported close for send-only adapters" do
+    assert {:error, :unsupported_close} = WebSocket.close(SendOnlyAdapter, self(), :normal)
   end
 
   test "ships an in-memory adapter for adapter-boundary tests" do

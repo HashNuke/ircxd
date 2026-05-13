@@ -151,6 +151,7 @@ Remaining IRCv3 stable gaps:
 
 - Full WebSocket transport adapters are intentionally not bundled yet; only the
   adapter behaviour, payload validation, and send/close dispatch helpers exist.
+  Optional adapter close callbacks are handled without raising.
 - More real-server coverage is still desirable for `standard-replies`; scripted
   parsing and real capability negotiation are covered, but deterministic
   `FAIL`, `WARN`, or `NOTE` emission has not been reproduced against local
