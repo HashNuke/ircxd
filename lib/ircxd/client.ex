@@ -82,6 +82,11 @@ defmodule Ircxd.Client do
   def tagmsg(client, target, tags) when is_map(tags),
     do: GenServer.call(client, {:send, %Message{command: "TAGMSG", params: [target], tags: tags}})
 
+  def typing(client, target, status) when status in [:active, :paused, :done],
+    do: tagmsg(client, target, %{"+typing" => Atom.to_string(status)})
+
+  def typing(_client, _target, _status), do: {:error, :invalid_typing_status}
+
   def redact(client, target, msgid, reason \\ nil)
 
   def redact(client, target, msgid, nil),
@@ -1070,6 +1075,7 @@ defmodule Ircxd.Client do
       state
       |> maybe_emit_duplicate_msgid(event)
       |> emit(event)
+      |> maybe_emit_typing(event)
       |> maybe_emit_labeled_response(event, message)
       |> maybe_emit_batched(event, message)
 
@@ -1119,6 +1125,34 @@ defmodule Ircxd.Client do
   end
 
   defp maybe_emit_duplicate_msgid(state, _event), do: state
+
+  defp maybe_emit_typing(
+         state,
+         {:tagmsg,
+          %{
+            source: source,
+            raw_source: raw_source,
+            nick: nick,
+            target: target,
+            tags: %{"+typing" => status},
+            message: message
+          }}
+       ) do
+    emit(state, {
+      :typing,
+      %{
+        source: source,
+        raw_source: raw_source,
+        nick: nick,
+        target: target,
+        status: parse_typing_status(status),
+        raw_status: status,
+        message: message
+      }
+    })
+  end
+
+  defp maybe_emit_typing(state, _event), do: state
 
   defp maybe_emit_labeled_response(state, event, message) do
     state = maybe_ack_labeled_request(state, event)
@@ -1451,6 +1485,11 @@ defmodule Ircxd.Client do
   defp parse_sasl_mechanisms(mechanisms) do
     String.split(mechanisms, ",", trim: true)
   end
+
+  defp parse_typing_status("active"), do: :active
+  defp parse_typing_status("paused"), do: :paused
+  defp parse_typing_status("done"), do: :done
+  defp parse_typing_status(status), do: {:unknown, status}
 
   defp select_first_sasl_mechanism(state), do: %{state | sasl_index: 0}
 

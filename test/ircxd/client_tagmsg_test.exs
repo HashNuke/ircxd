@@ -18,7 +18,9 @@ defmodule Ircxd.ClientTagmsgTest do
            "CAP END", _state ->
              [
                ":irc.test 001 nick :Welcome",
-               "@+typing=active :alice!a@example.test TAGMSG #elixir"
+               "@+typing=active :alice!a@example.test TAGMSG #elixir",
+               "@+typing=paused :alice!a@example.test TAGMSG nick",
+               "@+typing=done :alice!a@example.test TAGMSG #elixir"
              ]
 
            _line, _state ->
@@ -46,7 +48,26 @@ defmodule Ircxd.ClientTagmsgTest do
                      }}},
                    1_000
 
-    assert :ok = Ircxd.Client.tagmsg(client, "#elixir", %{"+typing" => "done"})
+    assert_receive {:ircxd,
+                    {:typing,
+                     %{
+                       nick: "alice",
+                       target: "#elixir",
+                       status: :active
+                     }}},
+                   1_000
+
+    assert_receive {:ircxd, {:typing, %{nick: "alice", target: "nick", status: :paused}}},
+                   1_000
+
+    assert_receive {:ircxd, {:typing, %{nick: "alice", target: "#elixir", status: :done}}},
+                   1_000
+
+    assert :ok = Ircxd.Client.typing(client, "#elixir", :done)
     assert_receive {:scripted_irc_line, "@+typing=done TAGMSG #elixir"}, 1_000
+  end
+
+  test "validates outbound typing statuses" do
+    assert {:error, :invalid_typing_status} = Ircxd.Client.typing(self(), "#elixir", :invalid)
   end
 end
