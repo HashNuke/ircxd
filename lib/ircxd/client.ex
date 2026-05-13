@@ -7,6 +7,8 @@ defmodule Ircxd.Client do
     * `:host` - IRC server host.
     * `:port` - IRC server port.
     * `:tls` - true for implicit TLS.
+    * `:sni` - TLS Server Name Indication hostname, defaults to `:host`.
+    * `:tls_options` - additional Erlang `:ssl.connect/4` options.
     * `:nick` - desired nickname.
     * `:username` - username sent in registration.
     * `:realname` - realname sent in registration.
@@ -250,6 +252,8 @@ defmodule Ircxd.Client do
       host: Keyword.fetch!(opts, :host),
       port: Keyword.get(opts, :port, if(Keyword.get(opts, :tls, false), do: 6697, else: 6667)),
       tls: Keyword.get(opts, :tls, false),
+      sni: Keyword.get(opts, :sni, Keyword.fetch!(opts, :host)),
+      tls_options: Keyword.get(opts, :tls_options, []),
       nick: Keyword.fetch!(opts, :nick),
       username: Keyword.get(opts, :username, Keyword.fetch!(opts, :nick)),
       realname: Keyword.get(opts, :realname, Keyword.fetch!(opts, :nick)),
@@ -376,9 +380,26 @@ defmodule Ircxd.Client do
     end
   end
 
+  @doc false
+  def __tls_connect_options__(state) do
+    default_sni = [
+      server_name_indication:
+        state
+        |> Map.get(:sni, Map.fetch!(state, :host))
+        |> String.to_charlist()
+    ]
+
+    Keyword.merge(default_sni, Map.get(state, :tls_options, []))
+  end
+
   defp connect(%{tls: true} = state) do
     with {:ok, socket} <-
-           :ssl.connect(String.to_charlist(state.host), state.port, @tcp_opts, 10_000) do
+           :ssl.connect(
+             String.to_charlist(state.host),
+             state.port,
+             @tcp_opts ++ __tls_connect_options__(state),
+             10_000
+           ) do
       {:ok, :ssl, socket}
     end
   end

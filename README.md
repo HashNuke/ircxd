@@ -12,6 +12,7 @@ The library currently provides:
 - Optional manual ordered flush for timestamped `server-time` events.
 - Optional automatic timed flush for timestamp-ordered `server-time` events.
 - TCP and implicit TLS transports.
+- TLS Server Name Indication (SNI), with an optional override for IP or proxy connects.
 - Optional reconnect after transport close.
 - Registration with `CAP LS 302`, `NICK`, and `USER`.
 - Capability request/ack flow for supported server capabilities.
@@ -65,6 +66,7 @@ of this library. Consumers receive events and decide what to store.
     host: "irc.libera.chat",
     port: 6697,
     tls: true,
+    sni: "irc.libera.chat",
     nick: "myapp",
     username: "myapp",
     realname: "My App",
@@ -155,6 +157,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 `multi-prefix` rank-ordered prefixes in `RPL_NAMREPLY`.
 - IRCv3 Bot Mode `BOT` ISUPPORT mode helper, `bot` tag, WHO flag, and `335 RPL_WHOISBOT`.
 - IRCv3 `sts` policy parsing, policy events, no `CAP REQ sts`, and ignored `CAP DEL sts`.
+- IRCv3 SNI default and override TLS connection options.
 - IRCv3 `UTF8ONLY` ISUPPORT handling that rejects outbound non-UTF-8 parameters.
 - IRCv3 `ACCOUNTEXTBAN`/`EXTBAN` account ban mask construction.
 - IRCv3 `no-implicit-names` explicit `NAMES` flow and `366 RPL_ENDOFNAMES` event.
