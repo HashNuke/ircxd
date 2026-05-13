@@ -51,7 +51,16 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                ":irc.test 234 nick NickServ services.test * 0 1 :Nickname service",
                ":irc.test 235 nick * 0 :End of service listing",
                ":irc.test 200 nick Link irc.test irc2.test :0 0",
+               ":irc.test 201 nick Try. irc.test irc2.test",
+               ":irc.test 202 nick H.S. irc.test irc2.test",
+               ":irc.test 203 nick ???? irc.test irc2.test",
+               ":irc.test 204 nick Oper nick[irc.test] :42 seconds",
                ":irc.test 205 nick User nick[irc.test] :0 seconds",
+               ":irc.test 206 nick Serv 1 2S 3C irc.test!irc2.test :0 seconds",
+               ":irc.test 207 nick Service NickServ 1 1S 0C :service info",
+               ":irc.test 208 nick <newtype> name",
+               ":irc.test 209 nick Class users :42",
+               ":irc.test 210 nick irc.test 1S 2C :server info",
                ":irc.test 262 nick irc.test :End of TRACE",
                ":irc.test 392 nick :UserID Terminal Host",
                ":irc.test 393 nick :alice pts/0 example.test",
@@ -234,7 +243,47 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                     {:trace, %{code: "200", params: ["Link", "irc.test", "irc2.test", "0 0"]}}},
                    1_000
 
+    assert_receive {:ircxd, {:trace, %{code: "201", params: ["Try.", "irc.test", "irc2.test"]}}},
+                   1_000
+
+    assert_receive {:ircxd, {:trace, %{code: "202", params: ["H.S.", "irc.test", "irc2.test"]}}},
+                   1_000
+
+    assert_receive {:ircxd, {:trace, %{code: "203", params: ["????", "irc.test", "irc2.test"]}}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:trace, %{code: "204", params: ["Oper", "nick[irc.test]", "42 seconds"]}}},
+                   1_000
+
     assert_receive {:ircxd, {:trace, %{code: "205", text: "0 seconds"}}}, 1_000
+
+    assert_receive {:ircxd,
+                    {:trace,
+                     %{
+                       code: "206",
+                       params: ["Serv", "1", "2S", "3C", "irc.test!irc2.test", "0 seconds"]
+                     }}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:trace,
+                     %{
+                       code: "207",
+                       params: ["Service", "NickServ", "1", "1S", "0C", "service info"]
+                     }}},
+                   1_000
+
+    assert_receive {:ircxd, {:trace, %{code: "208", params: ["<newtype>", "name"]}}},
+                   1_000
+
+    assert_receive {:ircxd, {:trace, %{code: "209", params: ["Class", "users", "42"]}}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:trace, %{code: "210", params: ["irc.test", "1S", "2C", "server info"]}}},
+                   1_000
+
     assert_receive {:ircxd, {:trace_end, %{target: "irc.test", text: "End of TRACE"}}}, 1_000
     assert_receive {:ircxd, {:users_start, %{text: "UserID Terminal Host"}}}, 1_000
     assert_receive {:ircxd, {:users, %{text: "alice pts/0 example.test"}}}, 1_000
