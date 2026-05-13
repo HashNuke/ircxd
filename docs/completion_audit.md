@@ -59,7 +59,7 @@ mix test
 Expected current result:
 
 ```text
-257 tests, 0 failures (3 excluded)
+258 tests, 0 failures (3 excluded)
 ```
 
 Generated docs:

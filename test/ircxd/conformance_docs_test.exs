@@ -43,6 +43,18 @@ defmodule Ircxd.ConformanceDocsTest do
     assert readme =~ "docs/conformance_workflow.md"
   end
 
+  test "README local documentation references point to existing files" do
+    readme = File.read!(Path.expand("../../README.md", __DIR__))
+    repo_root = Path.expand("../..", __DIR__)
+
+    missing_paths =
+      readme
+      |> document_paths()
+      |> Enum.reject(&File.exists?(Path.join(repo_root, &1)))
+
+    assert [] = missing_paths
+  end
+
   test "completion audit evidence points to existing artifacts" do
     audit = File.read!(Path.expand("../../docs/completion_audit.md", __DIR__))
     repo_root = Path.expand("../..", __DIR__)
