@@ -274,6 +274,7 @@ defmodule Ircxd.Client do
       sasl: Keyword.get(opts, :sasl),
       sasl_mechanisms: normalize_sasl(Keyword.get(opts, :sasl)),
       sasl_index: 0,
+      sasl_scram: nil,
       sasl_failure_policy: Keyword.get(opts, :sasl_failure, :continue),
       sasl_in_progress?: false,
       socket: nil,
@@ -519,16 +520,22 @@ defmodule Ircxd.Client do
         state = emit(state, {:message, message})
         {:noreply, state}
 
-      {:ok, %Message{command: "AUTHENTICATE", params: ["+"]} = message} ->
+      {:ok, %Message{command: "AUTHENTICATE", params: [payload]} = message} ->
         state = emit(state, {:message, message})
-        send_sasl_plain(state)
-        {:noreply, state}
+        {:noreply, handle_sasl_authenticate(state, payload)}
 
       {:ok, %Message{command: "903"} = message} ->
-        state = emit(state, :sasl_success)
-        state = emit(state, {:message, message})
-        send_message(state, "CAP", ["END"])
-        {:noreply, %{state | sasl_in_progress?: false}}
+        if sasl_scram_verified_or_unused?(state) do
+          state = emit(state, :sasl_success)
+          state = emit(state, {:message, message})
+          send_message(state, "CAP", ["END"])
+          {:noreply, %{state | sasl_in_progress?: false, sasl_scram: nil}}
+        else
+          state = emit(state, {:sasl_scram_error, %{reason: :missing_verified_server_final}})
+          state = emit(state, {:message, message})
+          send_message(state, "QUIT", ["SASL SCRAM verification failed"])
+          {:stop, :sasl_failure, state}
+        end
 
       {:ok, %Message{command: "908", params: [_nick, mechanisms | _rest]} = message} ->
         state = emit(state, {:sasl_mechanisms, %{mechanisms: parse_sasl_mechanisms(mechanisms)}})
@@ -1543,6 +1550,12 @@ defmodule Ircxd.Client do
   defp normalize_sasl(nil), do: []
   defp normalize_sasl({:plain, _username, _password} = mechanism), do: [mechanism]
   defp normalize_sasl({:external, _authzid} = mechanism), do: [mechanism]
+  defp normalize_sasl({:scram_sha_256, _username, _password} = mechanism), do: [mechanism]
+
+  defp normalize_sasl({:scram_sha_256, _username, _password, opts} = mechanism)
+       when is_list(opts),
+       do: [mechanism]
+
   defp normalize_sasl(mechanisms) when is_list(mechanisms), do: mechanisms
 
   defp normalize_reconnect(false), do: nil
@@ -1646,13 +1659,67 @@ defmodule Ircxd.Client do
 
   defp sasl_mechanism_name({:plain, _username, _password}), do: "PLAIN"
   defp sasl_mechanism_name({:external, _authzid}), do: "EXTERNAL"
+  defp sasl_mechanism_name({:scram_sha_256, _username, _password}), do: "SCRAM-SHA-256"
+  defp sasl_mechanism_name({:scram_sha_256, _username, _password, _opts}), do: "SCRAM-SHA-256"
   defp sasl_mechanism_name(nil), do: nil
 
   defp sasl_mechanism_atom({:plain, _username, _password}), do: :plain
   defp sasl_mechanism_atom({:external, _authzid}), do: :external
+  defp sasl_mechanism_atom({:scram_sha_256, _username, _password}), do: :scram_sha_256
+  defp sasl_mechanism_atom({:scram_sha_256, _username, _password, _opts}), do: :scram_sha_256
   defp sasl_mechanism_atom(nil), do: nil
 
-  defp send_sasl_plain(%{sasl_mechanisms: mechanisms, sasl_index: index} = state) do
+  defp handle_sasl_authenticate(state, "+"), do: send_sasl_initial_response(state)
+
+  defp handle_sasl_authenticate(%{sasl_scram: %{phase: :server_first}} = state, payload) do
+    with {:ok, server_first} <- Base.decode64(payload),
+         {:ok, final} <-
+           SASL.scram_sha256_client_final(
+             state.sasl_scram.client_first_bare,
+             server_first,
+             state.sasl_scram.password
+           ) do
+      final.payload
+      |> SASL.authenticate_chunks()
+      |> Enum.each(&send_message(state, "AUTHENTICATE", [&1]))
+
+      %{
+        state
+        | sasl_scram:
+            Map.merge(state.sasl_scram, %{
+              phase: :server_final,
+              server_signature: final.server_signature
+            })
+      }
+    else
+      :error ->
+        emit(state, {:sasl_scram_error, %{reason: :invalid_base64}})
+
+      {:error, reason} ->
+        emit(state, {:sasl_scram_error, %{reason: reason}})
+    end
+  end
+
+  defp handle_sasl_authenticate(%{sasl_scram: %{phase: :server_final}} = state, payload) do
+    with {:ok, server_final} <- Base.decode64(payload),
+         :ok <-
+           SASL.verify_scram_sha256_server_final(
+             server_final,
+             state.sasl_scram.server_signature
+           ) do
+      %{state | sasl_scram: %{state.sasl_scram | phase: :complete}}
+    else
+      :error ->
+        emit(state, {:sasl_scram_error, %{reason: :invalid_base64}})
+
+      {:error, reason} ->
+        emit(state, {:sasl_scram_error, %{reason: reason}})
+    end
+  end
+
+  defp handle_sasl_authenticate(state, _payload), do: state
+
+  defp send_sasl_initial_response(%{sasl_mechanisms: mechanisms, sasl_index: index} = state) do
     case Enum.at(mechanisms, index) do
       {:plain, username, password} ->
         username
@@ -1660,18 +1727,56 @@ defmodule Ircxd.Client do
         |> SASL.authenticate_chunks()
         |> Enum.each(&send_message(state, "AUTHENTICATE", [&1]))
 
+        state
+
       {:external, authzid} ->
         authzid
         |> SASL.external_payload()
         |> SASL.authenticate_chunks()
         |> Enum.each(&send_message(state, "AUTHENTICATE", [&1]))
 
+        state
+
+      {:scram_sha_256, username, password} ->
+        send_sasl_scram_client_first(state, username, password, [])
+
+      {:scram_sha_256, username, password, opts} ->
+        send_sasl_scram_client_first(state, username, password, opts)
+
       nil ->
-        :ok
+        state
     end
   end
 
-  defp send_sasl_plain(_state), do: :ok
+  defp send_sasl_initial_response(state), do: state
+
+  defp send_sasl_scram_client_first(state, username, password, opts) do
+    nonce = Keyword.get_lazy(opts, :nonce, &scram_nonce/0)
+    first = SASL.scram_sha256_client_first(username, nonce)
+
+    first.payload
+    |> SASL.authenticate_chunks()
+    |> Enum.each(&send_message(state, "AUTHENTICATE", [&1]))
+
+    %{
+      state
+      | sasl_scram: %{
+          phase: :server_first,
+          client_first_bare: first.bare,
+          password: password
+        }
+    }
+  end
+
+  defp sasl_scram_verified_or_unused?(%{sasl_scram: nil}), do: true
+  defp sasl_scram_verified_or_unused?(%{sasl_scram: %{phase: :complete}}), do: true
+  defp sasl_scram_verified_or_unused?(_state), do: false
+
+  defp scram_nonce do
+    18
+    |> :crypto.strong_rand_bytes()
+    |> Base.url_encode64(padding: false)
+  end
 
   defp default_nick_retry(nick, _state), do: "#{nick}_"
 

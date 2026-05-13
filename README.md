@@ -17,6 +17,7 @@ The library currently provides:
 - Registration with `CAP LS 302`, `NICK`, and `USER`.
 - Capability request/ack flow for supported server capabilities.
 - SASL PLAIN negotiation support.
+- SASL SCRAM-SHA-256 negotiation support.
 - Configurable SASL failure policy: continue registration or abort with `QUIT`.
 - SASL mechanism fallback across configured mechanisms such as `EXTERNAL` then `PLAIN`.
 - SASL v3.2 mechanism-list events from `908 RPL_SASLMECHS`.
@@ -148,6 +149,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Nickname collision retry against InspIRCd.
 - Optional reconnect after a transport close.
 - SASL PLAIN client negotiation against a scripted IRC server.
+- SASL SCRAM-SHA-256 RFC 7677 payloads and scripted negotiation.
 - SASL failure policy for default continue and configured abort.
 - SASL `EXTERNAL` payloads and mechanism fallback to `PLAIN`.
 - SASL v3.2 `908 RPL_SASLMECHS` parsing without treating the mechanism list as failure.
