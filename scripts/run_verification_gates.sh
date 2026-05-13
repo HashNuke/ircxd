@@ -13,6 +13,9 @@ run_mix() {
 
 cd "${ROOT_DIR}"
 
+echo "==> format check"
+run_mix "mix format --check-formatted"
+
 echo "==> default suite"
 run_mix "mix test"
 

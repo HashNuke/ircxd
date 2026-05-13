@@ -34,6 +34,12 @@ Include the optional irssi cross-client gate in that runner:
 IRCXD_INCLUDE_IRSSI=1 scripts/run_verification_gates.sh
 ```
 
+Format check:
+
+```bash
+mix format --check-formatted
+```
+
 Default suite:
 
 ```bash
