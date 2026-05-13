@@ -215,6 +215,25 @@ defmodule Ircxd.ConformanceDocsTest do
     assert standard_replies_runner =~ "mix test --include standard_replies_integration"
   end
 
+  test "verification runner scripts check required external commands" do
+    repo_root = Path.expand("../..", __DIR__)
+
+    requirements = %{
+      "scripts/run_irssi_manual_check.sh" => ~w(irssi tmux),
+      "scripts/run_services_integration.sh" => ~w(atheme-services inspircd perl sudo mix),
+      "scripts/run_standard_replies_integration.sh" => ~w(inspircd sudo mix)
+    }
+
+    assert [] =
+             Enum.reject(requirements, fn {script, commands} ->
+               content = File.read!(Path.join(repo_root, script))
+
+               Enum.all?(commands, fn command ->
+                 content =~ "require_command #{command}"
+               end)
+             end)
+  end
+
   defp parse_matrix_row("| Area | Status | Evidence | Next grouped work |"), do: []
   defp parse_matrix_row("| --- | --- | --- | --- |"), do: []
 
