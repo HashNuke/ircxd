@@ -89,6 +89,9 @@ defmodule Ircxd.ISupportTest do
              extra: ["z"]
            } =
              ISupport.chanmodes(%{"CHANMODES" => "beI,kfL,lj,psmntirRcOAQKVCuzNSMTGZ,z"})
+
+    assert %{type_a: "b", type_b: "k", type_c: "l", type_d: "imnpst", extra: []} =
+             ISupport.chanmodes(%{})
   end
 
   test "classifies concrete channel modes from CHANMODES" do
@@ -107,6 +110,11 @@ defmodule Ircxd.ISupportTest do
     assert ISupport.channel_mode_type(isupport, "w") == nil
     assert ISupport.channel_mode_type(isupport, nil) == nil
     assert ISupport.channel_mode_type(isupport, "be") == nil
+
+    assert ISupport.channel_mode_type(%{}, "b") == :list
+    assert ISupport.channel_mode_type(%{}, "k") == :always_arg
+    assert ISupport.channel_mode_type(%{}, "l") == :set_arg
+    assert ISupport.channel_mode_type(%{}, "i") == :never_arg
   end
 
   test "parses CHANLIMIT and MAXLIST limit pairs" do

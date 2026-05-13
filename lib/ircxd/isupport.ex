@@ -4,6 +4,7 @@ defmodule Ircxd.ISupport do
   """
 
   @length_limit_keys ~w(AWAYLEN CHANNELLEN HOSTLEN KICKLEN NICKLEN TOPICLEN USERLEN)
+  @default_chanmodes "b,k,l,imnpst"
 
   def parse_params(params) when is_list(params) do
     params
@@ -68,7 +69,7 @@ defmodule Ircxd.ISupport do
   def chanmodes(isupport) when is_map(isupport) do
     parts =
       isupport
-      |> Map.get("CHANMODES", "")
+      |> Map.get("CHANMODES", @default_chanmodes)
       |> string_value()
       |> String.split(",", trim: false)
 
