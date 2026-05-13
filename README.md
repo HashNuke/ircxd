@@ -12,6 +12,8 @@ The library currently provides:
   sources.
 - Modern IRC command-token and parameter-count validation for inbound parsing
   and outbound client writes.
+- Outbound IRC parameter validation that rejects CR/LF injection before socket
+  writes.
 - IRCv3 message tag parsing, escaping, and serialization.
 - Optional IRCv3 `msgid` duplicate marking hooks.
 - Optional manual ordered flush for timestamped `server-time` events.

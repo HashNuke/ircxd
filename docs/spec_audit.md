@@ -49,7 +49,7 @@ Implemented and tested:
 - Message framing, tags, server sources, full/partial user sources, command
   validation, parameter parsing, inbound message/tag-section size enforcement,
   byte-limit helpers, and outbound command/parameter-count/wire-size enforcement
-  before socket writes.
+  plus CR/LF parameter rejection before socket writes.
 - Formatting control-code parsing/stripping for bold, italics, underline,
   strikethrough, monospace, reverse, numeric colors, hex colors, and reset.
 - DCC CTCP query parsing/encoding for `CHAT`, `SEND`, `RESUME`, and `ACCEPT`

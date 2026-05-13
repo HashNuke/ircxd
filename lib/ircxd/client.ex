@@ -2207,10 +2207,19 @@ defmodule Ircxd.Client do
       length(params) > Message.max_params() ->
         {:error, :too_many_params}
 
+      Enum.any?(params, &invalid_outbound_param?/1) ->
+        {:error, :invalid_param}
+
       true ->
         :ok
     end
   end
+
+  defp invalid_outbound_param?(param) when is_binary(param) do
+    String.contains?(param, ["\r", "\n"])
+  end
+
+  defp invalid_outbound_param?(_param), do: false
 
   defp validate_outbound_command(state, %Message{command: "REDACT"}) do
     with :ok <- require_active_cap(state, "draft/message-redaction") do
