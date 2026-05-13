@@ -78,6 +78,14 @@ defmodule Ircxd.Client do
   def tagmsg(client, target, tags) when is_map(tags),
     do: GenServer.call(client, {:send, %Message{command: "TAGMSG", params: [target], tags: tags}})
 
+  def redact(client, target, msgid, reason \\ nil)
+
+  def redact(client, target, msgid, nil),
+    do: GenServer.call(client, {:send, "REDACT", [target, msgid]})
+
+  def redact(client, target, msgid, reason),
+    do: GenServer.call(client, {:send, "REDACT", [target, msgid, reason]})
+
   def setname(client, realname), do: GenServer.call(client, {:send, "SETNAME", [realname]})
 
   def rename(client, old_channel, new_channel, reason \\ nil)
@@ -593,6 +601,25 @@ defmodule Ircxd.Client do
        msgid: Tags.msgid(message),
        batch: Tags.batch(message),
        account: Tags.account(message),
+       message: message
+     }}
+  end
+
+  defp event_for(
+         %Message{command: "REDACT", source: source, params: [target, msgid | rest]} = message
+       ) do
+    parsed_source = Source.parse(source)
+
+    {:redact,
+     %{
+       source: parsed_source,
+       raw_source: source,
+       nick: parsed_source && parsed_source.nick,
+       target: target,
+       msgid: msgid,
+       reason: List.first(rest),
+       server_time: tag_value(message, &Tags.server_time/1),
+       batch: Tags.batch(message),
        message: message
      }}
   end
@@ -1194,7 +1221,8 @@ defmodule Ircxd.Client do
   defp send_message(%{transport: nil}, %Message{}), do: {:error, :not_connected}
 
   defp send_message(state, %Message{} = message) do
-    with :ok <- validate_outbound_tags(state, message) do
+    with :ok <- validate_outbound_command(state, message),
+         :ok <- validate_outbound_tags(state, message) do
       line = Message.serialize(message)
 
       case state.transport do
@@ -1203,6 +1231,14 @@ defmodule Ircxd.Client do
       end
     end
   end
+
+  defp validate_outbound_command(state, %Message{command: "REDACT"}) do
+    with :ok <- require_active_cap(state, "draft/message-redaction") do
+      require_active_cap(state, "message-tags")
+    end
+  end
+
+  defp validate_outbound_command(_state, _message), do: :ok
 
   defp validate_outbound_tags(state, %Message{tags: tags}) when is_map_key(tags, "label") do
     with :ok <- require_active_cap(state, "labeled-response") do

@@ -28,6 +28,7 @@ The library currently provides:
 - IRCv3 `MONITOR`, `SETNAME`, and invite notification helpers/events.
 - IRCv3 `multi-prefix` NAMES parsing.
 - Draft IRCv3 channel rename command helper/events.
+- Draft IRCv3 message redaction command helper/events.
 - IRCv3 `userhost-in-names` NAMES parsing.
 - Draft IRCv3 `metadata` command helpers, server messages, and key numerics.
 - Draft IRCv3 metadata batch aggregation including standard `FAIL` entries.
@@ -137,6 +138,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 `MONITOR` command helpers and `730`-`734` numeric events.
 - IRCv3 `setname` command/events and `invite-notify` events.
 - Draft IRCv3 `RENAME` command helper and channel rename events.
+- Draft IRCv3 `REDACT` command helper, redaction events, and required capability checks.
 - Draft IRCv3 `metadata` key validation, `METADATA` command helpers, server events, and `760`/`761`/`766`/`770`/`771`/`772`/`774` numerics.
 - Draft IRCv3 metadata batch aggregation with key-value, key-not-set, and standard `FAIL` entries.
 - IRCv3 WebIRC parameter/option serialization and startup ordering before `CAP`.
