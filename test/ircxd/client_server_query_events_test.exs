@@ -107,7 +107,13 @@ defmodule Ircxd.ClientServerQueryEventsTest do
 
     assert_receive {:ircxd,
                     {:userhost,
-                     %{replies: ["alice=+alice@example.test", "bob=-bob@example.test"]}}},
+                     %{
+                       replies: ["alice=+alice@example.test", "bob=-bob@example.test"],
+                       entries: [
+                         %{nick: "alice", away?: false, username: "alice", host: "example.test"},
+                         %{nick: "bob", away?: true, username: "bob", host: "example.test"}
+                       ]
+                     }}},
                    1_000
   end
 end

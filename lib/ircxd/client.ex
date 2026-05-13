@@ -37,6 +37,7 @@ defmodule Ircxd.Client do
   alias Ircxd.STS
   alias Ircxd.StandardReply
   alias Ircxd.Tags
+  alias Ircxd.UserHost
   alias Ircxd.WebIRC
   alias Ircxd.Who
   alias Ircxd.Whois
@@ -1403,7 +1404,13 @@ defmodule Ircxd.Client do
     do: {:links_end, %{mask: mask, text: text, message: message}}
 
   defp event_for(%Message{command: "302", params: [_me, replies]} = message),
-    do: {:userhost, %{replies: String.split(replies, " ", trim: true), message: message}}
+    do:
+      {:userhost,
+       %{
+         replies: String.split(replies, " ", trim: true),
+         entries: UserHost.parse_replies(replies),
+         message: message
+       }}
 
   defp event_for(%Message{command: "303", params: [_me, nicks]} = message),
     do: {:ison, %{nicks: String.split(nicks, " ", trim: true), message: message}}

@@ -23,7 +23,7 @@ Status meanings:
 | Capability negotiation | covered | `test/ircxd/client_cap_lifecycle_test.exs` | Future CAP work should be batched as `CAP lifecycle and value semantics`. |
 | ISUPPORT parsing and helpers | covered | `lib/ircxd/isupport.ex`, `test/ircxd/isupport_test.exs` | Future ISUPPORT work should be batched as `ISUPPORT registry helpers`. |
 | Channel commands and numerics | covered | `test/ircxd/client_core_commands_test.exs`, `test/ircxd/client_topic_numeric_test.exs`, `test/ircxd/client_integration_test.exs` | Group uncommon numerics by command family. |
-| Server and user queries | covered | `test/ircxd/client_query_events_test.exs`, `test/ircxd/client_server_query_events_test.exs`, `test/ircxd/who_test.exs`, `test/ircxd/whois_test.exs` | Group WHO/WHOIS/WHOWAS additions together. |
+| Server and user queries | covered | `test/ircxd/client_query_events_test.exs`, `test/ircxd/client_server_query_events_test.exs`, `test/ircxd/who_test.exs`, `test/ircxd/whois_test.exs`, `test/ircxd/user_host_test.exs` | Group WHO/WHOIS/WHOWAS/USERHOST additions together. |
 | Error numerics | partial | `test/ircxd/client_error_numeric_test.exs`, `test/ircxd/client_rfc2812_numeric_test.exs` | Continue auditing uncommon implementation-specific numerics as `Modern numeric coverage` slices. |
 | Formatting codes | covered | `lib/ircxd/formatting.ex`, `test/ircxd/formatting_test.exs` | No current stable gap. |
 | CTCP and DCC parsing | partial | `lib/ircxd/ctcp.ex`, `lib/ircxd/dcc.ex`, `test/ircxd/ctcp_test.exs`, `test/ircxd/dcc_test.exs`, `test/ircxd/client_dcc_test.exs` | Direct DCC sockets and file policy stay host-owned. |

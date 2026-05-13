@@ -79,8 +79,8 @@ Implemented and tested:
   `KICK`, `MODE`, mode queries, topic numerics, name replies, channel modes,
   and mask lists.
 - Server/user queries: `MOTD`, `VERSION`, `ADMIN`, `LUSERS`, `TIME`, `STATS`,
-  `HELP`, `INFO`, `LINKS`, `WHO`, `WHOX`, `WHOIS`, `WHOWAS`, `USERHOST`,
-  `ISON`, `TRACE`, `USERS`, and `SERVLIST` response events.
+  `HELP`, `INFO`, `LINKS`, `WHO`, `WHOX`, `WHOIS`, `WHOWAS`, parsed
+  `USERHOST`, `ISON`, `TRACE`, `USERS`, and `SERVLIST` response events.
 - WHOWAS `314` and `369` typed events.
 - Optional WHOIS `276`, `307`, `320`, and `378` typed events.
 - Away status numerics: `301`, `305`, and `306`.
