@@ -5,6 +5,7 @@ defmodule Ircxd.ConformanceDocsTest do
 
   test "stable spec matrix keeps stable work classified and evidenced" do
     matrix = File.read!(Path.expand("../../docs/stable_spec_matrix.md", __DIR__))
+    repo_root = Path.expand("../..", __DIR__)
 
     rows =
       matrix
@@ -27,6 +28,13 @@ defmodule Ircxd.ConformanceDocsTest do
              Enum.filter(rows, fn row ->
                row.evidence in ["", "TBD", "None"]
              end)
+
+    missing_paths =
+      rows
+      |> Enum.flat_map(&evidence_paths/1)
+      |> Enum.reject(&File.exists?(Path.join(repo_root, &1)))
+
+    assert [] = missing_paths
   end
 
   test "README points contributors at the conformance workflow" do
@@ -57,5 +65,11 @@ defmodule Ircxd.ConformanceDocsTest do
       nil ->
         []
     end
+  end
+
+  defp evidence_paths(row) do
+    ~r/`([^`]+\.(?:ex|exs|md))`/
+    |> Regex.scan(row.evidence, capture: :all_but_first)
+    |> List.flatten()
   end
 end
