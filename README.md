@@ -170,7 +170,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - ISUPPORT `005` tokens and NAMES `353` prefixes.
 - IRCv3 `userhost-in-names` full hostmask entries in NAMES replies.
 - ASCII-only IRC casemapping and ISUPPORT `CASEMAPPING` helpers for `ascii`,
-  `rfc1459`, and `strict-rfc1459`.
+  `rfc1459`, and `strict-rfc1459` comparisons.
 - CTCP payloads.
 - IRCv3 `time`, `msgid`, `label`, `batch`, and `account` tags.
 - Optional IRCv3 `msgid` duplicate marking and `:duplicate_msgid` events.

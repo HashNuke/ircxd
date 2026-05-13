@@ -93,4 +93,13 @@ defmodule Ircxd.ISupportTest do
     assert ISupport.casemap(%{}) == :rfc1459
     assert ISupport.casemap(%{"CASEMAPPING" => true}) == :rfc1459
   end
+
+  test "compares IRC names using ISUPPORT casemapping" do
+    assert ISupport.equal?(%{"CASEMAPPING" => "rfc1459"}, "Nick[", "nick{")
+    assert ISupport.equal?(%{"CASEMAPPING" => "rfc1459"}, "Nick~", "nick^")
+    assert ISupport.equal?(%{"CASEMAPPING" => "strict-rfc1459"}, "Nick[", "nick{")
+    refute ISupport.equal?(%{"CASEMAPPING" => "strict-rfc1459"}, "Nick~", "nick^")
+    refute ISupport.equal?(%{"CASEMAPPING" => "ascii"}, "Nick[", "nick{")
+    assert ISupport.equal?(%{}, "Nick[", "nick{")
+  end
 end

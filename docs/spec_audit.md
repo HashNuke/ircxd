@@ -64,7 +64,7 @@ Implemented and tested:
 - Structured ISUPPORT helpers for `PREFIX`, `CHANMODES`, `CHANLIMIT`,
   `MAXLIST`, and `TARGMAX` parameter values, plus typed integer, character-list,
   feature-flag readers for common tokens, and ASCII-only IRC casemapping /
-  ISUPPORT `CASEMAPPING` helpers.
+  ISUPPORT `CASEMAPPING` comparison helpers.
 - Channel operations: `JOIN`, `PART`, `TOPIC`, `NAMES`, `LIST`, `INVITE`,
   `KICK`, `MODE`, mode queries, topic numerics, name replies, channel modes,
   and mask lists.

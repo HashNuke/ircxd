@@ -111,6 +111,10 @@ defmodule Ircxd.ISupport do
     end
   end
 
+  def equal?(isupport, left, right) when is_map(isupport) do
+    Ircxd.Casemapping.equal?(left, right, casemap(isupport))
+  end
+
   defp parse_pair_list(value) do
     value
     |> string_value()
