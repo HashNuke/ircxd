@@ -32,6 +32,9 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                ":irc.test 348 nick #elixir *!*@except.example setter 1760000003",
                ":irc.test 349 nick #elixir :End of channel exception list",
                ":irc.test 303 nick :alice bob",
+               ":irc.test 301 nick alice :gone fishing",
+               ":irc.test 305 nick :You are no longer marked as being away",
+               ":irc.test 306 nick :You have been marked as being away",
                ":irc.test 234 nick NickServ services.test * 0 1 :Nickname service",
                ":irc.test 235 nick * 0 :End of service listing",
                ":irc.test 200 nick Link irc.test irc2.test :0 0",
@@ -123,6 +126,12 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                    1_000
 
     assert_receive {:ircxd, {:ison, %{nicks: ["alice", "bob"]}}}, 1_000
+    assert_receive {:ircxd, {:away_reply, %{nick: "alice", text: "gone fishing"}}}, 1_000
+
+    assert_receive {:ircxd, {:unaway, %{text: "You are no longer marked as being away"}}},
+                   1_000
+
+    assert_receive {:ircxd, {:now_away, %{text: "You have been marked as being away"}}}, 1_000
 
     assert_receive {:ircxd,
                     {:servlist,

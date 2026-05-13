@@ -180,6 +180,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - SASL `EXTERNAL` payloads and mechanism fallback to `PLAIN`.
 - SASL v3.2 `908 RPL_SASLMECHS` parsing without treating the mechanism list as failure.
 - Modern IRC state-change events: `NICK`, `JOIN`, `PART`, `QUIT`, `KICK`, `TOPIC`, `MODE`, and `ERROR`.
+- Modern IRC away status numerics: `301`, `305`, and `306`.
 - Modern IRC server-query numeric events for `LIST`, `MOTD`, `ADMIN`, `LUSERS`, `TIME`, `INFO`, `LINKS`, and `USERHOST`.
 - Modern IRC numeric events for `VERSION`, `STATS`, `HELP`, user/channel modes, invites, and channel mask lists.
 - Modern IRC topic query numeric events `331`, `332`, and `333`.
