@@ -110,12 +110,13 @@ Implemented and tested:
 - Metadata command helpers, numerics, and metadata batch aggregation.
 - Chathistory selectors, target replies, and batch-delivered history events.
 - Multiline receive aggregation and outbound multiline helpers.
+- Client-initiated batch helper with required capability checks and nested-batch
+  rejection.
 - Channel rename, message redaction, read markers, account registration,
   pre-away, draft reactions, and draft channel-context helpers.
 
 Remaining draft/WIP gaps:
 
-- `draft/client-batch` is not implemented.
 - `draft/extended-isupport` is not implemented.
 - `draft/filehost` is not implemented.
 - Draft implementations should be rechecked before release because draft specs

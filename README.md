@@ -55,6 +55,7 @@ The library currently provides:
 - IRCv3 WebSocket subprotocol, one-line payload helpers, and adapter behaviour.
 - Draft IRCv3 chathistory command helpers and `TARGETS` events.
 - Draft IRCv3 multiline receive aggregation and outbound multiline message helpers.
+- Draft IRCv3 client-initiated batch helper with required capability checks.
 - CTCP encode/decode helpers.
 - ISUPPORT, NAMES, source mask, casemapping, server-time, msgid, label, batch, and account helpers.
 - Callback-style event delivery through `:notify` or `Ircxd.Handler`.
@@ -210,6 +211,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 `BATCH` start/end tracking and batched message events.
 - IRCv3 stable `netsplit` and `netjoin` batch aggregation.
 - Draft IRCv3 multiline batch aggregation, `draft/multiline-concat`, and outbound multiline `PRIVMSG`/`NOTICE` helpers.
+- Draft IRCv3 client-initiated `BATCH` helper with nested-batch rejection.
 - IRCv3 labeled-response `ACK` and `labeled-response` batch aggregation.
 - IRCv3 labeled-response request lifecycle tracking for outbound labeled commands.
 - Rejection of outbound IRCv3 `label` tags when `labeled-response` was not negotiated.

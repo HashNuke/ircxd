@@ -349,6 +349,10 @@ defmodule Ircxd.Client do
   def transmit(client, %Message{} = message), do: GenServer.call(client, {:send, message})
   def flush_server_time(client), do: GenServer.call(client, :flush_server_time)
 
+  def client_batch(client, reference, type, params, messages, opts \\ []) do
+    GenServer.call(client, {:send_client_batch, reference, type, params, messages, opts})
+  end
+
   def multiline_privmsg(client, target, body, opts \\ []) do
     GenServer.call(client, {:send_multiline, "PRIVMSG", target, body, opts})
   end
@@ -478,6 +482,20 @@ defmodule Ircxd.Client do
 
   def handle_call(:flush_server_time, _from, state) do
     {:reply, :ok, flush_server_time_buffer(state)}
+  end
+
+  def handle_call({:send_client_batch, reference, type, params, messages, opts}, _from, state) do
+    result =
+      with :ok <- require_client_batch_cap(state, opts),
+           {:ok, messages} <- normalize_client_batch_messages(messages),
+           :ok <- validate_client_batch_messages(messages) do
+        send_client_batch(state, reference, type, params, messages)
+      end
+
+    case result do
+      :ok -> {:reply, :ok, state}
+      error -> {:reply, error, state}
+    end
   end
 
   def handle_call({:send_multiline, command, target, body, opts}, _from, state) do
@@ -1951,6 +1969,13 @@ defmodule Ircxd.Client do
     end
   end
 
+  defp require_client_batch_cap(state, opts) do
+    case Keyword.get(opts, :required_cap) || Keyword.get(opts, :capability) do
+      cap when is_binary(cap) -> require_active_cap(state, cap)
+      nil -> {:error, :missing_client_batch_capability}
+    end
+  end
+
   defp maybe_include_sasl(caps, %{sasl: nil}), do: caps
   defp maybe_include_sasl(caps, _state), do: ["sasl" | caps]
 
@@ -2234,6 +2259,71 @@ defmodule Ircxd.Client do
       ref ->
         {to_string(ref), state}
     end
+  end
+
+  defp normalize_client_batch_messages(messages) when is_list(messages) do
+    messages
+    |> Enum.reduce_while({:ok, []}, fn
+      %Message{} = message, {:ok, acc} ->
+        {:cont, {:ok, [message | acc]}}
+
+      {command, params}, {:ok, acc} when is_binary(command) and is_list(params) ->
+        {:cont, {:ok, [%Message{command: command, params: params} | acc]}}
+
+      {command, params, tags}, {:ok, acc}
+      when is_binary(command) and is_list(params) and is_map(tags) ->
+        {:cont, {:ok, [%Message{command: command, params: params, tags: tags} | acc]}}
+
+      _invalid, _acc ->
+        {:halt, {:error, :invalid_client_batch_message}}
+    end)
+    |> case do
+      {:ok, messages} -> {:ok, Enum.reverse(messages)}
+      error -> error
+    end
+  end
+
+  defp normalize_client_batch_messages(_messages), do: {:error, :invalid_client_batch_message}
+
+  defp validate_client_batch_messages(messages) do
+    cond do
+      Enum.any?(messages, &(String.upcase(&1.command) == "BATCH")) ->
+        {:error, :nested_client_batch}
+
+      Enum.any?(messages, &Map.has_key?(&1.tags, "batch")) ->
+        {:error, :reserved_client_batch_tag}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp send_client_batch(state, reference, type, params, messages) do
+    reference = to_string(reference)
+    type = to_string(type)
+    params = Enum.map(params, &to_string/1)
+
+    with :ok <- send_message(state, "BATCH", ["+" <> reference, type | params]) do
+      case send_client_batch_messages(state, messages, reference) do
+        :ok ->
+          send_message(state, "BATCH", ["-" <> reference])
+
+        error ->
+          _ = send_message(state, "BATCH", ["-" <> reference])
+          error
+      end
+    end
+  end
+
+  defp send_client_batch_messages(state, messages, reference) do
+    Enum.reduce_while(messages, :ok, fn message, :ok ->
+      message = %{message | tags: Map.put(message.tags, "batch", reference)}
+
+      case send_message(state, message) do
+        :ok -> {:cont, :ok}
+        error -> {:halt, error}
+      end
+    end)
   end
 
   defp send_multiline_lines(state, command, target, body, ref) do
