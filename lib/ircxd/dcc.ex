@@ -30,12 +30,15 @@ defmodule Ircxd.DCC do
         }
 
   @spec parse(CTCP.t() | String.t()) :: {:ok, t()} | {:error, atom()}
-  def parse(%CTCP{command: "DCC", params: params}), do: parse(params)
+  def parse(%CTCP{command: command, params: params}) when is_binary(command) do
+    if String.upcase(command) == "DCC", do: parse(params), else: {:error, :not_dcc}
+  end
+
   def parse(%CTCP{}), do: {:error, :not_dcc}
 
-  def parse("DCC " <> params), do: parse(params)
-
   def parse(params) when is_binary(params) do
+    params = strip_dcc_prefix(params)
+
     with {:ok, [type, argument, raw_host, raw_port | extra]} <- tokenize(params),
          {:ok, port} <- parse_port(raw_port),
          {:ok, host} <- normalize_host(raw_host),
@@ -54,6 +57,16 @@ defmodule Ircxd.DCC do
     else
       {:ok, _too_few} -> {:error, :not_enough_params}
       error -> error
+    end
+  end
+
+  defp strip_dcc_prefix(params) do
+    case String.split(params, " ", parts: 2, trim: true) do
+      [command, rest] ->
+        if String.upcase(command) == "DCC", do: rest, else: params
+
+      _ ->
+        params
     end
   end
 

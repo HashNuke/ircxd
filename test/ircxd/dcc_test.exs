@@ -17,6 +17,14 @@ defmodule Ircxd.DCCTest do
             }} = DCC.parse(%CTCP{command: "DCC", params: "CHAT chat 2130706433 9000"})
   end
 
+  test "accepts case-insensitive DCC commands at parser boundaries" do
+    assert {:ok, %DCC{type: "CHAT", host: "127.0.0.1", port: 9000}} =
+             DCC.parse(%CTCP{command: "dcc", params: "chat chat 2130706433 9000"})
+
+    assert {:ok, %DCC{type: "SEND", argument: "file.txt", host: "127.0.0.1", port: 9000}} =
+             DCC.parse("dcc send file.txt 2130706433 9000")
+  end
+
   test "parses DCC SEND queries with quoted filenames and extra parameters" do
     assert {:ok,
             %DCC{

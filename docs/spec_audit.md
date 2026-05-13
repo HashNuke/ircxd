@@ -55,9 +55,10 @@ Implemented and tested:
 - Formatting control-code parsing/stripping for bold, italics, underline,
   strikethrough, monospace, reverse, numeric colors, hex colors, and reset.
 - DCC CTCP query parsing/encoding for `CHAT`, `SEND`, `RESUME`, and `ACCEPT`
-  negotiation. Direct DCC sockets, file writes, and user-consent policy are
-  intentionally left to host applications. Parsed DCC payloads are exposed on
-  CTCP `PRIVMSG` and `NOTICE` events, including reverse/port-0 detection.
+  negotiation, including case-insensitive `DCC` parser boundaries. Direct DCC
+  sockets, file writes, and user-consent policy are intentionally left to host
+  applications. Parsed DCC payloads are exposed on CTCP `PRIVMSG` and `NOTICE`
+  events, including reverse/port-0 detection.
 - Registration and connection control: `PASS`, `NICK`, `USER`, `001`
   through `004`, automatic `PING`/`PONG`, typed inbound `PONG`, and
   `433 ERR_NICKNAMEINUSE` retry handling with the server reason preserved.
