@@ -1218,6 +1218,61 @@ defmodule Ircxd.Client do
   defp event_for(%Message{command: "302", params: [_me, replies]} = message),
     do: {:userhost, %{replies: String.split(replies, " ", trim: true), message: message}}
 
+  defp event_for(%Message{command: "303", params: [_me, nicks]} = message),
+    do: {:ison, %{nicks: String.split(nicks, " ", trim: true), message: message}}
+
+  defp event_for(
+         %Message{command: "234", params: [_me, name, server, mask, type, hopcount, info]} =
+           message
+       ),
+       do:
+         {:servlist,
+          %{
+            name: name,
+            server: server,
+            mask: mask,
+            type: type,
+            hopcount: hopcount,
+            info: info,
+            message: message
+          }}
+
+  defp event_for(%Message{command: "235", params: [_me, mask, type, text]} = message),
+    do: {:servlist_end, %{mask: mask, type: type, text: text, message: message}}
+
+  defp event_for(%Message{command: command, params: [_me | params]} = message)
+       when command in [
+              "200",
+              "201",
+              "202",
+              "203",
+              "204",
+              "205",
+              "206",
+              "207",
+              "208",
+              "209",
+              "210",
+              "211"
+            ] do
+    {:trace, %{code: command, params: params, text: List.last(params), message: message}}
+  end
+
+  defp event_for(%Message{command: "262", params: [_me, target, text]} = message),
+    do: {:trace_end, %{target: target, text: text, message: message}}
+
+  defp event_for(%Message{command: "392", params: [_me, text]} = message),
+    do: {:users_start, %{text: text, message: message}}
+
+  defp event_for(%Message{command: "393", params: [_me, text]} = message),
+    do: {:users, %{text: text, message: message}}
+
+  defp event_for(%Message{command: "394", params: [_me, text]} = message),
+    do: {:users_end, %{text: text, message: message}}
+
+  defp event_for(%Message{command: "395", params: [_me, text]} = message),
+    do: {:users_disabled, %{text: text, message: message}}
+
   defp event_for(%Message{command: "351", params: [_me, version, server | rest]} = message),
     do:
       {:version,

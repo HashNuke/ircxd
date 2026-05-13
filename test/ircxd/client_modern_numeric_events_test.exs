@@ -30,7 +30,17 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                ":irc.test 346 nick #elixir *!*@invite.example setter 1760000002",
                ":irc.test 347 nick #elixir :End of channel invite list",
                ":irc.test 348 nick #elixir *!*@except.example setter 1760000003",
-               ":irc.test 349 nick #elixir :End of channel exception list"
+               ":irc.test 349 nick #elixir :End of channel exception list",
+               ":irc.test 303 nick :alice bob",
+               ":irc.test 234 nick NickServ services.test * 0 1 :Nickname service",
+               ":irc.test 235 nick * 0 :End of service listing",
+               ":irc.test 200 nick Link irc.test irc2.test :0 0",
+               ":irc.test 205 nick User nick[irc.test] :0 seconds",
+               ":irc.test 262 nick irc.test :End of TRACE",
+               ":irc.test 392 nick :UserID Terminal Host",
+               ":irc.test 393 nick :alice pts/0 example.test",
+               ":irc.test 394 nick :End of users",
+               ":irc.test 395 nick :USERS has been disabled"
              ]
 
            _line, _state ->
@@ -111,5 +121,34 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                     {:exception_list_end,
                      %{channel: "#elixir", text: "End of channel exception list"}}},
                    1_000
+
+    assert_receive {:ircxd, {:ison, %{nicks: ["alice", "bob"]}}}, 1_000
+
+    assert_receive {:ircxd,
+                    {:servlist,
+                     %{
+                       name: "NickServ",
+                       server: "services.test",
+                       mask: "*",
+                       type: "0",
+                       hopcount: "1",
+                       info: "Nickname service"
+                     }}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:servlist_end, %{mask: "*", type: "0", text: "End of service listing"}}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:trace, %{code: "200", params: ["Link", "irc.test", "irc2.test", "0 0"]}}},
+                   1_000
+
+    assert_receive {:ircxd, {:trace, %{code: "205", text: "0 seconds"}}}, 1_000
+    assert_receive {:ircxd, {:trace_end, %{target: "irc.test", text: "End of TRACE"}}}, 1_000
+    assert_receive {:ircxd, {:users_start, %{text: "UserID Terminal Host"}}}, 1_000
+    assert_receive {:ircxd, {:users, %{text: "alice pts/0 example.test"}}}, 1_000
+    assert_receive {:ircxd, {:users_end, %{text: "End of users"}}}, 1_000
+    assert_receive {:ircxd, {:users_disabled, %{text: "USERS has been disabled"}}}, 1_000
   end
 end

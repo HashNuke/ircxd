@@ -168,6 +168,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Modern IRC state-change events: `NICK`, `JOIN`, `PART`, `QUIT`, `KICK`, `TOPIC`, `MODE`, and `ERROR`.
 - Modern IRC server-query numeric events for `LIST`, `MOTD`, `ADMIN`, `LUSERS`, `TIME`, `INFO`, `LINKS`, and `USERHOST`.
 - Modern IRC numeric events for `VERSION`, `STATS`, `HELP`, user/channel modes, invites, and channel mask lists.
+- Modern IRC numeric events for `ISON`, `SERVLIST`, `TRACE`, and `USERS`.
 - Modern IRC typed error numeric events with code, target, reason, and raw parameters.
 - IRCv3 `extended-join` account and realname metadata.
 - IRCv3 `account-tag`, `account-notify`, `away-notify`, and `chghost` events.
