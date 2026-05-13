@@ -55,6 +55,20 @@ defmodule Ircxd.ISupportTest do
     assert %{"beI" => 100, "q" => 50} = ISupport.maxlist(%{"MAXLIST" => "beI:100,q:50"})
   end
 
+  test "finds list limits for concrete channel modes" do
+    isupport = %{"MAXLIST" => "beI:100,q:50,x:"}
+
+    assert ISupport.list_limit(isupport, "b") == 100
+    assert ISupport.list_limit(isupport, "e") == 100
+    assert ISupport.list_limit(isupport, "I") == 100
+    assert ISupport.list_limit(isupport, "q") == 50
+    assert ISupport.list_limit(isupport, "x") == :unlimited
+    assert ISupport.list_limit(isupport, "z") == nil
+    assert ISupport.list_limit(%{}, "b") == nil
+    assert ISupport.list_limit(isupport, nil) == nil
+    assert ISupport.list_limit(isupport, "be") == nil
+  end
+
   test "finds channel limits for concrete channel names" do
     isupport = %{"CHANLIMIT" => "#:70,&:,!:"}
 

@@ -85,6 +85,17 @@ defmodule Ircxd.ISupport do
     |> Map.new()
   end
 
+  def list_limit(isupport, mode)
+      when is_map(isupport) and is_binary(mode) and byte_size(mode) == 1 do
+    isupport
+    |> maxlist()
+    |> Enum.find_value(fn {modes, limit} ->
+      if String.contains?(modes, mode), do: limit
+    end)
+  end
+
+  def list_limit(_isupport, _mode), do: nil
+
   def targmax(isupport) when is_map(isupport) do
     isupport
     |> Map.get("TARGMAX", "")
