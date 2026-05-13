@@ -162,6 +162,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Optional buffering and timestamp-ordered manual flush for `server-time` events.
 - Optional automatic timed flush for buffered `server-time` events.
 - Wire size constants for the 512-byte IRC message limit.
+- Outbound IRC wire-size enforcement before socket writes.
 - Client registration against InspIRCd.
 - Typed registration numerics `001` through `004` against InspIRCd.
 - Capability listing and ACK flow against InspIRCd.

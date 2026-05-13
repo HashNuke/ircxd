@@ -45,8 +45,8 @@ itself proof that the full protocol surface is complete.
 
 Implemented and tested:
 
-- Message framing, tags, source, command validation, parameter parsing, and
-  byte-limit helpers.
+- Message framing, tags, source, command validation, parameter parsing,
+  byte-limit helpers, and outbound wire-size enforcement before socket writes.
 - Formatting control-code parsing/stripping for bold, italics, underline,
   strikethrough, monospace, reverse, numeric colors, hex colors, and reset.
 - DCC CTCP query parsing/encoding for `CHAT`, `SEND`, `RESUME`, and `ACCEPT`

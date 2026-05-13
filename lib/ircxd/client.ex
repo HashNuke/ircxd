@@ -2090,9 +2090,13 @@ defmodule Ircxd.Client do
          :ok <- validate_outbound_tags(state, message) do
       line = Message.serialize(message)
 
-      case state.transport do
-        :ssl -> :ssl.send(state.socket, line)
-        :gen_tcp -> :gen_tcp.send(state.socket, line)
+      if Message.valid_wire_size?(line) do
+        case state.transport do
+          :ssl -> :ssl.send(state.socket, line)
+          :gen_tcp -> :gen_tcp.send(state.socket, line)
+        end
+      else
+        {:error, :line_too_long}
       end
     end
   end
