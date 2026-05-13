@@ -59,7 +59,8 @@ Implemented and tested:
   intentionally left to host applications. Parsed DCC payloads are exposed on
   CTCP `PRIVMSG` and `NOTICE` events, including reverse/port-0 detection.
 - Registration and connection control: `PASS`, `NICK`, `USER`, `001`
-  through `004`, automatic `PING`/`PONG`, and typed inbound `PONG`.
+  through `004`, automatic `PING`/`PONG`, typed inbound `PONG`, and
+  `433 ERR_NICKNAMEINUSE` retry handling.
 - Capability negotiation core through `CAP LS 302`, multiline `LS`/`LIST`
   aggregation, initial and host-driven `REQ`, `ACK`, `NAK`, `NEW`, `DEL`, active
   capability listing, registration-time `CAP END`, post-registration capability

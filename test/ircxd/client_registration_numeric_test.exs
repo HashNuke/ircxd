@@ -55,4 +55,73 @@ defmodule Ircxd.ClientRegistrationNumericTest do
                      }}},
                    1_000
   end
+
+  test "responds to server PING with PONG" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :"]
+
+           "CAP END", _state ->
+             [
+               ":irc.test 001 nick :Welcome to the network",
+               "PING :ping-token"
+             ]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, _client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+    assert_receive {:scripted_irc_line, "PONG ping-token"}, 1_000
+  end
+
+  test "retries registration nick on ERR_NICKNAMEINUSE" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :"]
+
+           "CAP END", _state ->
+             [":irc.test 433 * nick :Nickname is already in use"]
+
+           "NICK nick_", _state ->
+             [":irc.test 001 nick_ :Welcome to the network"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, _client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        notify: self()
+      )
+
+    assert_receive {:ircxd, {:nick_in_use, %{attempted: "nick", next: "nick_"}}}, 1_000
+    assert_receive {:scripted_irc_line, "NICK nick_"}, 1_000
+    assert_receive {:ircxd, :registered}, 1_000
+  end
 end
