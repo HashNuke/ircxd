@@ -228,6 +228,45 @@ defmodule Ircxd.ClientIntegrationTest do
     RawIrcClient.close(raw)
   end
 
+  test "receives LIST numerics from InspIRCd" do
+    channel = "#ircxdlist#{System.unique_integer([:positive])}"
+    holder_nick = "listuser#{System.unique_integer([:positive])}"
+    client_nick = "ircxdlist#{System.unique_integer([:positive])}"
+
+    {:ok, holder} = RawIrcClient.connect(host: @host, port: @port, nick: holder_nick)
+    assert {:ok, _line, _seen} = RawIrcClient.join(holder, channel)
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: @host,
+        port: @port,
+        tls: false,
+        nick: client_nick,
+        username: client_nick,
+        realname: "Ircxd List Test",
+        notify: self()
+      )
+
+    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+    assert :ok = Ircxd.Client.list(client, channel)
+
+    assert {:ok, %{channel: ^channel, visible: visible}} =
+             wait_for_event(fn
+               {:list_entry, %{channel: ^channel} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert String.to_integer(visible) >= 1
+
+    assert {:ok, %{params: [_nick, "End of channel list."]}} =
+             wait_for_event(fn
+               {:list_end, payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    RawIrcClient.close(holder)
+  end
+
   test "retries nickname when the requested nick is in use" do
     base_nick = "taken#{System.unique_integer([:positive])}"
     {:ok, holder} = RawIrcClient.connect(host: @host, port: @port, nick: base_nick)
