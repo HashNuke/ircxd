@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PACKAGE_DIR="${ROOT_DIR}/ircxd-0.1.0"
 
 run_mix() {
   if command -v zsh >/dev/null 2>&1; then
@@ -26,7 +27,9 @@ echo "==> generated docs"
 run_mix "mix docs"
 
 echo "==> package metadata"
+rm -rf "${PACKAGE_DIR}"
 run_mix "mix hex.build --unpack"
+rm -rf "${PACKAGE_DIR}"
 
 echo "==> real standard-replies integration"
 scripts/run_standard_replies_integration.sh
