@@ -162,6 +162,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Modern IRC `VERSION` and `ISON` numerics against InspIRCd.
 - WHOX `354` numerics against InspIRCd.
 - Channel mode `324` and creation time `329` numerics against InspIRCd.
+- Topic `332` and `333` numerics against InspIRCd.
 - Nickname collision retry against InspIRCd.
 - Optional reconnect after a transport close.
 - SASL PLAIN client negotiation against a scripted IRC server.
@@ -172,6 +173,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Modern IRC state-change events: `NICK`, `JOIN`, `PART`, `QUIT`, `KICK`, `TOPIC`, `MODE`, and `ERROR`.
 - Modern IRC server-query numeric events for `LIST`, `MOTD`, `ADMIN`, `LUSERS`, `TIME`, `INFO`, `LINKS`, and `USERHOST`.
 - Modern IRC numeric events for `VERSION`, `STATS`, `HELP`, user/channel modes, invites, and channel mask lists.
+- Modern IRC topic query numeric events `331`, `332`, and `333`.
 - Modern IRC numeric events for `ISON`, `SERVLIST`, `TRACE`, and `USERS`.
 - Modern IRC typed error numeric events with code, target, reason, and raw parameters.
 - IRCv3 `extended-join` account and realname metadata.

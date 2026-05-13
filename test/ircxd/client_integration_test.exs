@@ -436,6 +436,57 @@ defmodule Ircxd.ClientIntegrationTest do
     assert String.to_integer(created_at) > 0
   end
 
+  test "receives topic numerics from InspIRCd" do
+    channel = "#ircxdtopic#{System.unique_integer([:positive])}"
+    client_nick = "ircxdtopic#{System.unique_integer([:positive])}"
+    topic = "topic from ircxd integration"
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: @host,
+        port: @port,
+        tls: false,
+        nick: client_nick,
+        username: client_nick,
+        realname: "Ircxd Topic Test",
+        notify: self()
+      )
+
+    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+    assert :ok = Ircxd.Client.join(client, channel)
+
+    assert {:ok, %{nick: ^client_nick, channel: ^channel}} =
+             wait_for_event(fn
+               {:join, %{nick: ^client_nick, channel: ^channel} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert :ok = Ircxd.Client.topic(client, channel, topic)
+
+    assert {:ok, %{channel: ^channel, topic: ^topic}} =
+             wait_for_event(fn
+               {:topic, %{channel: ^channel, topic: ^topic} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert :ok = Ircxd.Client.topic(client, channel)
+
+    assert {:ok, %{channel: ^channel, topic: ^topic}} =
+             wait_for_event(fn
+               {:topic_reply, %{channel: ^channel} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert {:ok, %{channel: ^channel, setter: setter, set_at: set_at}} =
+             wait_for_event(fn
+               {:topic_who_time, %{channel: ^channel} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert setter =~ client_nick
+    assert String.to_integer(set_at) > 0
+  end
+
   test "retries nickname when the requested nick is in use" do
     base_nick = "taken#{System.unique_integer([:positive])}"
     {:ok, holder} = RawIrcClient.connect(host: @host, port: @port, nick: base_nick)

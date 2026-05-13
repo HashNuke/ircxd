@@ -1350,6 +1350,15 @@ defmodule Ircxd.Client do
   defp event_for(%Message{command: "349", params: [_me, channel, text]} = message),
     do: {:exception_list_end, %{channel: channel, text: text, message: message}}
 
+  defp event_for(%Message{command: "331", params: [_me, channel, text]} = message),
+    do: {:topic_empty, %{channel: channel, text: text, message: message}}
+
+  defp event_for(%Message{command: "332", params: [_me, channel, topic]} = message),
+    do: {:topic_reply, %{channel: channel, topic: topic, message: message}}
+
+  defp event_for(%Message{command: "333", params: [_me, channel, setter, set_at]} = message),
+    do: {:topic_who_time, %{channel: channel, setter: setter, set_at: set_at, message: message}}
+
   defp event_for(%Message{command: command, params: [_me | params]} = message)
        when command in [
               "401",
