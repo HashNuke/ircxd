@@ -111,6 +111,29 @@ defmodule Ircxd.ConformanceDocsTest do
     assert docs_files == configured_extras
   end
 
+  test "package metadata includes source docs license and protocol links" do
+    package =
+      Ircxd.MixProject.project()
+      |> Keyword.fetch!(:package)
+
+    assert Keyword.fetch!(package, :files) == [
+             "lib",
+             "docs",
+             "mix.exs",
+             "README.md",
+             "LICENSE",
+             ".formatter.exs"
+           ]
+
+    assert Keyword.fetch!(package, :licenses) == ["MIT"]
+
+    assert Keyword.fetch!(package, :links) == %{
+             "Repository" => "https://github.com/HashNuke/ircxd",
+             "Modern IRC" => "https://modern.ircdocs.horse/",
+             "IRCv3" => "https://ircv3.net/irc/"
+           }
+  end
+
   defp parse_matrix_row("| Area | Status | Evidence | Next grouped work |"), do: []
   defp parse_matrix_row("| --- | --- | --- | --- |"), do: []
 
