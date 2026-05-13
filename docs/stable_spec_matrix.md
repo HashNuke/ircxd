@@ -29,7 +29,7 @@ Status meanings:
 | Server and user queries | covered | `test/ircxd/client_query_events_test.exs`, `test/ircxd/client_server_query_events_test.exs`, `test/ircxd/who_test.exs`, `test/ircxd/whois_test.exs`, `test/ircxd/user_host_test.exs` | Group WHO/WHOIS/WHOWAS/USERHOST additions together. |
 | Error numerics | covered | `test/ircxd/client_error_numeric_test.exs`, `test/ircxd/client_rfc2812_numeric_test.exs` | Stable Modern IRC error numerics are covered; continue auditing uncommon vendor numerics only when encountered. |
 | Formatting codes | covered | `lib/ircxd/formatting.ex`, `test/ircxd/formatting_test.exs` | No current stable gap. |
-| CTCP and DCC parsing | host | `lib/ircxd/ctcp.ex`, `lib/ircxd/dcc.ex`, `test/ircxd/ctcp_test.exs`, `test/ircxd/dcc_test.exs`, `test/ircxd/client_dcc_test.exs`, `docs/host_boundaries.md` | DCC CTCP parsing is covered; direct DCC sockets and file policy stay host-owned. |
+| CTCP and DCC parsing | host | `lib/ircxd/ctcp.ex`, `lib/ircxd/dcc.ex`, `test/ircxd/ctcp_test.exs`, `test/ircxd/dcc_test.exs`, `test/ircxd/client_dcc_test.exs`, `docs/host_boundaries.md`, `docs/dcc_boundaries.md` | DCC CTCP parsing is covered; direct DCC sockets and file policy stay host-owned. |
 
 ## IRCv3 Stable
 
@@ -52,10 +52,10 @@ Status meanings:
 | MONITOR and extended-monitor | covered | `test/ircxd/monitor_test.exs`, `test/ircxd/client_monitor_test.exs`, `test/ircxd/client_extended_monitor_test.exs` | No current stable gap. |
 | Server time | covered | `test/ircxd/client_server_time_order_test.exs`, `test/ircxd/client_server_time_auto_flush_test.exs`, `test/ircxd/client_integration_test.exs` | No current stable gap. |
 | Standard replies | covered | `test/ircxd/standard_reply_test.exs`, `test/ircxd/client_standard_reply_test.exs`, `test/ircxd/client_integration_test.exs`, `test/ircxd/client_standard_replies_integration_test.exs` | Parser, scripted client events, real negotiation, and opt-in real `FAIL` emission are covered. |
-| STS | host | `test/ircxd/sts_test.exs`, `test/ircxd/client_sts_test.exs`, `docs/host_boundaries.md` | Policy parsing and client event/error boundaries are covered; cross-restart persistence and enforcement stay host-owned. |
+| STS | host | `test/ircxd/sts_test.exs`, `test/ircxd/client_sts_test.exs`, `docs/host_boundaries.md`, `docs/sts_boundaries.md` | Policy parsing and client event/error boundaries are covered; cross-restart persistence and enforcement stay host-owned. |
 | UTF8ONLY | covered | `test/ircxd/client_utf8_only_test.exs` | No current stable gap. |
 | WEBIRC | covered | `test/ircxd/webirc_test.exs`, `test/ircxd/client_webirc_test.exs` | No current stable gap. |
-| WebSocket | host | `lib/ircxd/web_socket.ex`, `lib/ircxd/web_socket/adapter.ex`, `test/ircxd/web_socket_test.exs`, `docs/host_boundaries.md` | Subprotocol, payload, send, and close adapter boundaries are covered; Phoenix/Cowboy/Bandit server adapters stay host-owned or optional-package work. |
+| WebSocket | host | `lib/ircxd/web_socket.ex`, `lib/ircxd/web_socket/adapter.ex`, `test/ircxd/web_socket_test.exs`, `docs/host_boundaries.md`, `docs/websocket_adapters.md` | Subprotocol, payload, send, and close adapter boundaries are covered; Phoenix/Cowboy/Bandit server adapters stay host-owned or optional-package work. |
 
 ## Stable Work Queue
 

@@ -18,7 +18,7 @@ IRCv3 features, which are intentionally not being expanded unless reprioritized.
 | Services-backed IRCv3 tests | `scripts/run_services_integration.sh`, `test/ircxd/client_services_integration_test.exs` | Covered by opt-in gate |
 | Real standard-replies emission test | `scripts/run_standard_replies_integration.sh`, `test/ircxd/client_standard_replies_integration_test.exs` | Covered by opt-in gate |
 | Automated tests | Parser/unit tests, scripted IRC server tests, local InspIRCd tests, and opt-in disposable real-server fixtures | Covered |
-| Storage/application behavior handled by embedders | `docs/host_boundaries.md` documents storage, notifications, STS persistence, WebSocket server lifecycle, and DCC transfer policy as host-owned | Covered |
+| Storage/application behavior handled by embedders | `docs/host_boundaries.md`, `docs/embedding_events.md`, `docs/dcc_boundaries.md`, `docs/sts_boundaries.md`, and `docs/websocket_adapters.md` document storage, notifications, STS persistence, WebSocket server lifecycle, and DCC transfer policy as host-owned | Covered |
 
 ## Verification Gates
 
