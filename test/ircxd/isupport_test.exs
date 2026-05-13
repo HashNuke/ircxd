@@ -84,4 +84,13 @@ defmodule Ircxd.ISupportTest do
     refute ISupport.enabled?(isupport, "EXCEPTS")
     refute ISupport.enabled?(isupport, "MISSING")
   end
+
+  test "derives IRC casemapping from ISUPPORT tokens" do
+    assert ISupport.casemap(%{"CASEMAPPING" => "ascii"}) == :ascii
+    assert ISupport.casemap(%{"CASEMAPPING" => "rfc1459"}) == :rfc1459
+    assert ISupport.casemap(%{"CASEMAPPING" => "strict-rfc1459"}) == :strict_rfc1459
+    assert ISupport.casemap(%{"CASEMAPPING" => "unknown"}) == :rfc1459
+    assert ISupport.casemap(%{}) == :rfc1459
+    assert ISupport.casemap(%{"CASEMAPPING" => true}) == :rfc1459
+  end
 end

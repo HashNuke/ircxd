@@ -104,6 +104,13 @@ defmodule Ircxd.ISupport do
     end
   end
 
+  def casemap(isupport) when is_map(isupport) do
+    case Map.get(isupport, "CASEMAPPING") do
+      value when is_binary(value) -> Ircxd.Casemapping.from_isupport(value)
+      _value -> Ircxd.Casemapping.from_isupport(nil)
+    end
+  end
+
   defp parse_pair_list(value) do
     value
     |> string_value()
