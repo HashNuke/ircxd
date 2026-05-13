@@ -73,7 +73,7 @@ defmodule Ircxd.MixProject do
 
   defp package do
     [
-      files: ["lib", "docs", "mix.exs", "README.md", "LICENSE", ".formatter.exs"],
+      files: ["lib", "docs", "scripts", "mix.exs", "README.md", "LICENSE", ".formatter.exs"],
       licenses: ["MIT"],
       links: %{
         "Repository" => "https://github.com/HashNuke/ircxd",

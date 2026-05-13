@@ -119,6 +119,7 @@ defmodule Ircxd.ConformanceDocsTest do
     assert Keyword.fetch!(package, :files) == [
              "lib",
              "docs",
+             "scripts",
              "mix.exs",
              "README.md",
              "LICENSE",

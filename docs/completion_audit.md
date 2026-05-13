@@ -19,6 +19,7 @@ IRCv3 features, which are intentionally not being expanded unless reprioritized.
 | Real standard-replies emission test | `scripts/run_standard_replies_integration.sh`, `test/ircxd/client_standard_replies_integration_test.exs` | Covered by opt-in gate |
 | Automated tests | Parser/unit tests, scripted IRC server tests, local InspIRCd tests, and opt-in disposable real-server fixtures | Covered |
 | Spec-driven maintenance workflow | `docs/conformance_workflow.md`, `test/ircxd/conformance_docs_test.exs`, `docs/stable_spec_matrix.md` | Covered |
+| Package includes referenced verification artifacts | `mix.exs` package files include `docs` and `scripts`; `test/ircxd/conformance_docs_test.exs` validates metadata and script references | Covered |
 | Storage/application behavior handled by embedders | `docs/host_boundaries.md`, `docs/embedding_events.md`, `docs/dcc_boundaries.md`, `docs/sts_boundaries.md`, and `docs/websocket_adapters.md` document storage, notifications, STS persistence, WebSocket server lifecycle, and DCC transfer policy as host-owned | Covered |
 
 ## Verification Gates
