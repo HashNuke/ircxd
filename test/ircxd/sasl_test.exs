@@ -10,6 +10,11 @@ defmodule Ircxd.SASLTest do
              Base.encode64(<<"authz", 0, "authc", 0, "secret">>)
   end
 
+  test "builds SASL EXTERNAL payload" do
+    assert SASL.external_payload("nick") == Base.encode64("nick")
+    assert SASL.external_payload(nil) == "+"
+  end
+
   test "splits authenticate payloads into IRC-sized chunks" do
     payload = String.duplicate("a", 401)
 

@@ -15,6 +15,7 @@ The library currently provides:
 - Capability request/ack flow for supported server capabilities.
 - SASL PLAIN negotiation support.
 - Configurable SASL failure policy: continue registration or abort with `QUIT`.
+- SASL mechanism fallback across configured mechanisms such as `EXTERNAL` then `PLAIN`.
 - Automatic `PING`/`PONG`.
 - `JOIN`, `PART`, `TOPIC`, `MODE`, `KICK`, `PRIVMSG`, `NOTICE`, `TAGMSG`, `QUIT`, and raw command helpers.
 - Outbound IRCv3 tagged messages for client-only tags and labeled responses.
@@ -120,6 +121,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Optional reconnect after a transport close.
 - SASL PLAIN client negotiation against a scripted IRC server.
 - SASL failure policy for default continue and configured abort.
+- SASL `EXTERNAL` payloads and mechanism fallback to `PLAIN`.
 - Modern IRC state-change events: `NICK`, `JOIN`, `PART`, `QUIT`, `KICK`, `TOPIC`, `MODE`, and `ERROR`.
 - IRCv3 `extended-join` account and realname metadata.
 - IRCv3 `account-tag`, `account-notify`, `away-notify`, and `chghost` events.
@@ -137,6 +139,5 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Outbound IRCv3 tagged messages.
 
 This is not yet complete coverage of every IRCv3 extension. The next slices
-should add SASL mechanism fallback/retry policy, automatic server-time flushing
-policy, deeper metadata batch/failure coverage, and broader real-server
-coverage for draft extensions.
+should add automatic server-time flushing policy, deeper metadata batch/failure
+coverage, and broader real-server coverage for draft extensions.

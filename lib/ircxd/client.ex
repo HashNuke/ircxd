@@ -200,6 +200,8 @@ defmodule Ircxd.Client do
       current_nick: Keyword.fetch!(opts, :nick),
       nick_retry_fun: Keyword.get(opts, :nick_retry_fun, &default_nick_retry/2),
       sasl: Keyword.get(opts, :sasl),
+      sasl_mechanisms: normalize_sasl(Keyword.get(opts, :sasl)),
+      sasl_index: 0,
       sasl_failure_policy: Keyword.get(opts, :sasl_failure, :continue),
       sasl_in_progress?: false,
       socket: nil,
@@ -368,7 +370,8 @@ defmodule Ircxd.Client do
         state = emit(state, {:message, message})
 
         if should_start_sasl?(state, acked_caps) do
-          send_message(state, "AUTHENTICATE", ["PLAIN"])
+          state = select_first_sasl_mechanism(state)
+          send_sasl_start(state)
           {:noreply, %{state | sasl_in_progress?: true}}
         else
           send_message(state, "CAP", ["END"])
@@ -1101,6 +1104,11 @@ defmodule Ircxd.Client do
   defp maybe_include_sasl(caps, %{sasl: nil}), do: caps
   defp maybe_include_sasl(caps, _state), do: ["sasl" | caps]
 
+  defp normalize_sasl(nil), do: []
+  defp normalize_sasl({:plain, _username, _password} = mechanism), do: [mechanism]
+  defp normalize_sasl({:external, _authzid} = mechanism), do: [mechanism]
+  defp normalize_sasl(mechanisms) when is_list(mechanisms), do: mechanisms
+
   defp normalize_reconnect(false), do: nil
   defp normalize_reconnect(nil), do: nil
   defp normalize_reconnect(true), do: %{max_attempts: :infinity, delay: 1_000}
@@ -1114,14 +1122,62 @@ defmodule Ircxd.Client do
 
   defp should_start_sasl?(%{sasl: nil}, _acked_caps), do: false
 
-  defp should_start_sasl?(%{sasl: {:plain, _username, _password}}, acked_caps),
-    do: "sasl" in acked_caps
+  defp should_start_sasl?(%{sasl_mechanisms: mechanisms}, acked_caps),
+    do: mechanisms != [] and "sasl" in acked_caps
 
-  defp send_sasl_plain(%{sasl: {:plain, username, password}} = state) do
-    username
-    |> SASL.plain_payload(password)
-    |> SASL.authenticate_chunks()
-    |> Enum.each(&send_message(state, "AUTHENTICATE", [&1]))
+  defp send_sasl_start(state) do
+    send_message(state, "AUTHENTICATE", [current_sasl_mechanism_name(state)])
+  end
+
+  defp select_first_sasl_mechanism(state), do: %{state | sasl_index: 0}
+
+  defp current_sasl_mechanism(%{sasl_mechanisms: mechanisms, sasl_index: index}) do
+    Enum.at(mechanisms, index)
+  end
+
+  defp current_sasl_mechanism_name(state) do
+    state
+    |> current_sasl_mechanism()
+    |> sasl_mechanism_name()
+  end
+
+  defp current_sasl_mechanism_atom(state) do
+    state
+    |> current_sasl_mechanism()
+    |> sasl_mechanism_atom()
+  end
+
+  defp next_sasl_mechanism_atom(%{sasl_mechanisms: mechanisms, sasl_index: index}) do
+    mechanisms
+    |> Enum.at(index + 1)
+    |> sasl_mechanism_atom()
+  end
+
+  defp sasl_mechanism_name({:plain, _username, _password}), do: "PLAIN"
+  defp sasl_mechanism_name({:external, _authzid}), do: "EXTERNAL"
+  defp sasl_mechanism_name(nil), do: nil
+
+  defp sasl_mechanism_atom({:plain, _username, _password}), do: :plain
+  defp sasl_mechanism_atom({:external, _authzid}), do: :external
+  defp sasl_mechanism_atom(nil), do: nil
+
+  defp send_sasl_plain(%{sasl_mechanisms: mechanisms, sasl_index: index} = state) do
+    case Enum.at(mechanisms, index) do
+      {:plain, username, password} ->
+        username
+        |> SASL.plain_payload(password)
+        |> SASL.authenticate_chunks()
+        |> Enum.each(&send_message(state, "AUTHENTICATE", [&1]))
+
+      {:external, authzid} ->
+        authzid
+        |> SASL.external_payload()
+        |> SASL.authenticate_chunks()
+        |> Enum.each(&send_message(state, "AUTHENTICATE", [&1]))
+
+      nil ->
+        :ok
+    end
   end
 
   defp send_sasl_plain(_state), do: :ok
@@ -1129,12 +1185,26 @@ defmodule Ircxd.Client do
   defp default_nick_retry(nick, _state), do: "#{nick}_"
 
   defp handle_sasl_failure(state, code, message) do
-    policy = state.sasl_failure_policy
-    state = emit(state, {:sasl_failure, %{code: code, policy: policy, message: message}})
+    policy = sasl_failure_policy(state)
+
+    payload = %{
+      code: code,
+      policy: policy,
+      mechanism: current_sasl_mechanism_atom(state),
+      next_mechanism: next_sasl_mechanism_atom(state),
+      message: message
+    }
+
+    state = emit(state, {:sasl_failure, payload})
     state = emit(state, {:message, message})
     state = %{state | sasl_in_progress?: false}
 
     case policy do
+      :retry ->
+        state = %{state | sasl_index: state.sasl_index + 1, sasl_in_progress?: true}
+        send_sasl_start(state)
+        {:noreply, state}
+
       :abort ->
         send_message(state, "QUIT", ["SASL authentication failed"])
         {:stop, :sasl_failure, state}
@@ -1142,6 +1212,13 @@ defmodule Ircxd.Client do
       :continue ->
         send_message(state, "CAP", ["END"])
         {:noreply, state}
+    end
+  end
+
+  defp sasl_failure_policy(state) do
+    cond do
+      next_sasl_mechanism_atom(state) != nil -> :retry
+      true -> state.sasl_failure_policy
     end
   end
 

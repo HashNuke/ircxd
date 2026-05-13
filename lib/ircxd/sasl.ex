@@ -16,6 +16,10 @@ defmodule Ircxd.SASL do
     |> Base.encode64()
   end
 
+  def external_payload(nil), do: "+"
+  def external_payload(""), do: "+"
+  def external_payload(authzid) when is_binary(authzid), do: Base.encode64(authzid)
+
   def authenticate_chunks(payload) when is_binary(payload) do
     chunks =
       payload
