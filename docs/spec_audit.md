@@ -95,7 +95,8 @@ Remaining Modern IRC gaps:
 Implemented and tested:
 
 - Capability negotiation and cap-notify lifecycle.
-- Message Tags, client-only tags, label tag gating, and client-tag-deny.
+- Message Tags, client-only tags, label tag gating before and after
+  `CAP DEL`, and client-tag-deny.
 - SASL `PLAIN`, `EXTERNAL`, and `SCRAM-SHA-256`, including capability
   advertised-mechanism filtering before `CAP REQ`, mechanism list numeric
   `908`, and fallback behavior.
