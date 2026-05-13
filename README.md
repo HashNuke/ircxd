@@ -158,6 +158,9 @@ Expected evidence in irssi:
 See `docs/spec_audit.md` for the current prompt-to-artifact audit and known
 remaining gaps.
 
+See `docs/host_boundaries.md` for what belongs in `ircxd` core versus embedding
+applications.
+
 Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 
 - Message format: tags, source, command, middle params, trailing params.
