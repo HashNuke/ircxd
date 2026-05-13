@@ -226,6 +226,49 @@ defmodule Ircxd.ClientCapLifecycleTest do
     refute_receive {:scripted_irc_line, "@+typing=done TAGMSG #elixir"}, 250
   end
 
+  test "does not send CAP END after post-registration CAP NAK" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :"]
+
+           "CAP END", _state ->
+             [
+               ":irc.test 001 nick :Welcome",
+               ":irc.test CAP * NEW :server-time"
+             ]
+
+           "CAP REQ server-time", _state ->
+             [":irc.test CAP * NAK :server-time"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        notify: self()
+      )
+
+    assert_receive {:scripted_irc_line, "CAP END"}, 1_000
+    assert_receive {:ircxd, :registered}, 1_000
+    assert_receive {:ircxd, {:cap_new, %{"server-time" => true}}}, 1_000
+
+    assert :ok = Ircxd.Client.request_capabilities(client, ["server-time"])
+    assert_receive {:scripted_irc_line, "CAP REQ server-time"}, 1_000
+    assert_receive {:ircxd, {:cap_nak, ["server-time"]}}, 1_000
+    refute_receive {:scripted_irc_line, "CAP END"}, 250
+  end
+
   test "aggregates multiline CAP LS replies before requesting capabilities" do
     server =
       start_supervised!(
