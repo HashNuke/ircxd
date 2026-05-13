@@ -98,6 +98,18 @@ defmodule Ircxd.MessageTest do
     refute Message.valid_wire_size?("@" <> tag_data <> "a PRIVMSG #chan :hello\r\n")
   end
 
+  test "rejects oversized received wire messages while parsing" do
+    assert Message.parse(String.duplicate("a", 511) <> "\r\n") == {:error, :line_too_long}
+
+    tag_data = String.duplicate("a", Message.max_received_tag_section_bytes())
+
+    assert Message.parse("@" <> tag_data <> " PRIVMSG #chan :hello\r\n") ==
+             {:error, :tag_section_too_long}
+
+    message = "@" <> String.duplicate("a", 32) <> " " <> String.duplicate("b", 511) <> "\r\n"
+    assert Message.parse(message) == {:error, :line_too_long}
+  end
+
   test "escapes and unescapes tag values" do
     value = "semi; space cr\r lf\n slash\\"
     escaped = Message.escape_tag_value(value)

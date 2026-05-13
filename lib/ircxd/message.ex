@@ -24,8 +24,12 @@ defmodule Ircxd.Message do
 
   @spec parse(String.t()) :: {:ok, t()} | {:error, atom()}
   def parse(line) when is_binary(line) do
-    line = String.trim_trailing(line, "\r\n")
+    with :ok <- validate_received_wire_size(line) do
+      parse_validated_line(String.trim_trailing(line, "\r\n"))
+    end
+  end
 
+  defp parse_validated_line(line) do
     with false <- line == "",
          {tags, rest} <- parse_tags(line),
          {source, rest} <- parse_source(rest),
@@ -44,8 +48,37 @@ defmodule Ircxd.Message do
       true -> {:error, :empty}
       false -> {:error, :invalid_command}
       {:error, :too_many_params} -> {:error, :too_many_params}
+      {:error, reason} -> {:error, reason}
       _ -> {:error, :invalid}
     end
+  end
+
+  defp validate_received_wire_size("@" <> rest) do
+    case String.split(rest, " ", parts: 2) do
+      [tag_data, message] ->
+        tag_section = "@" <> tag_data <> " "
+
+        cond do
+          not valid_received_tag_section_size?(tag_section) -> {:error, :tag_section_too_long}
+          not valid_message_section_size?(message) -> {:error, :line_too_long}
+          true -> :ok
+        end
+
+      [_tag_data] ->
+        :ok
+    end
+  end
+
+  defp validate_received_wire_size(line) do
+    if valid_message_section_size?(line), do: :ok, else: {:error, :line_too_long}
+  end
+
+  defp valid_message_section_size?(line) do
+    line
+    |> String.trim_trailing("\r\n")
+    |> message_with_crlf()
+    |> byte_size()
+    |> Kernel.<=(@max_message_bytes)
   end
 
   @spec serialize(t() | {String.t(), [String.t()]} | {String.t(), [String.t()], map()}) ::

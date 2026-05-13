@@ -6,6 +6,8 @@ applications.
 The library currently provides:
 
 - Modern IRC line parsing and serialization.
+- Modern IRC inbound line, message-section, and IRCv3 received-tag size
+  validation.
 - Modern IRC source mask parsing for server names and full or partial user
   sources.
 - Modern IRC command-token and parameter-count validation.
