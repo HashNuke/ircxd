@@ -32,6 +32,7 @@ defmodule Ircxd.ISupportTest do
   test "treats empty ISUPPORT values as valueless tokens" do
     assert {"MODES", true} = ISupport.parse_token("MODES=")
     assert {"SILENCE", true} = ISupport.parse_token("SILENCE=")
+    assert {"CHANTYPES", ""} = ISupport.parse_token("CHANTYPES=")
 
     assert %{"MODES" => true, "SILENCE" => true} =
              ISupport.parse_params([
@@ -353,6 +354,7 @@ defmodule Ircxd.ISupportTest do
     assert ISupport.channel?(%{}, "&default")
     refute ISupport.channel?(%{}, "+modeless")
     refute ISupport.channel?(%{"CHANTYPES" => true}, "#bad-token")
+    refute ISupport.channel?(%{"CHANTYPES" => ""}, "#no-channel-types")
     refute ISupport.channel?(%{"CHANTYPES" => "#"}, nil)
   end
 

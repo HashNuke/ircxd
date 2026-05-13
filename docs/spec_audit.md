@@ -61,15 +61,15 @@ Implemented and tested:
   aggregation, initial and host-driven `REQ`, `ACK`, `NAK`, `NEW`, `DEL`, active
   capability listing, registration-time `CAP END`, post-registration capability
   changes without extra `CAP END`, and `CAP REQ :-cap` disable acknowledgements.
-- Structured ISUPPORT helpers for valueless and empty-value tokens, `PREFIX`,
-  concrete membership prefix/mode lookup, decoded `\\xHH` value escapes,
-  `CHANMODES` including the default value, concrete channel-mode classification
-  including `PREFIX` membership modes, `CHANLIMIT`, concrete channel-limit
-  lookup, `MAXLIST`, concrete list-mode limit lookup, and `TARGMAX` / legacy
-  `MAXTARGETS` parameter values and target-count checks, `MODES` command-limit
-  lookup, `SILENCE` list-limit lookup, plus typed integer, positive
-  length-limit, character-list, `ELIST` extension, `EXCEPTS` / `INVEX` mode
-  lookup, `EXTBAN` prefix/type parsing, feature-flag readers for common
+- Structured ISUPPORT helpers for valueless tokens, token-specific empty-value
+  handling, `PREFIX`, concrete membership prefix/mode lookup, decoded `\\xHH`
+  value escapes, `CHANMODES` including the default value, concrete channel-mode
+  classification including `PREFIX` membership modes, `CHANLIMIT`, concrete
+  channel-limit lookup, `MAXLIST`, concrete list-mode limit lookup, and
+  `TARGMAX` / legacy `MAXTARGETS` parameter values and target-count checks,
+  `MODES` command-limit lookup, `SILENCE` list-limit lookup, plus typed integer,
+  positive length-limit, character-list, `ELIST` extension, `EXCEPTS` / `INVEX`
+  mode lookup, `EXTBAN` prefix/type parsing, feature-flag readers for common
   tokens, `CHANTYPES` and `STATUSMSG` target detection, and ASCII-only IRC
   casemapping / ISUPPORT `CASEMAPPING` comparison helpers.
 - Channel operations: `JOIN`, `PART`, `TOPIC`, `NAMES`, `LIST`, `INVITE`,

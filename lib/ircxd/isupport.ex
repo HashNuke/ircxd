@@ -5,6 +5,7 @@ defmodule Ircxd.ISupport do
 
   @length_limit_keys ~w(AWAYLEN CHANNELLEN HOSTLEN KICKLEN NICKLEN TOPICLEN USERLEN)
   @default_chanmodes "b,k,l,imnpst"
+  @empty_value_as_valueless_keys ~w(MODES SILENCE)
 
   def parse_params(params) when is_list(params) do
     params
@@ -17,7 +18,8 @@ defmodule Ircxd.ISupport do
 
   def parse_token(token) do
     case String.split(token, "=", parts: 2) do
-      [key, ""] -> {key, true}
+      [key, ""] when key in @empty_value_as_valueless_keys -> {key, true}
+      [key, ""] -> {key, ""}
       [key, value] -> {key, unescape_value(value)}
       [key] -> {key, true}
     end

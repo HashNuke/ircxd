@@ -168,9 +168,9 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Typed registration numerics `001` through `004`.
 - Source masks such as `nick!user@host` and server names.
 - ISUPPORT `005` tokens, `CHANTYPES` channel detection, `STATUSMSG` target
-  detection, valueless and empty-value token normalization, decoded `\xHH`
-  value escapes, concrete `PREFIX`, `CHANMODES`, `CHANLIMIT`, and `MAXLIST`
-  lookups, `CHANMODES` default handling, `PREFIX` membership mode
+  detection, valueless-token handling, token-specific empty-value handling,
+  decoded `\xHH` value escapes, concrete `PREFIX`, `CHANMODES`, `CHANLIMIT`,
+  and `MAXLIST` lookups, `CHANMODES` default handling, `PREFIX` membership mode
   classification, `TARGMAX` / `MAXTARGETS` target-count checks, positive
   length-limit helpers, `MODES` command-limit lookup, `SILENCE` list-limit
   lookup, `ELIST` extension checks, `EXCEPTS` / `INVEX` mode helpers, `EXTBAN`
