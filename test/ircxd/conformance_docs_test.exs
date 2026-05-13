@@ -189,6 +189,32 @@ defmodule Ircxd.ConformanceDocsTest do
     assert runner =~ ~s(rm -rf "${PACKAGE_DIR}")
   end
 
+  test "real-server integration tests stay opt-in and covered by runners" do
+    test_helper = File.read!(Path.expand("../../test/test_helper.exs", __DIR__))
+
+    services_test =
+      File.read!(Path.expand("../../test/ircxd/client_services_integration_test.exs", __DIR__))
+
+    standard_replies_test =
+      File.read!(
+        Path.expand("../../test/ircxd/client_standard_replies_integration_test.exs", __DIR__)
+      )
+
+    services_runner =
+      File.read!(Path.expand("../../scripts/run_services_integration.sh", __DIR__))
+
+    standard_replies_runner =
+      File.read!(Path.expand("../../scripts/run_standard_replies_integration.sh", __DIR__))
+
+    assert test_helper =~
+             "exclude: [services_integration: true, standard_replies_integration: true]"
+
+    assert services_test =~ "@moduletag :services_integration"
+    assert standard_replies_test =~ "@moduletag :standard_replies_integration"
+    assert services_runner =~ "mix test --include services_integration"
+    assert standard_replies_runner =~ "mix test --include standard_replies_integration"
+  end
+
   defp parse_matrix_row("| Area | Status | Evidence | Next grouped work |"), do: []
   defp parse_matrix_row("| --- | --- | --- | --- |"), do: []
 
