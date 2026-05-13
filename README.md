@@ -155,6 +155,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Channel join and bidirectional channel messaging against InspIRCd.
 - IRCv3 `echo-message` self-echo and `server-time` metadata against InspIRCd.
 - IRCv3 `extended-join` account and realname metadata against InspIRCd.
+- IRCv3 `away-notify` state changes against InspIRCd.
 - Nickname collision retry against InspIRCd.
 - Optional reconnect after a transport close.
 - SASL PLAIN client negotiation against a scripted IRC server.

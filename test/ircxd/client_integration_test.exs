@@ -174,6 +174,60 @@ defmodule Ircxd.ClientIntegrationTest do
              end)
   end
 
+  test "receives away-notify updates from InspIRCd" do
+    channel = "#ircxdaway#{System.unique_integer([:positive])}"
+    observer_nick = "ircxdaway#{System.unique_integer([:positive])}"
+    raw_nick = "rawaway#{System.unique_integer([:positive])}"
+
+    {:ok, observer} =
+      Ircxd.start_link(
+        host: @host,
+        port: @port,
+        tls: false,
+        nick: observer_nick,
+        username: observer_nick,
+        realname: "Ircxd Away Notify Test",
+        caps: ["away-notify"],
+        notify: self()
+      )
+
+    assert {:ok, caps} =
+             wait_for_event(fn
+               {:cap_ls, caps} -> {:ok, caps}
+               _ -> :cont
+             end)
+
+    assert Map.has_key?(caps, "away-notify")
+    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+    assert :ok = Ircxd.Client.join(observer, channel)
+
+    assert {:ok, %{nick: ^observer_nick, channel: ^channel}} =
+             wait_for_event(fn
+               {:join, %{nick: ^observer_nick, channel: ^channel} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    {:ok, raw} = RawIrcClient.connect(host: @host, port: @port, nick: raw_nick)
+    assert {:ok, _line, _seen} = RawIrcClient.join(raw, channel)
+    assert :ok = RawIrcClient.send_line(raw, "AWAY :checking tests")
+
+    assert {:ok, %{nick: ^raw_nick, away?: true, message: "checking tests"}} =
+             wait_for_event(fn
+               {:away, %{nick: ^raw_nick} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert :ok = RawIrcClient.send_line(raw, "AWAY")
+
+    assert {:ok, %{nick: ^raw_nick, away?: false, message: nil}} =
+             wait_for_event(fn
+               {:away, %{nick: ^raw_nick} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    RawIrcClient.close(raw)
+  end
+
   test "retries nickname when the requested nick is in use" do
     base_nick = "taken#{System.unique_integer([:positive])}"
     {:ok, holder} = RawIrcClient.connect(host: @host, port: @port, nick: base_nick)
