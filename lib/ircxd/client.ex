@@ -1115,6 +1115,62 @@ defmodule Ircxd.Client do
     {:error, %{reason: List.first(params), message: message}}
   end
 
+  defp event_for(%Message{command: "321", params: params} = message),
+    do: {:list_start, %{params: params, message: message}}
+
+  defp event_for(%Message{command: "322", params: [_me, channel, visible, topic]} = message),
+    do: {:list_entry, %{channel: channel, visible: visible, topic: topic, message: message}}
+
+  defp event_for(%Message{command: "323", params: params} = message),
+    do: {:list_end, %{params: params, message: message}}
+
+  defp event_for(%Message{command: "375", params: [_me, text]} = message),
+    do: {:motd_start, %{text: text, message: message}}
+
+  defp event_for(%Message{command: "372", params: [_me, text]} = message),
+    do: {:motd, %{text: text, message: message}}
+
+  defp event_for(%Message{command: "376", params: [_me, text]} = message),
+    do: {:motd_end, %{text: text, message: message}}
+
+  defp event_for(%Message{command: "422", params: [_me, text]} = message),
+    do: {:motd_missing, %{text: text, message: message}}
+
+  defp event_for(%Message{command: "256", params: [_me, server, text]} = message),
+    do: {:admin_start, %{server: server, text: text, message: message}}
+
+  defp event_for(%Message{command: "257", params: [_me, text]} = message),
+    do: {:admin_location, %{line: 1, text: text, message: message}}
+
+  defp event_for(%Message{command: "258", params: [_me, text]} = message),
+    do: {:admin_location, %{line: 2, text: text, message: message}}
+
+  defp event_for(%Message{command: "259", params: [_me, text]} = message),
+    do: {:admin_email, %{text: text, message: message}}
+
+  defp event_for(%Message{command: command, params: params} = message)
+       when command in ["251", "252", "253", "254", "255", "265", "266"] do
+    {:lusers, %{code: command, params: params, text: List.last(params), message: message}}
+  end
+
+  defp event_for(%Message{command: "391", params: [_me, server, time]} = message),
+    do: {:time, %{server: server, time: time, message: message}}
+
+  defp event_for(%Message{command: "371", params: [_me, text]} = message),
+    do: {:info, %{text: text, message: message}}
+
+  defp event_for(%Message{command: "374", params: [_me, text]} = message),
+    do: {:info_end, %{text: text, message: message}}
+
+  defp event_for(%Message{command: "364", params: [_me, mask, server, hopcount, info]} = message),
+    do: {:links, %{mask: mask, server: server, hopcount: hopcount, info: info, message: message}}
+
+  defp event_for(%Message{command: "365", params: [_me, mask, text]} = message),
+    do: {:links_end, %{mask: mask, text: text, message: message}}
+
+  defp event_for(%Message{command: "302", params: [_me, replies]} = message),
+    do: {:userhost, %{replies: String.split(replies, " ", trim: true), message: message}}
+
   defp event_for(%Message{command: command, params: params} = message)
        when command in ["FAIL", "WARN", "NOTE"] do
     case StandardReply.parse(command, params) do

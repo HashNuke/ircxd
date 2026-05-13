@@ -61,9 +61,10 @@ defmodule Ircxd.ClientLabeledResponseBatchTest do
                             ref: "lb1",
                             type: "labeled-response",
                             events: [
-                              {:raw, %{command: "321"}},
-                              {:raw, %{command: "322"}},
-                              {:raw, %{command: "323"}}
+                              {:list_start, %{params: ["nick", "Channel", "Users Name"]}},
+                              {:list_entry,
+                               %{channel: "#elixir", visible: "10", topic: "Elixir"}},
+                              {:list_end, %{params: ["nick", "End of /LIST"]}}
                             ]
                           }}
                      }}},
