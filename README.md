@@ -244,7 +244,8 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
   monospace, reverse, numeric colors, hex colors, and reset.
 - Draft IRCv3 chathistory selectors, gated command helpers, `CHATHISTORY
   TARGETS`, and batch-delivered history events.
-- IRCv3 `BATCH` start/end tracking and batched message events.
+- IRCv3 `BATCH` start/end tracking, batched message events, and malformed or
+  unknown batch error events.
 - IRCv3 stable `netsplit` and `netjoin` batch aggregation.
 - Draft IRCv3 multiline batch aggregation, `draft/multiline-concat`, and gated
   outbound multiline `PRIVMSG`/`NOTICE` helpers.

@@ -104,8 +104,9 @@ Implemented and tested:
   account extban helpers.
 - Presence/property updates: `away-notify`, `chghost`, `setname`,
   `invite-notify`.
-- Batches, netsplit/netjoin aggregation, labeled-response ACK/batch/request
-  lifecycle, including single standard-reply completion.
+- Batches, malformed/unknown batch errors, netsplit/netjoin aggregation,
+  labeled-response ACK/batch/request lifecycle, including single standard-reply
+  completion.
 - Bot mode helpers and WHO/WHOIS bot indicators.
 - Echo-message, server-time ordering, message IDs and optional duplicate
   marking.

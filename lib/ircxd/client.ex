@@ -1621,15 +1621,24 @@ defmodule Ircxd.Client do
 
       {:ok, %{direction: :end, ref: ref}} ->
         {batch, active_batches} = Map.pop(state.active_batches, ref)
-        state = %{state | active_batches: active_batches}
-        state = maybe_emit_multiline(state, ref, batch)
-        state = maybe_emit_labeled_response_batch(state, ref, batch)
-        state = maybe_emit_isupport_batch(state, ref, batch)
-        state = maybe_emit_metadata_batch(state, ref, batch)
-        state = maybe_emit_net_batch(state, ref, batch)
-        state = emit(state, {:batch_end, %{ref: ref, batch: batch}})
-        state = emit(state, {:message, message})
-        {:noreply, state}
+
+        if is_nil(batch) do
+          state =
+            emit(state, {:batch_error, %{reason: :unknown_batch, ref: ref, message: message}})
+
+          state = emit(state, {:message, message})
+          {:noreply, state}
+        else
+          state = %{state | active_batches: active_batches}
+          state = maybe_emit_multiline(state, ref, batch)
+          state = maybe_emit_labeled_response_batch(state, ref, batch)
+          state = maybe_emit_isupport_batch(state, ref, batch)
+          state = maybe_emit_metadata_batch(state, ref, batch)
+          state = maybe_emit_net_batch(state, ref, batch)
+          state = emit(state, {:batch_end, %{ref: ref, batch: batch}})
+          state = emit(state, {:message, message})
+          {:noreply, state}
+        end
 
       {:error, reason} ->
         state = emit(state, {:batch_error, %{reason: reason, message: message}})

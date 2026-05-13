@@ -67,4 +67,81 @@ defmodule Ircxd.ClientBatchTest do
                      %{ref: "hist1", batch: %{type: "chathistory", params: ["#elixir"]}}}},
                    1_000
   end
+
+  test "emits batch errors for malformed batch messages" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :batch"]
+
+           "CAP REQ batch", _state ->
+             [":irc.test CAP * ACK :batch"]
+
+           "CAP END", _state ->
+             [
+               ":irc.test 001 nick :Welcome",
+               "BATCH +broken"
+             ]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, _client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        caps: ["batch"],
+        notify: self()
+      )
+
+    assert_receive {:ircxd, {:batch_error, %{reason: :missing_type, message: message}}}, 1_000
+    assert message.command == "BATCH"
+    assert message.params == ["+broken"]
+  end
+
+  test "emits batch errors for unknown batch endings" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :batch"]
+
+           "CAP REQ batch", _state ->
+             [":irc.test CAP * ACK :batch"]
+
+           "CAP END", _state ->
+             [
+               ":irc.test 001 nick :Welcome",
+               "BATCH -missing"
+             ]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, _client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        caps: ["batch"],
+        notify: self()
+      )
+
+    assert_receive {:ircxd, {:batch_error, %{reason: :unknown_batch, ref: "missing"}}}, 1_000
+    refute_receive {:ircxd, {:batch_end, %{ref: "missing"}}}, 250
+  end
 end
