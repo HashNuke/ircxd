@@ -65,9 +65,9 @@ The library currently provides:
 - Parsed DCC payloads on CTCP `PRIVMSG` and `NOTICE` events.
 - DCC reverse/port-0 detection for host-owned connection policy.
 - Modern IRC formatting control-code parser and stripper.
-- ISUPPORT, remote ISUPPORT, structured ISUPPORT parameter helpers, NAMES,
-  source mask, casemapping, server-time, msgid, label, batch, and account
-  helpers.
+- ISUPPORT, remote ISUPPORT, structured ISUPPORT parameter and typed value
+  helpers, NAMES, source mask, casemapping, server-time, msgid, label, batch,
+  and account helpers.
 - Callback-style event delivery through `:notify` or `Ircxd.Handler`.
 
 Storage, scrollback, notification persistence, and application state are not part

@@ -59,4 +59,29 @@ defmodule Ircxd.ISupportTest do
     assert %{"JOIN" => :unlimited, "PRIVMSG" => 3, "WHOIS" => 1} =
              ISupport.targmax(%{"TARGMAX" => "privmsg:3,WHOIS:1,JOIN:"})
   end
+
+  test "reads typed integer, character-list, and flag values" do
+    isupport = %{
+      "CHANTYPES" => "#&",
+      "STATUSMSG" => "@+",
+      "NICKLEN" => "30",
+      "CHANNELLEN" => "64",
+      "SAFELIST" => true,
+      "EXCEPTS" => false,
+      "BADLEN" => "abc"
+    }
+
+    assert ISupport.integer(isupport, "NICKLEN") == 30
+    assert ISupport.integer(isupport, "CHANNELLEN") == 64
+    assert ISupport.integer(isupport, "BADLEN") == nil
+    assert ISupport.integer(isupport, "MISSING", 9) == 9
+
+    assert ISupport.characters(isupport, "CHANTYPES") == ["#", "&"]
+    assert ISupport.characters(isupport, "STATUSMSG") == ["@", "+"]
+    assert ISupport.characters(isupport, "MISSING") == []
+
+    assert ISupport.enabled?(isupport, "SAFELIST")
+    refute ISupport.enabled?(isupport, "EXCEPTS")
+    refute ISupport.enabled?(isupport, "MISSING")
+  end
 end

@@ -82,6 +82,28 @@ defmodule Ircxd.ISupport do
     |> Map.new(fn {command, limit} -> {String.upcase(command), limit} end)
   end
 
+  def integer(isupport, key, default \\ nil) when is_map(isupport) and is_binary(key) do
+    case Map.fetch(isupport, key) do
+      {:ok, value} -> parse_integer_value(value, default)
+      :error -> default
+    end
+  end
+
+  def characters(isupport, key) when is_map(isupport) and is_binary(key) do
+    isupport
+    |> Map.get(key, "")
+    |> string_value()
+    |> String.graphemes()
+  end
+
+  def enabled?(isupport, key) when is_map(isupport) and is_binary(key) do
+    case Map.fetch(isupport, key) do
+      {:ok, false} -> false
+      {:ok, _value} -> true
+      :error -> false
+    end
+  end
+
   defp parse_pair_list(value) do
     value
     |> string_value()
@@ -99,6 +121,13 @@ defmodule Ircxd.ISupport do
     case Integer.parse(value) do
       {limit, ""} when limit > 0 -> [{key, limit}]
       _ -> []
+    end
+  end
+
+  defp parse_integer_value(value, default) do
+    case Integer.parse(string_value(value)) do
+      {integer, ""} when integer >= 0 -> integer
+      _ -> default
     end
   end
 

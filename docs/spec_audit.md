@@ -57,7 +57,8 @@ Implemented and tested:
 - Capability negotiation core through `CAP LS 302`, `REQ`, `ACK`, `NAK`, `NEW`,
   and `DEL`.
 - Structured ISUPPORT helpers for `PREFIX`, `CHANMODES`, `CHANLIMIT`,
-  `MAXLIST`, and `TARGMAX` parameter values.
+  `MAXLIST`, and `TARGMAX` parameter values, plus typed integer, character-list,
+  and feature-flag readers for common tokens.
 - Channel operations: `JOIN`, `PART`, `TOPIC`, `NAMES`, `LIST`, `INVITE`,
   `KICK`, `MODE`, mode queries, topic numerics, name replies, channel modes,
   and mask lists.
