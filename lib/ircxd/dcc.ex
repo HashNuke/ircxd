@@ -9,7 +9,13 @@ defmodule Ircxd.DCC do
 
   alias Ircxd.CTCP
 
-  defstruct type: nil, argument: nil, host: nil, raw_host: nil, port: nil, extra: []
+  defstruct type: nil,
+            argument: nil,
+            host: nil,
+            raw_host: nil,
+            port: nil,
+            position: nil,
+            extra: []
 
   @type t :: %__MODULE__{
           type: String.t(),
@@ -17,6 +23,7 @@ defmodule Ircxd.DCC do
           host: String.t(),
           raw_host: String.t(),
           port: non_neg_integer(),
+          position: non_neg_integer() | nil,
           extra: [String.t()]
         }
 
@@ -29,7 +36,8 @@ defmodule Ircxd.DCC do
   def parse(params) when is_binary(params) do
     with {:ok, [type, argument, raw_host, raw_port | extra]} <- tokenize(params),
          {:ok, port} <- parse_port(raw_port),
-         {:ok, host} <- normalize_host(raw_host) do
+         {:ok, host} <- normalize_host(raw_host),
+         {:ok, position} <- parse_position(type, extra) do
       {:ok,
        %__MODULE__{
          type: String.upcase(type),
@@ -37,6 +45,7 @@ defmodule Ircxd.DCC do
          host: host,
          raw_host: raw_host,
          port: port,
+         position: position,
          extra: extra
        }}
     else
@@ -54,6 +63,16 @@ defmodule Ircxd.DCC do
           String.t()
   def encode_send(filename, host, port, extra \\ []) do
     encode("SEND", filename, host, port, extra)
+  end
+
+  @spec encode_resume(String.t(), String.t(), non_neg_integer(), non_neg_integer()) :: String.t()
+  def encode_resume(filename, host, port, position) do
+    encode("RESUME", filename, host, port, [position])
+  end
+
+  @spec encode_accept(String.t(), String.t(), non_neg_integer(), non_neg_integer()) :: String.t()
+  def encode_accept(filename, host, port, position) do
+    encode("ACCEPT", filename, host, port, [position])
   end
 
   @spec encode(String.t(), String.t(), String.t() | tuple(), non_neg_integer(), [
@@ -99,6 +118,19 @@ defmodule Ircxd.DCC do
       _ -> {:error, :invalid_port}
     end
   end
+
+  defp parse_position(type, [raw_position | _extra])
+       when type in ["RESUME", "resume", "ACCEPT", "accept"] do
+    case Integer.parse(raw_position) do
+      {position, ""} when position >= 0 -> {:ok, position}
+      _ -> {:error, :invalid_position}
+    end
+  end
+
+  defp parse_position(type, []) when type in ["RESUME", "resume", "ACCEPT", "accept"],
+    do: {:error, :missing_position}
+
+  defp parse_position(_type, _extra), do: {:ok, nil}
 
   defp normalize_host(raw_host) do
     cond do

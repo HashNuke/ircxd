@@ -35,10 +35,41 @@ defmodule Ircxd.DCCTest do
     assert {:error, :unterminated_quote} = DCC.parse("SEND \"file name.txt 2130706433 9000")
   end
 
+  test "parses DCC RESUME and ACCEPT transfer controls" do
+    assert {:ok,
+            %DCC{
+              type: "RESUME",
+              argument: "file name.txt",
+              host: "127.0.0.1",
+              port: 9000,
+              position: 4096,
+              extra: ["4096"]
+            }} = DCC.parse("RESUME \"file name.txt\" 2130706433 9000 4096")
+
+    assert {:ok,
+            %DCC{
+              type: "ACCEPT",
+              argument: "file name.txt",
+              host: "127.0.0.1",
+              port: 9000,
+              position: 4096,
+              extra: ["4096"]
+            }} = DCC.parse("ACCEPT \"file name.txt\" 2130706433 9000 4096")
+
+    assert {:error, :missing_position} = DCC.parse("RESUME file.txt 2130706433 9000")
+    assert {:error, :invalid_position} = DCC.parse("ACCEPT file.txt 2130706433 9000 nope")
+  end
+
   test "encodes DCC CHAT and SEND CTCP payloads" do
     assert DCC.encode_chat({127, 0, 0, 1}, 9000) == <<1, "DCC CHAT chat 2130706433 9000", 1>>
 
     assert DCC.encode_send("file name.txt", "2001:db8::1", 0, [12345]) ==
              <<1, "DCC SEND \"file name.txt\" 2001:db8::1 0 12345", 1>>
+
+    assert DCC.encode_resume("file name.txt", {127, 0, 0, 1}, 9000, 4096) ==
+             <<1, "DCC RESUME \"file name.txt\" 2130706433 9000 4096", 1>>
+
+    assert DCC.encode_accept("file name.txt", {127, 0, 0, 1}, 9000, 4096) ==
+             <<1, "DCC ACCEPT \"file name.txt\" 2130706433 9000 4096", 1>>
   end
 end
