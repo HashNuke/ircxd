@@ -54,6 +54,38 @@ defmodule Ircxd.ClientIntegrationTest do
                15_000
              )
 
+    assert {:ok, %{nick: ^client_nick, text: welcome_text}} =
+             wait_for_event(fn
+               {:welcome, %{nick: ^client_nick} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert String.contains?(welcome_text, "Welcome")
+
+    assert {:ok, %{text: your_host_text}} =
+             wait_for_event(fn
+               {:your_host, payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert String.contains?(your_host_text, "InspIRCd")
+
+    assert {:ok, %{text: created_text}} =
+             wait_for_event(fn
+               {:server_created, payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert created_text != ""
+
+    assert {:ok, %{server: "irc.local", version: version}} =
+             wait_for_event(fn
+               {:server_info, payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert String.contains?(version, "InspIRCd")
+
     assert {:ok, isupport} =
              wait_for_event(fn
                {:isupport, tokens} when is_map_key(tokens, "CHANTYPES") -> {:ok, tokens}
