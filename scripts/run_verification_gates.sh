@@ -16,6 +16,9 @@ cd "${ROOT_DIR}"
 echo "==> default suite"
 run_mix "mix test"
 
+echo "==> generated docs"
+run_mix "mix docs"
+
 echo "==> real standard-replies integration"
 scripts/run_standard_replies_integration.sh
 

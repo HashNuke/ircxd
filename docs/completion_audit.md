@@ -46,6 +46,18 @@ Expected current result:
 254 tests, 0 failures (3 excluded)
 ```
 
+Generated docs:
+
+```bash
+mix docs
+```
+
+Expected current result:
+
+```text
+View html docs at "doc/index.html"
+```
+
 Opt-in real standard-replies fixture:
 
 ```bash
