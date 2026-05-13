@@ -10,7 +10,8 @@ defmodule Ircxd.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: description(),
-      docs: docs()
+      docs: docs(),
+      package: package()
     ]
   end
 
@@ -65,6 +66,17 @@ defmodule Ircxd.MixProject do
         ],
         References: ["docs/specs.md"]
       ]
+    ]
+  end
+
+  defp package do
+    [
+      licenses: ["MIT"],
+      links: %{
+        "Repository" => "https://github.com/ircxd/ircxd",
+        "Modern IRC" => "https://modern.ircdocs.horse/",
+        "IRCv3" => "https://ircv3.net/irc/"
+      }
     ]
   end
 

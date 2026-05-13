@@ -70,6 +70,12 @@ Expected current result:
 View html docs at "doc/index.html"
 ```
 
+Package metadata:
+
+```bash
+mix hex.build --unpack
+```
+
 Opt-in real standard-replies fixture:
 
 ```bash
