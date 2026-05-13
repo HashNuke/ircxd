@@ -105,7 +105,8 @@ Implemented and tested:
 - Standard replies: `FAIL`, `WARN`, `NOTE`.
 - STS policy parsing and SNI TLS options.
 - UTF8ONLY outbound validation.
-- WEBIRC and WebSocket protocol-boundary helpers with an adapter behaviour.
+- WEBIRC and WebSocket protocol-boundary helpers with an adapter behaviour and
+  in-memory adapter for tests/embedders.
 
 Remaining IRCv3 stable gaps:
 

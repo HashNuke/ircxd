@@ -53,6 +53,7 @@ The library currently provides:
 - Draft IRCv3 metadata batch aggregation including standard `FAIL` entries.
 - IRCv3 WebIRC startup support.
 - IRCv3 WebSocket subprotocol, one-line payload helpers, and adapter behaviour.
+- In-memory WebSocket adapter for adapter-boundary tests and embedders.
 - Draft IRCv3 chathistory command helpers and `TARGETS` events.
 - Draft IRCv3 multiline receive aggregation and outbound multiline message helpers.
 - Draft IRCv3 client-initiated batch helper with required capability checks.

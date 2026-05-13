@@ -3,6 +3,7 @@ defmodule Ircxd.WebSocketTest do
 
   alias Ircxd.Message
   alias Ircxd.WebSocket
+  alias Ircxd.WebSocket.MemoryAdapter
 
   defmodule TestAdapter do
     @behaviour Ircxd.WebSocket.Adapter
@@ -62,5 +63,30 @@ defmodule Ircxd.WebSocketTest do
              )
 
     assert_receive {:frame, :text, "PRIVMSG #elixir hello"}
+  end
+
+  test "ships an in-memory adapter for adapter-boundary tests" do
+    assert :ok =
+             WebSocket.send_frame(
+               MemoryAdapter,
+               self(),
+               %Message{command: "PING", params: ["irc.example.test"]},
+               :text
+             )
+
+    assert_receive {:ircxd_websocket_frame, :text, "PING irc.example.test"}
+
+    assert :ok =
+             WebSocket.send_frame(
+               MemoryAdapter,
+               {self(), :custom_frame},
+               "PONG irc.example.test",
+               :text
+             )
+
+    assert_receive {:custom_frame, :text, "PONG irc.example.test"}
+    assert :ok = MemoryAdapter.close(self(), :normal)
+    assert_receive {:ircxd_websocket_closed, :normal}
+    assert {:error, :invalid_owner} = MemoryAdapter.send_frame(:not_a_pid, :text, "PING x")
   end
 end
