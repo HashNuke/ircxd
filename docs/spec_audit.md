@@ -138,8 +138,8 @@ Implemented and tested:
 - MONITOR and extended-monitor events.
 - Standard replies: `FAIL`, `WARN`, `NOTE`, including case-insensitive
   command/code normalization.
-- STS policy parsing, SNI TLS options, `CAP REQ sts` suppression, and ignored
-  `CAP DEL sts`.
+- STS policy parsing, invalid-policy event emission, SNI TLS options,
+  `CAP REQ sts` suppression, and ignored `CAP DEL sts`.
 - UTF8ONLY outbound validation.
 - WEBIRC and WebSocket protocol-boundary helpers with an adapter behaviour and
   in-memory adapter for tests/embedders.

@@ -79,4 +79,41 @@ defmodule Ircxd.ClientSTSTest do
     refute_receive {:ircxd, {:cap_del, ["sts"]}}, 1_000
     assert_receive {:ircxd, {:cap_del, ["message-tags"]}}, 1_000
   end
+
+  test "emits STS policy errors for invalid advertised policies" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :sts=port=not-a-port"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, _client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        notify: self()
+      )
+
+    assert_receive {:ircxd,
+                    {:sts_policy_error,
+                     %{
+                       host: "127.0.0.1",
+                       value: "port=not-a-port",
+                       reason: :invalid_sts_policy
+                     }}},
+                   1_000
+  end
 end
