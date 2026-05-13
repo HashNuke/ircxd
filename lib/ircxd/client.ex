@@ -106,6 +106,12 @@ defmodule Ircxd.Client do
   def whowas(client, nick, nil), do: GenServer.call(client, {:send, "WHOWAS", [nick]})
   def whowas(client, nick, count), do: GenServer.call(client, {:send, "WHOWAS", [nick, count]})
 
+  def register_account(client, account, email, password),
+    do: GenServer.call(client, {:send, "REGISTER", [account, email, password]})
+
+  def verify_account(client, account, code),
+    do: GenServer.call(client, {:send, "VERIFY", [account, code]})
+
   def markread_get(client, target), do: GenServer.call(client, {:send, "MARKREAD", [target]})
 
   def markread_set(client, target, timestamp),
@@ -795,6 +801,19 @@ defmodule Ircxd.Client do
     end
   end
 
+  defp event_for(%Message{command: command, params: [status, account, message_text]} = message)
+       when command in ["REGISTER", "VERIFY"] do
+    {:account_registration,
+     %{
+       command: command,
+       status: parse_account_registration_status(status),
+       account: account,
+       message: message_text,
+       raw_status: status,
+       raw_message: message
+     }}
+  end
+
   defp event_for(%Message{command: "ACK"} = message) do
     {:ack, %{label: Tags.label(message), message: message}}
   end
@@ -1263,6 +1282,10 @@ defmodule Ircxd.Client do
   defp validate_outbound_command(state, %Message{command: "MARKREAD"}),
     do: require_active_cap(state, "draft/read-marker")
 
+  defp validate_outbound_command(state, %Message{command: command})
+       when command in ["REGISTER", "VERIFY"],
+       do: require_active_cap(state, "draft/account-registration")
+
   defp validate_outbound_command(_state, _message), do: :ok
 
   defp validate_outbound_tags(state, %Message{tags: tags}) when is_map_key(tags, "label") do
@@ -1465,6 +1488,10 @@ defmodule Ircxd.Client do
   end
 
   defp parse_markread_timestamp(_timestamp), do: {:error, :invalid_markread_timestamp}
+
+  defp parse_account_registration_status("SUCCESS"), do: :success
+  defp parse_account_registration_status("VERIFICATION_REQUIRED"), do: :verification_required
+  defp parse_account_registration_status(status), do: {:unknown, status}
 
   defp monitor_event(command, params, message) do
     case Monitor.parse_numeric(command, params) do

@@ -27,6 +27,7 @@ The library currently provides:
 - Outbound IRCv3 client-only tags are only sent after `message-tags` is negotiated.
 - IRCv3 `MONITOR`, `SETNAME`, and invite notification helpers/events.
 - IRCv3 `multi-prefix` NAMES parsing.
+- Draft IRCv3 account registration and verification command helpers/events.
 - Draft IRCv3 channel rename command helper/events.
 - Draft IRCv3 message redaction command helper/events.
 - Draft IRCv3 read marker command helpers/events.
@@ -138,6 +139,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 `multi-prefix` rank-ordered prefixes in `RPL_NAMREPLY`.
 - IRCv3 `MONITOR` command helpers and `730`-`734` numeric events.
 - IRCv3 `setname` command/events and `invite-notify` events.
+- Draft IRCv3 `REGISTER`/`VERIFY` helpers, success/verification-required events, and required capability checks.
 - Draft IRCv3 `RENAME` command helper and channel rename events.
 - Draft IRCv3 `REDACT` command helper, redaction events, and required capability checks.
 - Draft IRCv3 `MARKREAD` get/set helpers, read marker events, and required capability checks.
