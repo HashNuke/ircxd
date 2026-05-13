@@ -30,4 +30,7 @@ defmodule Ircxd.Tags do
 
   def bot?(%{tags: tags}), do: bot?(tags)
   def bot?(tags) when is_map(tags), do: Map.has_key?(tags, "bot")
+
+  def reply_to_msgid(%{tags: tags}), do: reply_to_msgid(tags)
+  def reply_to_msgid(tags) when is_map(tags), do: Map.get(tags, "+reply")
 end

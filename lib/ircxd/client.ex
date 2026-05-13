@@ -70,6 +70,9 @@ defmodule Ircxd.Client do
         {:send, %Message{command: "PRIVMSG", params: [target, body], tags: tags}}
       )
 
+  def reply(client, target, body, reply_to_msgid),
+    do: privmsg(client, target, body, %{"+reply" => reply_to_msgid})
+
   def notice(client, target, body), do: GenServer.call(client, {:send, "NOTICE", [target, body]})
 
   def notice(client, target, body, tags) when is_map(tags),
@@ -661,6 +664,7 @@ defmodule Ircxd.Client do
        ctcp: Ircxd.CTCP.decode(body),
        server_time: tag_value(message, &Tags.server_time/1),
        msgid: Tags.msgid(message),
+       reply_to_msgid: Tags.reply_to_msgid(message),
        batch: Tags.batch(message),
        account: Tags.account(message),
        bot?: Tags.bot?(message),
@@ -681,6 +685,7 @@ defmodule Ircxd.Client do
        ctcp: Ircxd.CTCP.decode(body),
        server_time: tag_value(message, &Tags.server_time/1),
        msgid: Tags.msgid(message),
+       reply_to_msgid: Tags.reply_to_msgid(message),
        batch: Tags.batch(message),
        account: Tags.account(message),
        bot?: Tags.bot?(message),
