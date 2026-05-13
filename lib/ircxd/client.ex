@@ -2128,6 +2128,12 @@ defmodule Ircxd.Client do
   defp validate_outbound_command(state, %Message{command: "MARKREAD"}),
     do: require_active_cap(state, "draft/read-marker")
 
+  defp validate_outbound_command(state, %Message{command: "RENAME"}),
+    do: require_active_cap(state, "draft/channel-rename")
+
+  defp validate_outbound_command(state, %Message{command: "METADATA"}),
+    do: require_active_cap(state, "metadata")
+
   defp validate_outbound_command(state, %Message{command: command})
        when command in ["REGISTER", "VERIFY"],
        do: require_active_cap(state, "draft/account-registration")

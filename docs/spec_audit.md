@@ -142,8 +142,9 @@ Implemented and tested:
 - Work-in-progress `soju.im/FILEHOST` ISUPPORT token helper and upload URL
   safety checks.
 - Channel rename, message redaction, read markers, account registration,
-  pre-away, draft reactions, and draft channel-context helpers, including
-  `CAP DEL` gating coverage for redaction and read-marker commands.
+  pre-away, draft reactions, and draft channel-context helpers with capability
+  gating, including `CAP DEL` gating coverage for redaction and read-marker
+  commands.
 
 Remaining draft/WIP gaps:
 

@@ -224,11 +224,13 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Draft IRCv3 `REGISTER`/`VERIFY` helpers, success/verification-required events, and required capability checks.
 - Draft IRCv3 `pre-away` unspecified-away helper/events and required capability checks.
 - Draft IRCv3 `RENAME` command helper and channel rename events.
+- Rejection of draft `RENAME` before `draft/channel-rename` is negotiated.
 - Draft IRCv3 `REDACT` command helper, redaction events, and required capability checks.
 - Draft IRCv3 `MARKREAD` get/set helpers, read marker events, and required capability checks.
 - Rejection of draft `REDACT` and `MARKREAD` helpers after their enabling
   capabilities are removed by `CAP DEL`.
-- Draft IRCv3 `metadata` key validation, `METADATA` command helpers, server events, and `760`/`761`/`766`/`770`/`771`/`772`/`774` numerics.
+- Draft IRCv3 `metadata` key validation, gated `METADATA` command helpers,
+  server events, and `760`/`761`/`766`/`770`/`771`/`772`/`774` numerics.
 - Draft IRCv3 metadata batch aggregation with key-value, key-not-set, and standard `FAIL` entries.
 - IRCv3 WebIRC parameter/option serialization and startup ordering before `CAP`.
 - IRCv3 WebSocket `binary.ircv3.net`/`text.ircv3.net` subprotocols, CRLF-free single-line payload validation, and adapter dispatch.
