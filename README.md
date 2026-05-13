@@ -195,6 +195,9 @@ applications.
 See `docs/embedding_events.md` for event callback examples and persistence
 boundary guidance.
 
+See `docs/dcc_boundaries.md` for DCC event handling and transfer-policy
+guidance.
+
 See `docs/websocket_adapters.md` for WebSocket adapter examples, including a
 Phoenix Channels adapter shape.
 

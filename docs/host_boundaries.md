@@ -51,6 +51,9 @@ core.
 See `docs/embedding_events.md` for callback examples and persistence boundary
 guidance.
 
+See `docs/dcc_boundaries.md` for DCC event handling and transfer-policy
+guidance.
+
 ## WebSocket Adapters
 
 `Ircxd.WebSocket` validates IRCv3 WebSocket subprotocols and one-line payloads.
