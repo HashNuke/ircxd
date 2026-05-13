@@ -76,6 +76,54 @@ defmodule Ircxd.ClientCapLifecycleTest do
     assert_receive {:ircxd, {:cap_del, ["message-tags"]}}, 1_000
   end
 
+  test "allows host applications to request capabilities advertised by CAP NEW" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :"]
+
+           "CAP END", _state ->
+             [
+               ":irc.test 001 nick :Welcome",
+               ":irc.test CAP * NEW :server-time message-tags"
+             ]
+
+           "CAP REQ :server-time message-tags", _state ->
+             [":irc.test CAP * ACK :server-time message-tags"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+
+    assert_receive {:ircxd, {:cap_new, %{"server-time" => true, "message-tags" => true}}},
+                   1_000
+
+    assert :ok = Ircxd.Client.request_capabilities(client, ["server-time", "message-tags"])
+    assert_receive {:scripted_irc_line, "CAP REQ :server-time message-tags"}, 1_000
+    assert_receive {:ircxd, {:cap_ack, ["server-time", "message-tags"]}}, 1_000
+
+    assert {:error, {:capabilities_not_available, ["missing-cap"]}} =
+             Ircxd.Client.request_capabilities(client, ["missing-cap"])
+
+    assert {:error, :missing_capabilities} = Ircxd.Client.request_capabilities(client, [])
+  end
+
   test "aggregates multiline CAP LS replies before requesting capabilities" do
     server =
       start_supervised!(

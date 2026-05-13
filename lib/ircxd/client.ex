@@ -47,6 +47,10 @@ defmodule Ircxd.Client do
     GenServer.start_link(__MODULE__, opts, Keyword.take(opts, [:name]))
   end
 
+  def request_capabilities(client, caps) do
+    GenServer.call(client, {:request_caps, List.wrap(caps)})
+  end
+
   def pass(client, password), do: GenServer.call(client, {:send, "PASS", [password]})
   def nick(client, nick), do: GenServer.call(client, {:send, "NICK", [nick]})
   def join(client, channel), do: GenServer.call(client, {:send, "JOIN", [channel]})
@@ -462,6 +466,20 @@ defmodule Ircxd.Client do
 
   def handle_call({:send, command, params}, _from, state) do
     case send_message(state, command, params) do
+      :ok -> {:reply, :ok, state}
+      error -> {:reply, error, state}
+    end
+  end
+
+  def handle_call({:request_caps, caps}, _from, state) do
+    caps = caps |> Enum.map(&to_string/1) |> Enum.uniq()
+
+    result =
+      with :ok <- ensure_caps_available(state, caps) do
+        send_message(state, "CAP", ["REQ", Enum.join(caps, " ")])
+      end
+
+    case result do
       :ok -> {:reply, :ok, state}
       error -> {:reply, error, state}
     end
@@ -2156,6 +2174,15 @@ defmodule Ircxd.Client do
       :ok
     else
       {:error, {:capability_not_enabled, cap}}
+    end
+  end
+
+  defp ensure_caps_available(_state, []), do: {:error, :missing_capabilities}
+
+  defp ensure_caps_available(state, caps) do
+    case Enum.reject(caps, &Map.has_key?(state.available_caps, &1)) do
+      [] -> :ok
+      missing -> {:error, {:capabilities_not_available, missing}}
     end
   end
 
