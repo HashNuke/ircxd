@@ -4,6 +4,9 @@ This matrix is the work queue for stable Modern IRC and IRCv3 support. It is
 intentionally grouped by spec area so future commits can land as coherent
 sections, not as isolated token-by-token fixes.
 
+The current IRCv3 index classification is recorded in
+`docs/ircv3_index_audit.md`.
+
 Status meanings:
 
 - `covered`: implemented with automated tests in this repository.
