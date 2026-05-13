@@ -66,6 +66,7 @@ Implemented and tested:
 - Stats uptime and invite-list numerics: `242`, `336`, and `337`.
 - Additional `STATS` numerics: `211`, `213`, `215`, `216`, `241`, `243`,
   and `244`.
+- `300 RPL_NONE`.
 - Operator/server/service helper commands: `OPER`, `KILL`, `SQUERY`,
   `CONNECT`, `SQUIT`, `REHASH`, `RESTART`, `SUMMON`, `WALLOPS`.
 - Common error numerics as typed `:irc_error` events, including `400`, `407`,

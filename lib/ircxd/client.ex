@@ -1304,6 +1304,9 @@ defmodule Ircxd.Client do
   defp event_for(%Message{command: "303", params: [_me, nicks]} = message),
     do: {:ison, %{nicks: String.split(nicks, " ", trim: true), message: message}}
 
+  defp event_for(%Message{command: "300", params: params} = message),
+    do: {:none, %{params: params, text: List.last(params), message: message}}
+
   defp event_for(%Message{command: "301", params: [_me, nick, text]} = message),
     do: {:away_reply, %{nick: nick, text: text, message: message}}
 
