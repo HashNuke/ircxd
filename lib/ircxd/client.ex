@@ -546,7 +546,10 @@ defmodule Ircxd.Client do
     {ref, state} = multiline_ref(state, opts)
 
     result =
-      with :ok <- send_message(state, "BATCH", ["+" <> ref, "draft/multiline", target]),
+      with :ok <- require_active_cap(state, "batch"),
+           :ok <- require_active_cap(state, "draft/multiline"),
+           :ok <- require_active_cap(state, "message-tags"),
+           :ok <- send_message(state, "BATCH", ["+" <> ref, "draft/multiline", target]),
            :ok <- send_multiline_lines(state, command, target, body, ref) do
         send_message(state, "BATCH", ["-" <> ref])
       end
@@ -2133,6 +2136,9 @@ defmodule Ircxd.Client do
 
   defp validate_outbound_command(state, %Message{command: "METADATA"}),
     do: require_active_cap(state, "metadata")
+
+  defp validate_outbound_command(state, %Message{command: "CHATHISTORY"}),
+    do: require_active_cap(state, "draft/chathistory")
 
   defp validate_outbound_command(state, %Message{command: command})
        when command in ["REGISTER", "VERIFY"],

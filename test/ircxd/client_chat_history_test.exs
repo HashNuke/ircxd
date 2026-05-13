@@ -81,4 +81,39 @@ defmodule Ircxd.ClientChatHistoryTest do
                     "CHATHISTORY BETWEEN #elixir timestamp=2026-05-13T07:00:00.000Z timestamp=2026-05-13T08:00:00.000Z 100"},
                    1_000
   end
+
+  test "rejects CHATHISTORY before draft/chathistory is negotiated" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+
+    assert {:error, {:capability_not_enabled, "draft/chathistory"}} =
+             Ircxd.Client.chathistory_latest(client, "#elixir", :latest, 50)
+
+    refute_receive {:scripted_irc_line, "CHATHISTORY LATEST #elixir * 50"}, 250
+  end
 end

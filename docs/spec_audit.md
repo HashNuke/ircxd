@@ -134,8 +134,9 @@ Remaining IRCv3 stable gaps:
 Implemented and tested:
 
 - Metadata command helpers, numerics, and metadata batch aggregation.
-- Chathistory selectors, target replies, and batch-delivered history events.
-- Multiline receive aggregation and outbound multiline helpers.
+- Chathistory selectors, gated command helpers, target replies, and
+  batch-delivered history events.
+- Multiline receive aggregation and gated outbound multiline helpers.
 - Client-initiated batch helper with required capability checks and nested-batch
   rejection.
 - Extended-isupport command helper and `draft/isupport` batch aggregation.

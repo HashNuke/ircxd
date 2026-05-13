@@ -236,10 +236,12 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 WebSocket `binary.ircv3.net`/`text.ircv3.net` subprotocols, CRLF-free single-line payload validation, and adapter dispatch.
 - Modern IRC formatting controls for bold, italics, underline, strikethrough,
   monospace, reverse, numeric colors, hex colors, and reset.
-- Draft IRCv3 chathistory selectors, command helpers, `CHATHISTORY TARGETS`, and batch-delivered history events.
+- Draft IRCv3 chathistory selectors, gated command helpers, `CHATHISTORY
+  TARGETS`, and batch-delivered history events.
 - IRCv3 `BATCH` start/end tracking and batched message events.
 - IRCv3 stable `netsplit` and `netjoin` batch aggregation.
-- Draft IRCv3 multiline batch aggregation, `draft/multiline-concat`, and outbound multiline `PRIVMSG`/`NOTICE` helpers.
+- Draft IRCv3 multiline batch aggregation, `draft/multiline-concat`, and gated
+  outbound multiline `PRIVMSG`/`NOTICE` helpers.
 - Draft IRCv3 client-initiated `BATCH` helper with nested-batch rejection.
 - Draft IRCv3 extended-isupport `ISUPPORT` helper and `draft/isupport` batch aggregation.
 - Work-in-progress `soju.im/FILEHOST` ISUPPORT parsing and upload URL safety checks.
