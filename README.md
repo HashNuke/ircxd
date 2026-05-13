@@ -59,6 +59,7 @@ The library currently provides:
 - Draft IRCv3 extended-isupport command helper and `draft/isupport` batch aggregation.
 - Work-in-progress `soju.im/FILEHOST` ISUPPORT token helper.
 - CTCP encode/decode helpers.
+- Modern IRC formatting control-code parser and stripper.
 - ISUPPORT, NAMES, source mask, casemapping, server-time, msgid, label, batch, and account helpers.
 - Callback-style event delivery through `:notify` or `Ircxd.Handler`.
 
@@ -209,6 +210,8 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Draft IRCv3 metadata batch aggregation with key-value, key-not-set, and standard `FAIL` entries.
 - IRCv3 WebIRC parameter/option serialization and startup ordering before `CAP`.
 - IRCv3 WebSocket `binary.ircv3.net`/`text.ircv3.net` subprotocols, CRLF-free single-line payload validation, and adapter dispatch.
+- Modern IRC formatting controls for bold, italics, underline, strikethrough,
+  monospace, reverse, numeric colors, hex colors, and reset.
 - Draft IRCv3 chathistory selectors, command helpers, `CHATHISTORY TARGETS`, and batch-delivered history events.
 - IRCv3 `BATCH` start/end tracking and batched message events.
 - IRCv3 stable `netsplit` and `netjoin` batch aggregation.

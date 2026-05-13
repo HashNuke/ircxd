@@ -47,6 +47,8 @@ Implemented and tested:
 
 - Message framing, tags, source, command validation, parameter parsing, and
   byte-limit helpers.
+- Formatting control-code parsing/stripping for bold, italics, underline,
+  strikethrough, monospace, reverse, numeric colors, hex colors, and reset.
 - Registration: `PASS`, `NICK`, `USER`, `001` through `004`, PING/PONG.
 - Capability negotiation core through `CAP LS 302`, `REQ`, `ACK`, `NAK`, `NEW`,
   and `DEL`.
@@ -65,7 +67,6 @@ Remaining Modern IRC gaps:
   used by clients.
 - `MODE` has helper support for setting modes, but mode-query helpers still use
   `raw/3` for parameter-shape edge cases.
-- No parser for IRC formatting control codes beyond CTCP helpers.
 - No DCC/XDCC implementation; DCC is outside the main client/server protocol
   but listed in the local spec references.
 
