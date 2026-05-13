@@ -143,6 +143,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 labeled-response request lifecycle tracking for outbound labeled commands.
 - Rejection of outbound IRCv3 `label` tags when `labeled-response` was not negotiated.
 - Rejection of outbound IRCv3 client-only tags when `message-tags` was not negotiated.
+- Rejection of outbound IRCv3 client-only tags after `CAP DEL message-tags`.
 - IRCv3 `FAIL`, `WARN`, and `NOTE` standard replies.
 - WHO, WHOX, WHOIS, and WHOWAS parser/client event helpers.
 - Outbound IRCv3 tagged messages.
