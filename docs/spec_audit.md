@@ -49,6 +49,9 @@ Implemented and tested:
   byte-limit helpers.
 - Formatting control-code parsing/stripping for bold, italics, underline,
   strikethrough, monospace, reverse, numeric colors, hex colors, and reset.
+- DCC CTCP query parsing/encoding for `CHAT` and `SEND` negotiation. Direct DCC
+  sockets, file writes, and user-consent policy are intentionally left to host
+  applications.
 - Registration: `PASS`, `NICK`, `USER`, `001` through `004`, PING/PONG.
 - Capability negotiation core through `CAP LS 302`, `REQ`, `ACK`, `NAK`, `NEW`,
   and `DEL`.
@@ -76,8 +79,8 @@ Remaining Modern IRC gaps:
 
 - Some legacy numerics are still typed only generically or raw if not commonly
   used by clients.
-- No DCC/XDCC implementation; DCC is outside the main client/server protocol
-  but listed in the local spec references.
+- No direct DCC/XDCC transport implementation; DCC is outside the main
+  client/server protocol but listed in the local spec references.
 
 ## IRCv3 Stable Status
 
