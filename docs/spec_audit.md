@@ -75,11 +75,15 @@ Implemented and tested:
   `CONNECT`, `SQUIT`, `REHASH`, `RESTART`, `SUMMON`, `WALLOPS`.
 - Common error numerics as typed `:irc_error` events, including `400`, `407`,
   `408`, `414`, and `415`.
+- RFC2812 compatibility numerics for `SUMMON`/`USERS` and legacy channel-mode,
+  registration, and service-host errors, including `342`, `413`, `423`, `424`,
+  `437`, `444`, `445`, `446`, `463`, `466`, `467`, `477`, `478`, `484`,
+  `485`, and `492`.
 
 Remaining Modern IRC gaps:
 
-- Some legacy numerics are still typed only generically or raw if not commonly
-  used by clients.
+- Some uncommon implementation-specific numerics are still typed only
+  generically or raw if not commonly used by clients.
 - No direct DCC/XDCC transport implementation; DCC is outside the main
   client/server protocol but listed in the local spec references.
 

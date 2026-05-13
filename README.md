@@ -191,6 +191,8 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Modern IRC `STATS` link/configuration-line numerics.
 - Modern IRC `300 RPL_NONE` numeric.
 - Modern IRC error numerics including `400`, `407`, `408`, `414`, and `415`.
+- RFC2812 `342 RPL_SUMMONING` and legacy error numerics for SUMMON, USERS,
+  channel-mode, registration, and service-host failures.
 - Modern IRC server-query numeric events for `LIST`, `MOTD`, `ADMIN`, `LUSERS`, `TIME`, `INFO`, `LINKS`, and `USERHOST`.
 - Modern IRC numeric events for `VERSION`, `STATS`, `HELP`, user/channel modes, invites, and channel mask lists.
 - Modern IRC topic query numeric events `331`, `332`, and `333`.
