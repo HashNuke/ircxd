@@ -36,7 +36,7 @@ mix test
 Expected current result:
 
 ```text
-253 tests, 0 failures (3 excluded)
+254 tests, 0 failures (3 excluded)
 ```
 
 Opt-in real standard-replies fixture:
