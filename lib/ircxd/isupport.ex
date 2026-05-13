@@ -132,6 +132,25 @@ defmodule Ircxd.ISupport do
   defp channel_types(%{"CHANTYPES" => _value}), do: []
   defp channel_types(_isupport), do: ["#", "&"]
 
+  def status_target?(isupport, target) when is_map(isupport) and is_binary(target) do
+    isupport
+    |> status_message_prefixes()
+    |> Enum.any?(fn prefix ->
+      String.starts_with?(target, prefix) and
+        channel?(isupport, String.replace_prefix(target, prefix, ""))
+    end)
+  end
+
+  def status_target?(_isupport, _target), do: false
+
+  defp status_message_prefixes(%{"STATUSMSG" => value}) when is_binary(value) do
+    value
+    |> String.graphemes()
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  defp status_message_prefixes(_isupport), do: []
+
   defp parse_pair_list(value) do
     value
     |> string_value()

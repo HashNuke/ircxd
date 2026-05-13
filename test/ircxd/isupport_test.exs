@@ -115,4 +115,16 @@ defmodule Ircxd.ISupportTest do
     refute ISupport.channel?(%{"CHANTYPES" => true}, "#bad-token")
     refute ISupport.channel?(%{"CHANTYPES" => "#"}, nil)
   end
+
+  test "detects status-message channel targets from ISUPPORT STATUSMSG" do
+    isupport = %{"CHANTYPES" => "#&", "STATUSMSG" => "@+"}
+
+    assert ISupport.status_target?(isupport, "@#elixir")
+    assert ISupport.status_target?(isupport, "+&local")
+    refute ISupport.status_target?(isupport, "%#elixir")
+    refute ISupport.status_target?(isupport, "@nick")
+    refute ISupport.status_target?(%{"CHANTYPES" => "#"}, "@#elixir")
+    refute ISupport.status_target?(%{"STATUSMSG" => true}, "@#bad-token")
+    refute ISupport.status_target?(isupport, nil)
+  end
 end
