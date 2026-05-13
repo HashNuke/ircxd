@@ -40,6 +40,12 @@ Format check:
 mix format --check-formatted
 ```
 
+Compile warning check:
+
+```bash
+mix compile --warnings-as-errors
+```
+
 Default suite:
 
 ```bash

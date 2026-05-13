@@ -16,6 +16,9 @@ cd "${ROOT_DIR}"
 echo "==> format check"
 run_mix "mix format --check-formatted"
 
+echo "==> compile warnings"
+run_mix "mix compile --warnings-as-errors"
+
 echo "==> default suite"
 run_mix "mix test"
 
