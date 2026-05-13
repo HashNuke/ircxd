@@ -48,7 +48,6 @@ Status meanings:
 | Message IDs | covered | `test/ircxd/client_msgid_dedupe_test.exs`, `test/ircxd/client_reply_tag_test.exs` | No current stable gap. |
 | MONITOR and extended-monitor | covered | `test/ircxd/monitor_test.exs`, `test/ircxd/client_monitor_test.exs`, `test/ircxd/client_extended_monitor_test.exs` | No current stable gap. |
 | Server time | covered | `test/ircxd/client_server_time_order_test.exs`, `test/ircxd/client_server_time_auto_flush_test.exs`, `test/ircxd/client_integration_test.exs` | No current stable gap. |
-| SNI | covered | `test/ircxd/client_tls_test.exs` | No current stable gap. |
 | Standard replies | covered | `test/ircxd/standard_reply_test.exs`, `test/ircxd/client_standard_reply_test.exs`, `test/ircxd/client_integration_test.exs`, `test/ircxd/client_standard_replies_integration_test.exs` | Parser, scripted client events, real negotiation, and opt-in real `FAIL` emission are covered. |
 | STS | host | `test/ircxd/sts_test.exs`, `test/ircxd/client_sts_test.exs`, `docs/host_boundaries.md` | Policy parsing and client event/error boundaries are covered; cross-restart persistence and enforcement stay host-owned. |
 | UTF8ONLY | covered | `test/ircxd/client_utf8_only_test.exs` | No current stable gap. |
@@ -66,3 +65,6 @@ behaviour tests when new optional adapter APIs are introduced.
 No new draft feature expansion should be started while stable coverage remains
 in this queue. Existing draft code stays tested, but draft work is limited to
 regression fixes unless explicitly reprioritized.
+
+Current draft/WIP features with existing tests include SNI TLS option handling
+in `test/ircxd/client_tls_test.exs`.

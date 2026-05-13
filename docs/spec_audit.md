@@ -141,8 +141,8 @@ Implemented and tested:
 - Standard replies: `FAIL`, `WARN`, `NOTE`, including case-insensitive
   command/code normalization, malformed reply errors, and opt-in real-server
   `FAIL SETNAME INVALID_REALNAME` emission from InspIRCd with `m_setname`.
-- STS policy parsing, invalid-policy event emission, SNI TLS options,
-  `CAP REQ sts` suppression, and ignored `CAP DEL sts`.
+- STS policy parsing, invalid-policy event emission, `CAP REQ sts`
+  suppression, and ignored `CAP DEL sts`.
 - UTF8ONLY outbound validation.
 - WEBIRC and WebSocket protocol-boundary helpers with send/close adapter
   behaviour and an in-memory adapter for tests/embedders.
@@ -168,6 +168,7 @@ Implemented and tested:
 - Client-initiated batch helper with required capability checks and nested-batch
   rejection.
 - Extended-isupport command helper and `draft/isupport` batch aggregation.
+- SNI TLS default and override options.
 - Work-in-progress `soju.im/FILEHOST` ISUPPORT token helper and upload URL
   safety checks.
 - Channel rename, message redaction, read markers, account registration,

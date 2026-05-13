@@ -264,7 +264,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 Bot Mode `BOT` ISUPPORT mode helper, `bot` tag, WHO flag, and `335 RPL_WHOISBOT`.
 - IRCv3 `sts` policy parsing, policy events, no `CAP REQ sts`, and fully
   ignored `CAP DEL sts`.
-- IRCv3 SNI default and override TLS connection options.
+- TLS SNI default and override connection options.
 - IRCv3 `UTF8ONLY` ISUPPORT handling that rejects outbound non-UTF-8 parameters.
 - IRCv3 `ACCOUNTEXTBAN`/`EXTBAN` account ban mask construction, including
   no-prefix extban masks.

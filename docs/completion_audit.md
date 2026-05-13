@@ -71,6 +71,8 @@ Expected current result:
   host-owned. `ircxd` parses policy data and emits client boundary events.
 - WebSocket server lifecycle is host-owned. `ircxd` validates IRCv3 WebSocket
   subprotocols and payloads and provides adapter dispatch helpers.
+- SNI is implemented as TLS connection option handling, but the IRCv3 index
+  currently lists its specification as work-in-progress rather than stable.
 - Uncommon vendor numerics may remain raw or generic until encountered and
   intentionally mapped.
 
