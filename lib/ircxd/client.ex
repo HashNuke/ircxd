@@ -804,7 +804,14 @@ defmodule Ircxd.Client do
         next_nick = state.nick_retry_fun.(attempted, state)
         send_message(state, "NICK", [next_nick])
         state = %{state | current_nick: next_nick}
-        state = emit(state, {:nick_in_use, %{attempted: attempted, next: next_nick}})
+
+        state =
+          emit(
+            state,
+            {:nick_in_use,
+             %{attempted: attempted, next: next_nick, reason: List.last(params), message: message}}
+          )
+
         state = emit(state, {:message, message})
         {:noreply, state}
 

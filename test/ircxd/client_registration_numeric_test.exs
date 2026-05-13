@@ -120,7 +120,16 @@ defmodule Ircxd.ClientRegistrationNumericTest do
         notify: self()
       )
 
-    assert_receive {:ircxd, {:nick_in_use, %{attempted: "nick", next: "nick_"}}}, 1_000
+    assert_receive {:ircxd,
+                    {:nick_in_use,
+                     %{
+                       attempted: "nick",
+                       next: "nick_",
+                       reason: "Nickname is already in use",
+                       message: %Ircxd.Message{command: "433"}
+                     }}},
+                   1_000
+
     assert_receive {:scripted_irc_line, "NICK nick_"}, 1_000
     assert_receive {:ircxd, :registered}, 1_000
   end
