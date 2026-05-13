@@ -748,7 +748,7 @@ defmodule Ircxd.Client do
             active_caps: MapSet.difference(state.active_caps, MapSet.new(deleted_caps))
         }
 
-        state = emit(state, {:cap_del, deleted_caps})
+        state = maybe_emit_cap_del(state, deleted_caps)
         state = emit(state, {:message, message})
         {:noreply, state}
 
@@ -959,6 +959,9 @@ defmodule Ircxd.Client do
   end
 
   defp maybe_emit_sts_policy(state, _caps), do: state
+
+  defp maybe_emit_cap_del(state, []), do: state
+  defp maybe_emit_cap_del(state, deleted_caps), do: emit(state, {:cap_del, deleted_caps})
 
   defp event_for(%Message{command: "PRIVMSG", source: source, params: [target, body]} = message) do
     parsed_source = Source.parse(source)

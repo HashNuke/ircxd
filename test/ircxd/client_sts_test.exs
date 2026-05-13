@@ -53,7 +53,11 @@ defmodule Ircxd.ClientSTSTest do
              [":irc.test CAP * LS :sts=port=6697"]
 
            "CAP END", _state ->
-             [":irc.test 001 nick :Welcome", ":irc.test CAP * DEL :sts"]
+             [
+               ":irc.test 001 nick :Welcome",
+               ":irc.test CAP * DEL :sts",
+               ":irc.test CAP * DEL :sts message-tags"
+             ]
 
            _line, _state ->
              []
@@ -71,6 +75,8 @@ defmodule Ircxd.ClientSTSTest do
       )
 
     assert_receive {:ircxd, {:sts_policy, %{type: :upgrade, port: 6697}}}, 1_000
+    refute_receive {:ircxd, {:cap_del, []}}, 1_000
     refute_receive {:ircxd, {:cap_del, ["sts"]}}, 1_000
+    assert_receive {:ircxd, {:cap_del, ["message-tags"]}}, 1_000
   end
 end

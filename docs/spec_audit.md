@@ -118,7 +118,8 @@ Implemented and tested:
 - Multi-prefix, userhost-in-names, no-implicit-names, WHOX.
 - MONITOR and extended-monitor events.
 - Standard replies: `FAIL`, `WARN`, `NOTE`.
-- STS policy parsing and SNI TLS options.
+- STS policy parsing, SNI TLS options, `CAP REQ sts` suppression, and ignored
+  `CAP DEL sts`.
 - UTF8ONLY outbound validation.
 - WEBIRC and WebSocket protocol-boundary helpers with an adapter behaviour and
   in-memory adapter for tests/embedders.
