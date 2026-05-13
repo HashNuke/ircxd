@@ -130,6 +130,9 @@ Expected evidence in irssi:
 
 ## Spec Coverage
 
+See `docs/spec_audit.md` for the current prompt-to-artifact audit and known
+remaining gaps.
+
 Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 
 - Message format: tags, source, command, middle params, trailing params.
