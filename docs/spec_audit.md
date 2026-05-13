@@ -107,8 +107,9 @@ Implemented and tested:
 
 Remaining Modern IRC gaps:
 
-- Some uncommon implementation-specific numerics are still typed only
-  generically or raw if not commonly used by clients.
+- Stable Modern IRC error numerics are covered by typed or special events.
+  Uncommon implementation-specific numerics may still be typed only generically
+  or raw until they are encountered and intentionally mapped.
 - No direct DCC/XDCC transport implementation; DCC is outside the main
   client/server protocol but listed in the local spec references.
 

@@ -3,6 +3,25 @@ defmodule Ircxd.ClientErrorNumericTest do
 
   alias Ircxd.ScriptedIrcServer
 
+  @modern_error_numerics ~w[
+    400 401 402 403 404 405 406 407 409 411 412 417 421 431 432 433 436 441 442 443
+    451 461 462 464 465 471 472 473 474 475 476 481 482 483 491 501 502 524 525 696
+    723 902 904 905 906 907
+  ]
+
+  @typed_error_events ~w[
+    400 401 402 403 404 405 406 407 409 411 412 417 421 431 432 436 441 442 443
+    451 461 462 464 465 471 472 473 474 475 476 481 482 483 491 501 502 524 525 696
+    723
+  ]
+
+  @special_error_events ~w[433 902 904 905 906 907]
+
+  test "covers stable Modern IRC error numerics with typed or special events" do
+    assert Enum.sort(@modern_error_numerics) ==
+             Enum.sort(@typed_error_events ++ @special_error_events)
+  end
+
   test "emits typed Modern IRC error numeric events" do
     server =
       start_supervised!(

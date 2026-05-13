@@ -24,7 +24,7 @@ Status meanings:
 | ISUPPORT parsing and helpers | covered | `lib/ircxd/isupport.ex`, `test/ircxd/isupport_test.exs` | Future ISUPPORT work should be batched as `ISUPPORT registry helpers`. |
 | Channel commands and numerics | covered | `test/ircxd/client_core_commands_test.exs`, `test/ircxd/client_topic_numeric_test.exs`, `test/ircxd/client_integration_test.exs` | Group uncommon numerics by command family. |
 | Server and user queries | covered | `test/ircxd/client_query_events_test.exs`, `test/ircxd/client_server_query_events_test.exs`, `test/ircxd/who_test.exs`, `test/ircxd/whois_test.exs`, `test/ircxd/user_host_test.exs` | Group WHO/WHOIS/WHOWAS/USERHOST additions together. |
-| Error numerics | partial | `test/ircxd/client_error_numeric_test.exs`, `test/ircxd/client_rfc2812_numeric_test.exs` | Continue auditing uncommon implementation-specific numerics as `Modern numeric coverage` slices. |
+| Error numerics | covered | `test/ircxd/client_error_numeric_test.exs`, `test/ircxd/client_rfc2812_numeric_test.exs` | Stable Modern IRC error numerics are covered; continue auditing uncommon vendor numerics only when encountered. |
 | Formatting codes | covered | `lib/ircxd/formatting.ex`, `test/ircxd/formatting_test.exs` | No current stable gap. |
 | CTCP and DCC parsing | partial | `lib/ircxd/ctcp.ex`, `lib/ircxd/dcc.ex`, `test/ircxd/ctcp_test.exs`, `test/ircxd/dcc_test.exs`, `test/ircxd/client_dcc_test.exs` | Direct DCC sockets and file policy stay host-owned. |
 
@@ -57,12 +57,10 @@ Status meanings:
 
 ## Stable Work Queue
 
-1. `Modern numeric coverage`: continue auditing uncommon Modern IRC and RFC2812
-   numerics, then add typed events/tests in grouped commits.
-2. `Real-server standard replies`: find a deterministic InspIRCd module or
+1. `Real-server standard replies`: find a deterministic InspIRCd module or
    command path for actual `FAIL`, `WARN`, or `NOTE` emission and add an
    integration test.
-3. `Host-boundary adapter tests`: storage, STS persistence, DCC transport, and
+2. `Host-boundary adapter tests`: storage, STS persistence, DCC transport, and
    WebSocket transport boundaries are documented; add adapter behaviour tests
    when new adapter APIs are introduced.
 
