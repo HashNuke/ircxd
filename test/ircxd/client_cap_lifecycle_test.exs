@@ -172,6 +172,43 @@ defmodule Ircxd.ClientCapLifecycleTest do
     assert_receive {:scripted_irc_line, "AUTHENTICATE EXTERNAL"}, 1_000
   end
 
+  test "keeps the final duplicate capability value from left-to-right parsing" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :sasl=PLAIN sasl=EXTERNAL"]
+
+           "CAP REQ sasl", _state ->
+             [":irc.test CAP * ACK :sasl"]
+
+           "AUTHENTICATE EXTERNAL", _state ->
+             []
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, _client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        sasl: {:external, "nick"},
+        notify: self()
+      )
+
+    assert_receive {:ircxd, {:cap_ls, %{"sasl" => "EXTERNAL"}}}, 1_000
+    assert_receive {:scripted_irc_line, "CAP REQ sasl"}, 1_000
+    assert_receive {:ircxd, {:cap_ack, ["sasl"]}}, 1_000
+    assert_receive {:scripted_irc_line, "AUTHENTICATE EXTERNAL"}, 1_000
+  end
+
   test "lists active capabilities with multiline CAP LIST replies" do
     server =
       start_supervised!(
