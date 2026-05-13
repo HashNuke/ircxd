@@ -112,6 +112,12 @@ defmodule Ircxd.Client do
   def verify_account(client, account, code),
     do: GenServer.call(client, {:send, "VERIFY", [account, code]})
 
+  def away(client, message \\ nil)
+  def away(client, nil), do: GenServer.call(client, {:send, "AWAY", []})
+  def away(client, message), do: GenServer.call(client, {:send, "AWAY", [message]})
+
+  def preaway_unspecified(client), do: GenServer.call(client, {:send, "AWAY", ["*"]})
+
   def markread_get(client, target), do: GenServer.call(client, {:send, "MARKREAD", [target]})
 
   def markread_set(client, target, timestamp),
@@ -706,6 +712,7 @@ defmodule Ircxd.Client do
        raw_source: source,
        nick: parsed_source && parsed_source.nick,
        away?: not is_nil(away_message),
+       unspecified?: away_message == "*",
        message: away_message,
        raw_message: message
      }}
@@ -1285,6 +1292,9 @@ defmodule Ircxd.Client do
   defp validate_outbound_command(state, %Message{command: command})
        when command in ["REGISTER", "VERIFY"],
        do: require_active_cap(state, "draft/account-registration")
+
+  defp validate_outbound_command(state, %Message{command: "AWAY", params: ["*"]}),
+    do: require_active_cap(state, "draft/pre-away")
 
   defp validate_outbound_command(_state, _message), do: :ok
 
