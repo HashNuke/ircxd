@@ -31,6 +31,12 @@ defmodule Ircxd.ClientQueryEventsTest do
                ":irc.test 318 me nick :End of WHOIS list"
              ]
 
+           "WHOWAS oldnick 2", _state ->
+             [
+               ":irc.test 314 me oldnick user old.example.test * :Old Real Name",
+               ":irc.test 369 me oldnick :End of WHOWAS"
+             ]
+
            _line, _state ->
              []
          end}
@@ -59,6 +65,15 @@ defmodule Ircxd.ClientQueryEventsTest do
     assert_event({:whois_account, %{nick: "nick", account: "acct"}})
     assert_event({:whois_idle, %{nick: "nick", idle_seconds: 12, signon: 1234}})
     assert_event({:whois_end, %{nick: "nick"}})
+
+    assert :ok = Ircxd.Client.whowas(client, "oldnick", 2)
+
+    assert_event(
+      {:whowas_user,
+       %{nick: "oldnick", username: "user", host: "old.example.test", realname: "Old Real Name"}}
+    )
+
+    assert_event({:whowas_end, %{nick: "oldnick"}})
   end
 
   defp assert_event(expected) do

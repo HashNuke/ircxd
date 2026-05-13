@@ -9,6 +9,12 @@ defmodule Ircxd.Whois do
 
   def parse_user(_params), do: nil
 
+  def parse_whowas_user([_me, nick, username, host, _star, realname]) do
+    %{nick: nick, username: username, host: host, realname: realname}
+  end
+
+  def parse_whowas_user(_params), do: nil
+
   def parse_server([_me, nick, server, info]), do: %{nick: nick, server: server, info: info}
   def parse_server(_params), do: nil
 
@@ -45,6 +51,9 @@ defmodule Ircxd.Whois do
 
   def parse_end([_me, nick | _rest]), do: %{nick: nick}
   def parse_end(_params), do: nil
+
+  def parse_whowas_end([_me, nick | _rest]), do: %{nick: nick}
+  def parse_whowas_end(_params), do: nil
 
   defp parse_int(value) do
     case Integer.parse(value) do

@@ -779,6 +779,7 @@ defmodule Ircxd.Client do
              "311",
              "312",
              "313",
+             "314",
              "317",
              "319",
              "330",
@@ -786,7 +787,8 @@ defmodule Ircxd.Client do
              "338",
              "379",
              "671",
-             "318"
+             "318",
+             "369"
            ] ->
         state = emit_event(state, whois_event(command, message.params), message)
         state = emit(state, {:message, message})
@@ -1474,6 +1476,7 @@ defmodule Ircxd.Client do
   defp event_for(message), do: {:raw, message}
 
   defp whois_event("311", params), do: {:whois_user, Whois.parse_user(params)}
+  defp whois_event("314", params), do: {:whowas_user, Whois.parse_whowas_user(params)}
   defp whois_event("312", params), do: {:whois_server, Whois.parse_server(params)}
   defp whois_event("313", params), do: {:whois_operator, Whois.parse_operator(params)}
   defp whois_event("335", params), do: {:whois_bot, Whois.parse_bot(params)}
@@ -1484,6 +1487,7 @@ defmodule Ircxd.Client do
   defp whois_event("379", params), do: {:whois_modes, Whois.parse_modes(params)}
   defp whois_event("671", params), do: {:whois_secure, Whois.parse_secure(params)}
   defp whois_event("318", params), do: {:whois_end, Whois.parse_end(params)}
+  defp whois_event("369", params), do: {:whowas_end, Whois.parse_whowas_end(params)}
 
   defp error_target([target, _reason | _rest]), do: target
   defp error_target(_params), do: nil

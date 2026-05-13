@@ -58,6 +58,7 @@ Implemented and tested:
 - Server/user queries: `MOTD`, `VERSION`, `ADMIN`, `LUSERS`, `TIME`, `STATS`,
   `HELP`, `INFO`, `LINKS`, `WHO`, `WHOX`, `WHOIS`, `WHOWAS`, `USERHOST`,
   `ISON`, `TRACE`, `USERS`, and `SERVLIST` response events.
+- WHOWAS `314` and `369` typed events.
 - Away status numerics: `301`, `305`, and `306`.
 - Operator/server/service helper commands: `OPER`, `KILL`, `SQUERY`,
   `CONNECT`, `SQUIT`, `REHASH`, `RESTART`, `SUMMON`, `WALLOPS`.
