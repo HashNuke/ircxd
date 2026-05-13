@@ -80,6 +80,14 @@ defmodule Ircxd.Client do
 
   def setname(client, realname), do: GenServer.call(client, {:send, "SETNAME", [realname]})
 
+  def rename(client, old_channel, new_channel, reason \\ nil)
+
+  def rename(client, old_channel, new_channel, nil),
+    do: GenServer.call(client, {:send, "RENAME", [old_channel, new_channel]})
+
+  def rename(client, old_channel, new_channel, reason),
+    do: GenServer.call(client, {:send, "RENAME", [old_channel, new_channel, reason]})
+
   def quit(client, reason \\ "leaving"), do: GenServer.call(client, {:send, "QUIT", [reason]})
   def raw(client, command, params \\ []), do: GenServer.call(client, {:send, command, params})
   def who(client, mask, options \\ nil)
@@ -688,6 +696,24 @@ defmodule Ircxd.Client do
        raw_source: source,
        nick: parsed_source && parsed_source.nick,
        realname: realname,
+       message: message
+     }}
+  end
+
+  defp event_for(
+         %Message{command: "RENAME", source: source, params: [old_channel, new_channel | rest]} =
+           message
+       ) do
+    parsed_source = Source.parse(source)
+
+    {:channel_rename,
+     %{
+       source: parsed_source,
+       raw_source: source,
+       nick: parsed_source && parsed_source.nick,
+       old_channel: old_channel,
+       new_channel: new_channel,
+       reason: List.first(rest),
        message: message
      }}
   end
