@@ -62,10 +62,10 @@ Implemented and tested:
   capability listing, registration-time `CAP END`, post-registration capability
   changes without extra `CAP END`, and `CAP REQ :-cap` disable acknowledgements.
 - Structured ISUPPORT helpers for `PREFIX`, `CHANMODES`, `CHANLIMIT`,
-  `MAXLIST`, and `TARGMAX` parameter values, plus typed integer, character-list,
-  feature-flag readers for common tokens, `CHANTYPES` and `STATUSMSG` target
-  detection, and ASCII-only IRC casemapping / ISUPPORT `CASEMAPPING` comparison
-  helpers.
+  concrete channel-limit lookup, `MAXLIST`, and `TARGMAX` parameter values,
+  plus typed integer, character-list, feature-flag readers for common tokens,
+  `CHANTYPES` and `STATUSMSG` target detection, and ASCII-only IRC casemapping /
+  ISUPPORT `CASEMAPPING` comparison helpers.
 - Channel operations: `JOIN`, `PART`, `TOPIC`, `NAMES`, `LIST`, `INVITE`,
   `KICK`, `MODE`, mode queries, topic numerics, name replies, channel modes,
   and mask lists.

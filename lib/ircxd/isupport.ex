@@ -68,6 +68,16 @@ defmodule Ircxd.ISupport do
     |> Map.new()
   end
 
+  def channel_limit(isupport, target) when is_map(isupport) and is_binary(target) do
+    isupport
+    |> chanlimit()
+    |> Enum.find_value(fn {prefix, limit} ->
+      if String.starts_with?(target, prefix), do: limit
+    end)
+  end
+
+  def channel_limit(_isupport, _target), do: nil
+
   def maxlist(isupport) when is_map(isupport) do
     isupport
     |> Map.get("MAXLIST", "")

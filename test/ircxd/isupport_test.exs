@@ -55,6 +55,17 @@ defmodule Ircxd.ISupportTest do
     assert %{"beI" => 100, "q" => 50} = ISupport.maxlist(%{"MAXLIST" => "beI:100,q:50"})
   end
 
+  test "finds channel limits for concrete channel names" do
+    isupport = %{"CHANLIMIT" => "#:70,&:,!:"}
+
+    assert ISupport.channel_limit(isupport, "#elixir") == 70
+    assert ISupport.channel_limit(isupport, "&local") == :unlimited
+    assert ISupport.channel_limit(isupport, "!safe") == :unlimited
+    assert ISupport.channel_limit(isupport, "+modeless") == nil
+    assert ISupport.channel_limit(%{}, "#default") == nil
+    assert ISupport.channel_limit(isupport, nil) == nil
+  end
+
   test "parses TARGMAX command target limits case-insensitively" do
     assert %{"JOIN" => :unlimited, "PRIVMSG" => 3, "WHOIS" => 1} =
              ISupport.targmax(%{"TARGMAX" => "privmsg:3,WHOIS:1,JOIN:"})
