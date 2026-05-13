@@ -124,6 +124,54 @@ defmodule Ircxd.ClientCapLifecycleTest do
     assert {:error, :missing_capabilities} = Ircxd.Client.request_capabilities(client, [])
   end
 
+  test "uses CAP NEW value updates for later capability requests" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :sasl=PLAIN"]
+
+           "CAP END", _state ->
+             [
+               ":irc.test 001 nick :Welcome",
+               ":irc.test CAP * NEW :sasl=PLAIN,EXTERNAL"
+             ]
+
+           "CAP REQ sasl", _state ->
+             [":irc.test CAP * ACK :sasl"]
+
+           "AUTHENTICATE EXTERNAL", _state ->
+             []
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        sasl: {:external, "nick"},
+        notify: self()
+      )
+
+    assert_receive {:ircxd, {:cap_ls, %{"sasl" => "PLAIN"}}}, 1_000
+    assert_receive {:scripted_irc_line, "CAP END"}, 1_000
+    assert_receive {:ircxd, :registered}, 1_000
+    assert_receive {:ircxd, {:cap_new, %{"sasl" => "PLAIN,EXTERNAL"}}}, 1_000
+
+    assert :ok = Ircxd.Client.request_capabilities(client, ["sasl"])
+    assert_receive {:scripted_irc_line, "CAP REQ sasl"}, 1_000
+    assert_receive {:ircxd, {:cap_ack, ["sasl"]}}, 1_000
+    assert_receive {:scripted_irc_line, "AUTHENTICATE EXTERNAL"}, 1_000
+  end
+
   test "lists active capabilities with multiline CAP LIST replies" do
     server =
       start_supervised!(

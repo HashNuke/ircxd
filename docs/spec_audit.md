@@ -60,7 +60,8 @@ Implemented and tested:
 - Capability negotiation core through `CAP LS 302`, multiline `LS`/`LIST`
   aggregation, initial and host-driven `REQ`, `ACK`, `NAK`, `NEW`, `DEL`, active
   capability listing, registration-time `CAP END`, post-registration capability
-  changes without extra `CAP END`, and `CAP REQ :-cap` disable acknowledgements.
+  changes without extra `CAP END`, `CAP NEW` value updates, and `CAP REQ :-cap`
+  disable acknowledgements.
 - Structured ISUPPORT helpers for valueless tokens, token-specific empty-value
   handling, `PREFIX`, concrete membership prefix/mode lookup, decoded `\\xHH`
   value escapes, `CHANMODES` including the default value, concrete channel-mode
