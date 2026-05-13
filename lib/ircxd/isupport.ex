@@ -16,7 +16,7 @@ defmodule Ircxd.ISupport do
 
   def parse_token(token) do
     case String.split(token, "=", parts: 2) do
-      [key, value] -> {key, value}
+      [key, value] -> {key, unescape_value(value)}
       [key] -> {key, true}
     end
   end
@@ -348,4 +348,13 @@ defmodule Ircxd.ISupport do
 
   defp string_value(value) when is_binary(value), do: value
   defp string_value(_value), do: ""
+
+  defp unescape_value(value) do
+    Regex.replace(~r/\\x([0-9A-Fa-f]{2})/, value, fn _match, hex ->
+      hex
+      |> String.to_integer(16)
+      |> List.wrap()
+      |> List.to_string()
+    end)
+  end
 end

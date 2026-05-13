@@ -7,6 +7,8 @@ defmodule Ircxd.ISupportTest do
     assert %{
              "CHANTYPES" => "#&",
              "NICKLEN" => "30",
+             "NETWORK" => "Example Network",
+             "ESCAPED" => "a=b\\c",
              "SAFELIST" => true,
              "EXCEPTS" => false
            } =
@@ -14,10 +16,17 @@ defmodule Ircxd.ISupportTest do
                "nick",
                "CHANTYPES=#&",
                "NICKLEN=30",
+               "NETWORK=Example\\x20Network",
+               "ESCAPED=a\\x3Db\\x5Cc",
                "SAFELIST",
                "-EXCEPTS",
                "are supported by this server"
              ])
+  end
+
+  test "leaves malformed ISUPPORT value escapes untouched" do
+    assert {"BAD", "a\\x2"} = ISupport.parse_token("BAD=a\\x2")
+    assert {"BAD", "a\\xZZ"} = ISupport.parse_token("BAD=a\\xZZ")
   end
 
   test "parses PREFIX mode to membership prefix mappings" do
