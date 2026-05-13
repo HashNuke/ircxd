@@ -3,6 +3,8 @@ defmodule Ircxd.ISupport do
   Parser for `RPL_ISUPPORT` (`005`) tokens.
   """
 
+  @length_limit_keys ~w(AWAYLEN CHANNELLEN HOSTLEN KICKLEN NICKLEN TOPICLEN USERLEN)
+
   def parse_params(params) when is_list(params) do
     params
     |> Enum.drop(1)
@@ -175,6 +177,16 @@ defmodule Ircxd.ISupport do
       :error -> default
     end
   end
+
+  def length_limit(isupport, key) when is_map(isupport) and is_binary(key) do
+    normalized_key = String.upcase(key)
+
+    if normalized_key in @length_limit_keys do
+      positive_integer(isupport, normalized_key)
+    end
+  end
+
+  def length_limit(_isupport, _key), do: nil
 
   defp positive_integer(isupport, key) do
     case Map.fetch(isupport, key) do

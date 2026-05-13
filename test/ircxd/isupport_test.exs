@@ -189,6 +189,34 @@ defmodule Ircxd.ISupportTest do
     refute ISupport.enabled?(isupport, "MISSING")
   end
 
+  test "reads positive length-limit values for stable ISUPPORT tokens" do
+    isupport = %{
+      "AWAYLEN" => "160",
+      "CHANNELLEN" => "64",
+      "HOSTLEN" => "63",
+      "KICKLEN" => "255",
+      "NICKLEN" => "30",
+      "TOPICLEN" => "390",
+      "USERLEN" => "10",
+      "BADLEN" => "0",
+      "NONLEN" => "20"
+    }
+
+    assert ISupport.length_limit(isupport, "AWAYLEN") == 160
+    assert ISupport.length_limit(isupport, "channellen") == 64
+    assert ISupport.length_limit(isupport, "HOSTLEN") == 63
+    assert ISupport.length_limit(isupport, "KICKLEN") == 255
+    assert ISupport.length_limit(isupport, "NICKLEN") == 30
+    assert ISupport.length_limit(isupport, "TOPICLEN") == 390
+    assert ISupport.length_limit(isupport, "USERLEN") == 10
+    assert ISupport.length_limit(isupport, "BADLEN") == nil
+    assert ISupport.length_limit(isupport, "NONLEN") == nil
+    assert ISupport.length_limit(isupport, "MISSING") == nil
+    assert ISupport.length_limit(isupport, nil) == nil
+    assert ISupport.length_limit(%{"NICKLEN" => true}, "NICKLEN") == nil
+    assert ISupport.length_limit(%{"NICKLEN" => "-1"}, "NICKLEN") == nil
+  end
+
   test "derives IRC casemapping from ISUPPORT tokens" do
     assert ISupport.casemap(%{"CASEMAPPING" => "ascii"}) == :ascii
     assert ISupport.casemap(%{"CASEMAPPING" => "rfc1459"}) == :rfc1459
