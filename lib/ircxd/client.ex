@@ -106,6 +106,11 @@ defmodule Ircxd.Client do
   def whowas(client, nick, nil), do: GenServer.call(client, {:send, "WHOWAS", [nick]})
   def whowas(client, nick, count), do: GenServer.call(client, {:send, "WHOWAS", [nick, count]})
 
+  def markread_get(client, target), do: GenServer.call(client, {:send, "MARKREAD", [target]})
+
+  def markread_set(client, target, timestamp),
+    do: GenServer.call(client, {:send, "MARKREAD", [target, "timestamp=#{timestamp}"]})
+
   def monitor_add(client, targets),
     do: GenServer.call(client, {:send, "MONITOR", ["+", join_targets(targets)]})
 
@@ -773,6 +778,23 @@ defmodule Ircxd.Client do
     end
   end
 
+  defp event_for(%Message{command: "MARKREAD", params: [target, timestamp]} = message) do
+    case parse_markread_timestamp(timestamp) do
+      {:ok, parsed_timestamp} ->
+        {:read_marker,
+         %{
+           target: target,
+           timestamp: parsed_timestamp,
+           known?: not is_nil(parsed_timestamp),
+           message: message
+         }}
+
+      {:error, reason} ->
+        {:read_marker_error,
+         %{target: target, timestamp: timestamp, reason: reason, message: message}}
+    end
+  end
+
   defp event_for(%Message{command: "ACK"} = message) do
     {:ack, %{label: Tags.label(message), message: message}}
   end
@@ -1238,6 +1260,9 @@ defmodule Ircxd.Client do
     end
   end
 
+  defp validate_outbound_command(state, %Message{command: "MARKREAD"}),
+    do: require_active_cap(state, "draft/read-marker")
+
   defp validate_outbound_command(_state, _message), do: :ok
 
   defp validate_outbound_tags(state, %Message{tags: tags}) when is_map_key(tags, "label") do
@@ -1429,6 +1454,17 @@ defmodule Ircxd.Client do
 
   defp normalize_account("*"), do: nil
   defp normalize_account(account), do: account
+
+  defp parse_markread_timestamp("*"), do: {:ok, nil}
+
+  defp parse_markread_timestamp("timestamp=" <> timestamp) do
+    case DateTime.from_iso8601(timestamp) do
+      {:ok, datetime, _offset} -> {:ok, datetime}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp parse_markread_timestamp(_timestamp), do: {:error, :invalid_markread_timestamp}
 
   defp monitor_event(command, params, message) do
     case Monitor.parse_numeric(command, params) do
