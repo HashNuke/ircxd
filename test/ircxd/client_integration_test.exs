@@ -98,6 +98,22 @@ defmodule Ircxd.ClientIntegrationTest do
     assert {:ok, join_line, _seen} = RawIrcClient.wait_for(observer, " JOIN :#{@channel}", 5_000)
     assert String.contains?(join_line, client_nick)
 
+    assert :ok = Ircxd.Client.names(client, @channel)
+
+    assert {:ok, %{channel: @channel, names: names}} =
+             wait_for_event(fn
+               {:names, %{channel: @channel} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert Enum.any?(names, &(&1.nick == client_nick))
+
+    assert {:ok, %{channel: @channel}} =
+             wait_for_event(fn
+               {:names_end, %{channel: @channel} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
     assert :ok = Ircxd.Client.privmsg(client, @channel, "hello from ircxd")
 
     assert {:ok, privmsg_line, _seen} =

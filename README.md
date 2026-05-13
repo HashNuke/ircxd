@@ -151,6 +151,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Client registration against InspIRCd.
 - Typed registration numerics `001` through `004` against InspIRCd.
 - Capability listing and ACK flow against InspIRCd.
+- NAMES `353` and `366` numerics against InspIRCd.
 - Modern IRC `PASS` startup ordering and core command helper serialization.
 - Modern IRC helper serialization for operator, server-link, service, trace, status, and legacy query commands.
 - Capability `NAK`, `NEW`, and `DEL` handling against scripted servers.
