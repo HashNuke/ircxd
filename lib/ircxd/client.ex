@@ -482,8 +482,13 @@ defmodule Ircxd.Client do
         send_message(state, "CAP", ["END"])
         {:noreply, %{state | sasl_in_progress?: false}}
 
+      {:ok, %Message{command: "908", params: [_nick, mechanisms | _rest]} = message} ->
+        state = emit(state, {:sasl_mechanisms, %{mechanisms: parse_sasl_mechanisms(mechanisms)}})
+        state = emit(state, {:message, message})
+        {:noreply, state}
+
       {:ok, %Message{command: command} = message}
-      when command in ["904", "905", "906", "907", "908"] ->
+      when command in ["904", "905", "906", "907"] ->
         handle_sasl_failure(state, command, message)
 
       {:ok, %Message{command: "001"} = message} ->
@@ -1441,6 +1446,10 @@ defmodule Ircxd.Client do
 
   defp send_sasl_start(state) do
     send_message(state, "AUTHENTICATE", [current_sasl_mechanism_name(state)])
+  end
+
+  defp parse_sasl_mechanisms(mechanisms) do
+    String.split(mechanisms, ",", trim: true)
   end
 
   defp select_first_sasl_mechanism(state), do: %{state | sasl_index: 0}

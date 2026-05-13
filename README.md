@@ -17,6 +17,7 @@ The library currently provides:
 - SASL PLAIN negotiation support.
 - Configurable SASL failure policy: continue registration or abort with `QUIT`.
 - SASL mechanism fallback across configured mechanisms such as `EXTERNAL` then `PLAIN`.
+- SASL v3.2 mechanism-list events from `908 RPL_SASLMECHS`.
 - Automatic `PING`/`PONG`.
 - `JOIN`, `NAMES`, `PART`, `TOPIC`, `MODE`, `KICK`, `PRIVMSG`, `NOTICE`, `TAGMSG`, `QUIT`, and raw command helpers.
 - Outbound IRCv3 tagged messages for client-only tags and labeled responses.
@@ -139,6 +140,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - SASL PLAIN client negotiation against a scripted IRC server.
 - SASL failure policy for default continue and configured abort.
 - SASL `EXTERNAL` payloads and mechanism fallback to `PLAIN`.
+- SASL v3.2 `908 RPL_SASLMECHS` parsing without treating the mechanism list as failure.
 - Modern IRC state-change events: `NICK`, `JOIN`, `PART`, `QUIT`, `KICK`, `TOPIC`, `MODE`, and `ERROR`.
 - IRCv3 `extended-join` account and realname metadata.
 - IRCv3 `account-tag`, `account-notify`, `away-notify`, and `chghost` events.
