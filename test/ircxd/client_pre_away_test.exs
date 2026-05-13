@@ -101,4 +101,44 @@ defmodule Ircxd.ClientPreAwayTest do
 
     refute_receive {:scripted_irc_line, "AWAY *"}, 250
   end
+
+  test "rejects AWAY * after draft/pre-away is deleted" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :draft/pre-away away-notify"]
+
+           "CAP REQ :draft/pre-away away-notify", _state ->
+             [":irc.test CAP * ACK :draft/pre-away away-notify"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome", ":irc.test CAP * DEL :draft/pre-away"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        caps: ["draft/pre-away", "away-notify"],
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+    assert_receive {:ircxd, {:cap_del, ["draft/pre-away"]}}, 1_000
+
+    assert {:error, {:capability_not_enabled, "draft/pre-away"}} =
+             Ircxd.Client.preaway_unspecified(client)
+
+    refute_receive {:scripted_irc_line, "AWAY *"}, 250
+  end
 end

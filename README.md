@@ -225,6 +225,8 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 `setname` command/events and `invite-notify` events.
 - Draft IRCv3 `REGISTER`/`VERIFY` helpers, success/verification-required events, and required capability checks.
 - Draft IRCv3 `pre-away` unspecified-away helper/events and required capability checks.
+- Rejection of draft account registration and pre-away helpers after their
+  capabilities are removed by `CAP DEL`.
 - Draft IRCv3 `RENAME` command helper and channel rename events.
 - Rejection of draft `RENAME` before `draft/channel-rename` is negotiated.
 - Rejection of draft `RENAME` after `CAP DEL draft/channel-rename`.

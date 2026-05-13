@@ -105,4 +105,44 @@ defmodule Ircxd.ClientAccountRegistrationTest do
 
     refute_receive {:scripted_irc_line, "REGISTER * * hunter2"}, 250
   end
+
+  test "rejects REGISTER after draft/account-registration is deleted" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :draft/account-registration"]
+
+           "CAP REQ draft/account-registration", _state ->
+             [":irc.test CAP * ACK :draft/account-registration"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome", ":irc.test CAP * DEL :draft/account-registration"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        caps: ["draft/account-registration"],
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+    assert_receive {:ircxd, {:cap_del, ["draft/account-registration"]}}, 1_000
+
+    assert {:error, {:capability_not_enabled, "draft/account-registration"}} =
+             Ircxd.Client.register_account(client, "test", "tester@example.org", "hunter2")
+
+    refute_receive {:scripted_irc_line, "REGISTER test tester@example.org hunter2"}, 250
+  end
 end
