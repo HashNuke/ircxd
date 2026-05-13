@@ -27,6 +27,7 @@ The library currently provides:
 - Outbound IRCv3 client-only tags are only sent after `message-tags` is negotiated.
 - IRCv3 `MONITOR`, `SETNAME`, and invite notification helpers/events.
 - IRCv3 Bot Mode helper, message tag, WHO, and WHOIS events.
+- IRCv3 `UTF8ONLY` outbound parameter enforcement.
 - IRCv3 `multi-prefix` NAMES parsing.
 - Draft IRCv3 account registration and verification command helpers/events.
 - Draft IRCv3 pre-away `AWAY *` helper/events.
@@ -140,6 +141,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 `account-tag`, `account-notify`, `away-notify`, and `chghost` events.
 - IRCv3 `multi-prefix` rank-ordered prefixes in `RPL_NAMREPLY`.
 - IRCv3 Bot Mode `BOT` ISUPPORT mode helper, `bot` tag, WHO flag, and `335 RPL_WHOISBOT`.
+- IRCv3 `UTF8ONLY` ISUPPORT handling that rejects outbound non-UTF-8 parameters.
 - IRCv3 `MONITOR` command helpers and `730`-`734` numeric events.
 - IRCv3 `setname` command/events and `invite-notify` events.
 - Draft IRCv3 `REGISTER`/`VERIFY` helpers, success/verification-required events, and required capability checks.

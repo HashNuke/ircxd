@@ -1307,6 +1307,7 @@ defmodule Ircxd.Client do
 
   defp send_message(state, %Message{} = message) do
     with :ok <- validate_outbound_command(state, message),
+         :ok <- validate_utf8_only(state, message),
          :ok <- validate_outbound_tags(state, message) do
       line = Message.serialize(message)
 
@@ -1334,6 +1335,19 @@ defmodule Ircxd.Client do
     do: require_active_cap(state, "draft/pre-away")
 
   defp validate_outbound_command(_state, _message), do: :ok
+
+  defp validate_utf8_only(%{isupport: %{"UTF8ONLY" => true}}, %Message{
+         command: command,
+         params: params
+       }) do
+    if Enum.all?(params, &String.valid?/1) do
+      :ok
+    else
+      {:error, {:invalid_utf8, command}}
+    end
+  end
+
+  defp validate_utf8_only(_state, _message), do: :ok
 
   defp validate_outbound_tags(state, %Message{tags: tags}) when is_map_key(tags, "label") do
     with :ok <- require_active_cap(state, "labeled-response") do
