@@ -96,8 +96,9 @@ Implemented and tested:
 
 - Capability negotiation and cap-notify lifecycle.
 - Message Tags, client-only tags, label tag gating, and client-tag-deny.
-- SASL `PLAIN`, `EXTERNAL`, and `SCRAM-SHA-256`, including mechanism list
-  numeric `908` and fallback behavior.
+- SASL `PLAIN`, `EXTERNAL`, and `SCRAM-SHA-256`, including capability
+  advertised-mechanism filtering, mechanism list numeric `908`, and fallback
+  behavior.
 - Account tracking: `account-tag`, `account-notify`, `extended-join`,
   account extban helpers.
 - Presence/property updates: `away-notify`, `chghost`, `setname`,

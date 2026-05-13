@@ -2193,8 +2193,8 @@ defmodule Ircxd.Client do
 
   defp should_start_sasl?(%{sasl: nil}, _acked_caps), do: false
 
-  defp should_start_sasl?(%{sasl_mechanisms: mechanisms}, acked_caps),
-    do: mechanisms != [] and "sasl" in acked_caps
+  defp should_start_sasl?(state, acked_caps),
+    do: available_sasl_mechanisms(state) != [] and "sasl" in acked_caps
 
   defp send_sasl_start(state) do
     send_message(state, "AUTHENTICATE", [current_sasl_mechanism_name(state)])
@@ -2255,7 +2255,22 @@ defmodule Ircxd.Client do
 
   defp reaction_from_tags(_tags), do: nil
 
-  defp select_first_sasl_mechanism(state), do: %{state | sasl_index: 0}
+  defp select_first_sasl_mechanism(state),
+    do: %{state | sasl_mechanisms: available_sasl_mechanisms(state), sasl_index: 0}
+
+  defp available_sasl_mechanisms(%{sasl_mechanisms: mechanisms, available_caps: available_caps}) do
+    case Map.get(available_caps, "sasl") do
+      value when is_binary(value) ->
+        advertised = value |> parse_sasl_mechanisms() |> MapSet.new()
+        Enum.filter(mechanisms, &(sasl_mechanism_name(&1) in advertised))
+
+      true ->
+        mechanisms
+
+      _value ->
+        []
+    end
+  end
 
   defp current_sasl_mechanism(%{sasl_mechanisms: mechanisms, sasl_index: index}) do
     Enum.at(mechanisms, index)
