@@ -30,6 +30,14 @@ defmodule Ircxd.DCCTest do
             }} = DCC.parse("DCC SEND \"file name.txt\" 2001:db8::1 0 12345")
   end
 
+  test "parses escaped quoted DCC arguments" do
+    assert {:ok, %DCC{argument: "file \"name\".txt"}} =
+             DCC.parse("DCC SEND \"file \\\"name\\\".txt\" 2130706433 9000")
+
+    assert {:ok, %DCC{argument: "dir\\file.txt"}} =
+             DCC.parse("DCC SEND \"dir\\\\file.txt\" 2130706433 9000")
+  end
+
   test "rejects malformed DCC queries" do
     assert {:error, :not_dcc} = DCC.parse(%CTCP{command: "ACTION", params: "waves"})
     assert {:error, :not_enough_params} = DCC.parse("SEND file.txt 2130706433")
@@ -67,6 +75,9 @@ defmodule Ircxd.DCCTest do
 
     assert DCC.encode_send("file name.txt", "2001:db8::1", 0, [12345]) ==
              <<1, "DCC SEND \"file name.txt\" 2001:db8::1 0 12345", 1>>
+
+    assert DCC.encode_send("file \"name\".txt", {127, 0, 0, 1}, 9000) ==
+             <<1, "DCC SEND \"file \\\"name\\\".txt\" 2130706433 9000", 1>>
 
     assert DCC.encode_resume("file name.txt", {127, 0, 0, 1}, 9000, 4096) ==
              <<1, "DCC RESUME \"file name.txt\" 2130706433 9000 4096", 1>>

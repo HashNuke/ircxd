@@ -100,10 +100,10 @@ defmodule Ircxd.DCC do
 
   defp do_tokenize("", acc), do: {:ok, Enum.reverse(acc)}
 
-  defp do_tokenize("\"" <> rest, acc) do
-    case String.split(rest, "\"", parts: 2) do
-      [token, rest] -> do_tokenize(String.trim_leading(rest), [token | acc])
-      [_unterminated] -> {:error, :unterminated_quote}
+  defp do_tokenize(<<34, rest::binary>>, acc) do
+    case take_quoted(rest, []) do
+      {:ok, token, rest} -> do_tokenize(String.trim_leading(rest), [token | acc])
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -114,6 +114,17 @@ defmodule Ircxd.DCC do
       [] -> {:ok, Enum.reverse(acc)}
     end
   end
+
+  defp take_quoted(<<>>, _acc), do: {:error, :unterminated_quote}
+
+  defp take_quoted(<<34, rest::binary>>, acc),
+    do: {:ok, acc |> Enum.reverse() |> IO.iodata_to_binary(), rest}
+
+  defp take_quoted(<<92, 34, rest::binary>>, acc), do: take_quoted(rest, [<<34>> | acc])
+  defp take_quoted(<<92, 92, rest::binary>>, acc), do: take_quoted(rest, [<<92>> | acc])
+
+  defp take_quoted(<<char::utf8, rest::binary>>, acc),
+    do: take_quoted(rest, [<<char::utf8>> | acc])
 
   defp parse_port(raw_port) do
     case Integer.parse(raw_port) do
@@ -171,7 +182,12 @@ defmodule Ircxd.DCC do
     argument = to_string(argument)
 
     if String.contains?(argument, " ") do
-      "\"" <> String.replace(argument, "\"", "") <> "\""
+      escaped =
+        argument
+        |> String.replace("\\", "\\\\")
+        |> String.replace("\"", "\\\"")
+
+      "\"" <> escaped <> "\""
     else
       argument
     end
