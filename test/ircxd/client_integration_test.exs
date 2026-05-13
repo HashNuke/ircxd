@@ -1,0 +1,129 @@
+defmodule Ircxd.ClientIntegrationTest do
+  use ExUnit.Case, async: false
+
+  alias Ircxd.RawIrcClient
+
+  @host "127.0.0.1"
+  @port 6667
+  @channel "#ircxd"
+
+  setup_all do
+    case :gen_tcp.connect(String.to_charlist(@host), @port, [:binary, active: false], 1_000) do
+      {:ok, socket} ->
+        :gen_tcp.close(socket)
+        :ok
+
+      {:error, reason} ->
+        flunk("InspIRCd must be running on #{@host}:#{@port}; got #{inspect(reason)}")
+    end
+  end
+
+  test "connects to InspIRCd, joins a channel, sends, and receives messages" do
+    observer_nick = "observer#{System.unique_integer([:positive])}"
+    client_nick = "ircxd#{System.unique_integer([:positive])}"
+
+    {:ok, observer} = RawIrcClient.connect(host: @host, port: @port, nick: observer_nick)
+    assert {:ok, _line, _seen} = RawIrcClient.join(observer, @channel)
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: @host,
+        port: @port,
+        tls: false,
+        nick: client_nick,
+        username: client_nick,
+        realname: "Ircxd Test",
+        caps: ["message-tags", "server-time", "echo-message"],
+        notify: self()
+      )
+
+    assert {:ok, caps} =
+             wait_for_event(fn
+               {:cap_ls, caps} -> {:ok, caps}
+               _ -> :cont
+             end)
+
+    assert is_map(caps)
+
+    assert {:ok, :registered} =
+             wait_for_event(
+               fn
+                 :registered -> {:ok, :registered}
+                 _ -> :cont
+               end,
+               15_000
+             )
+
+    assert {:ok, isupport} =
+             wait_for_event(fn
+               {:isupport, tokens} when is_map_key(tokens, "CHANTYPES") -> {:ok, tokens}
+               _ -> :cont
+             end)
+
+    assert isupport["CHANTYPES"] == "#"
+
+    assert :ok = Ircxd.Client.join(client, @channel)
+    assert {:ok, join_line, _seen} = RawIrcClient.wait_for(observer, " JOIN :#{@channel}", 5_000)
+    assert String.contains?(join_line, client_nick)
+
+    assert :ok = Ircxd.Client.privmsg(client, @channel, "hello from ircxd")
+
+    assert {:ok, privmsg_line, _seen} =
+             RawIrcClient.wait_for(observer, " PRIVMSG #{@channel} :hello from ircxd", 5_000)
+
+    assert String.contains?(privmsg_line, client_nick)
+
+    RawIrcClient.privmsg(observer, @channel, "hello back")
+
+    assert_receive {:ircxd,
+                    {:privmsg, %{nick: ^observer_nick, target: @channel, body: "hello back"}}},
+                   5_000
+
+    RawIrcClient.close(observer)
+  end
+
+  test "retries nickname when the requested nick is in use" do
+    base_nick = "taken#{System.unique_integer([:positive])}"
+    {:ok, holder} = RawIrcClient.connect(host: @host, port: @port, nick: base_nick)
+
+    {:ok, _client} =
+      Ircxd.start_link(
+        host: @host,
+        port: @port,
+        tls: false,
+        nick: base_nick,
+        username: "retryuser",
+        realname: "Retry User",
+        notify: self()
+      )
+
+    assert {:ok, %{attempted: ^base_nick, next: next_nick}} =
+             wait_for_event(
+               fn
+                 {:nick_in_use, payload} -> {:ok, payload}
+                 _ -> :cont
+               end,
+               15_000
+             )
+
+    assert next_nick == "#{base_nick}_"
+    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+
+    RawIrcClient.close(holder)
+  end
+
+  defp wait_for_event(fun, timeout \\ 5_000) do
+    receive do
+      {:ircxd, event} ->
+        case fun.(event) do
+          {:ok, value} -> {:ok, value}
+          :cont -> wait_for_event(fun, timeout)
+        end
+    after
+      timeout -> {:error, :timeout}
+    end
+  end
+
+  defp match_event(event, event), do: {:ok, event}
+  defp match_event(_event, _expected), do: :cont
+end
