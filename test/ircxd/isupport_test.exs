@@ -265,6 +265,28 @@ defmodule Ircxd.ISupportTest do
     assert ISupport.invite_exception_mode(%{}) == nil
   end
 
+  test "parses EXTBAN prefix and type letters" do
+    assert ISupport.extban(%{"EXTBAN" => "$,ARar"}) == %{prefix: "$", types: ["A", "R", "a", "r"]}
+
+    assert ISupport.extban(%{"EXTBAN" => "~,qjncrRa"}) == %{
+             prefix: "~",
+             types: ["q", "j", "n", "c", "r", "R", "a"]
+           }
+
+    assert ISupport.extban(%{"EXTBAN" => ",ABC"}) == %{prefix: "", types: ["A", "B", "C"]}
+    assert ISupport.extban(%{"EXTBAN" => true}) == nil
+    assert ISupport.extban(%{"EXTBAN" => "$,"}) == nil
+    assert ISupport.extban(%{"EXTBAN" => "$,ab,cd"}) == nil
+    assert ISupport.extban(%{"EXTBAN" => "$$,a"}) == nil
+    assert ISupport.extban(%{}) == nil
+
+    assert ISupport.extban_type?(%{"EXTBAN" => "$,ARar"}, "R")
+    assert ISupport.extban_type?(%{"EXTBAN" => ",ABC"}, "A")
+    refute ISupport.extban_type?(%{"EXTBAN" => "$,ARar"}, "z")
+    refute ISupport.extban_type?(%{"EXTBAN" => "$,ARar"}, nil)
+    refute ISupport.extban_type?(%{"EXTBAN" => "$,ARar"}, "AR")
+  end
+
   test "reads positive length-limit values for stable ISUPPORT tokens" do
     isupport = %{
       "AWAYLEN" => "160",

@@ -15,6 +15,12 @@ defmodule Ircxd.AccountExtbanTest do
     assert AccountExtban.mask(isupport, "bob", "account") == {:ok, "~account:bob"}
   end
 
+  test "builds account extban masks without an extban prefix" do
+    isupport = %{"EXTBAN" => ",a", "ACCOUNTEXTBAN" => "a"}
+
+    assert AccountExtban.mask(isupport, "bob") == {:ok, "a:bob"}
+  end
+
   test "rejects missing account extban support" do
     assert AccountExtban.mask(%{"EXTBAN" => "$,ARar"}, "bob") ==
              {:error, :account_extban_not_supported}

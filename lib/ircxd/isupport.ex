@@ -250,6 +250,32 @@ defmodule Ircxd.ISupport do
     mode_token(isupport, "INVEX", "I")
   end
 
+  def extban(%{"EXTBAN" => value}) when is_binary(value) do
+    case String.split(value, ",", parts: 2) do
+      [prefix, types] when byte_size(prefix) <= 1 and types != "" ->
+        if String.contains?(types, ",") do
+          nil
+        else
+          %{prefix: prefix, types: String.graphemes(types)}
+        end
+
+      _invalid ->
+        nil
+    end
+  end
+
+  def extban(_isupport), do: nil
+
+  def extban_type?(isupport, type)
+      when is_map(isupport) and is_binary(type) and byte_size(type) == 1 do
+    case extban(isupport) do
+      %{types: types} -> Enum.member?(types, type)
+      nil -> false
+    end
+  end
+
+  def extban_type?(_isupport, _type), do: false
+
   def enabled?(isupport, key) when is_map(isupport) and is_binary(key) do
     case Map.fetch(isupport, key) do
       {:ok, false} -> false

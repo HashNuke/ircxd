@@ -10,14 +10,12 @@ defmodule Ircxd.AccountExtban do
     end
   end
 
-  defp extban_prefix(%{"EXTBAN" => value}) when is_binary(value) do
-    case String.split(value, ",", parts: 2) do
-      [prefix, _types] when prefix != "" -> {:ok, prefix}
-      _ -> {:error, :account_extban_not_supported}
+  defp extban_prefix(isupport) do
+    case Ircxd.ISupport.extban(isupport) do
+      %{prefix: prefix} -> {:ok, prefix}
+      nil -> {:error, :account_extban_not_supported}
     end
   end
-
-  defp extban_prefix(_isupport), do: {:error, :account_extban_not_supported}
 
   defp account_extban_name(%{"ACCOUNTEXTBAN" => value}, preferred_name) when is_binary(value) do
     names = String.split(value, ",", trim: true)

@@ -172,7 +172,8 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
   value escapes, concrete `PREFIX`, `CHANMODES`, `CHANLIMIT`, and `MAXLIST`
   lookups, `TARGMAX` / `MAXTARGETS` target-count checks, positive length-limit
   helpers, `MODES` command-limit lookup, `SILENCE` list-limit lookup, `ELIST`
-  extension checks, `EXCEPTS` / `INVEX` mode helpers, and NAMES `353` prefixes.
+  extension checks, `EXCEPTS` / `INVEX` mode helpers, `EXTBAN` parsing, and
+  NAMES `353` prefixes.
 - IRCv3 `userhost-in-names` full hostmask entries in NAMES replies.
 - ASCII-only IRC casemapping and ISUPPORT `CASEMAPPING` helpers for `ascii`,
   `rfc1459`, and `strict-rfc1459` comparisons.
@@ -230,7 +231,8 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
   ignored `CAP DEL sts`.
 - IRCv3 SNI default and override TLS connection options.
 - IRCv3 `UTF8ONLY` ISUPPORT handling that rejects outbound non-UTF-8 parameters.
-- IRCv3 `ACCOUNTEXTBAN`/`EXTBAN` account ban mask construction.
+- IRCv3 `ACCOUNTEXTBAN`/`EXTBAN` account ban mask construction, including
+  no-prefix extban masks.
 - IRCv3 `no-implicit-names` explicit `NAMES` flow and `366 RPL_ENDOFNAMES` event.
 - IRCv3 `+typing` client tag helper, status validation, and typed receive events.
 - IRCv3 `+reply` client tag helper and `reply_to_msgid` metadata on messages.
