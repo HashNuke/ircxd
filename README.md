@@ -189,6 +189,9 @@ remaining gaps.
 See `docs/completion_audit.md` for the current requirement-to-artifact checklist
 and verification gates.
 
+See `docs/conformance_workflow.md` for the matrix-first workflow used before
+adding or changing stable Modern IRC and IRCv3 coverage.
+
 See `docs/host_boundaries.md` for what belongs in `ircxd` core versus embedding
 applications.
 
