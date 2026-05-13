@@ -19,4 +19,44 @@ defmodule Ircxd.ISupportTest do
                "are supported by this server"
              ])
   end
+
+  test "parses PREFIX mode to membership prefix mappings" do
+    assert [
+             %{mode: "q", prefix: "~"},
+             %{mode: "a", prefix: "&"},
+             %{mode: "o", prefix: "@"},
+             %{mode: "h", prefix: "%"},
+             %{mode: "v", prefix: "+"}
+           ] = ISupport.prefix_modes(%{"PREFIX" => "(qaohv)~&@%+"})
+
+    assert [%{mode: "o", prefix: "@"}, %{mode: "v", prefix: "+"}] =
+             ISupport.prefix_modes(%{})
+
+    assert [] = ISupport.prefix_modes(%{"PREFIX" => true})
+  end
+
+  test "parses CHANMODES into argument type groups" do
+    assert %{
+             type_a: "beI",
+             type_b: "kfL",
+             type_c: "lj",
+             type_d: "psmntirRcOAQKVCuzNSMTGZ",
+             extra: ["z"]
+           } =
+             ISupport.chanmodes(%{"CHANMODES" => "beI,kfL,lj,psmntirRcOAQKVCuzNSMTGZ,z"})
+  end
+
+  test "parses CHANLIMIT and MAXLIST limit pairs" do
+    assert %{"#" => 70, "&" => :unlimited} =
+             ISupport.chanlimit(%{"CHANLIMIT" => "#:70,&:"})
+
+    assert %{"#" => 50, "&" => 50} = ISupport.chanlimit(%{"CHANLIMIT" => "#&:50"})
+
+    assert %{"beI" => 100, "q" => 50} = ISupport.maxlist(%{"MAXLIST" => "beI:100,q:50"})
+  end
+
+  test "parses TARGMAX command target limits case-insensitively" do
+    assert %{"JOIN" => :unlimited, "PRIVMSG" => 3, "WHOIS" => 1} =
+             ISupport.targmax(%{"TARGMAX" => "privmsg:3,WHOIS:1,JOIN:"})
+  end
 end
