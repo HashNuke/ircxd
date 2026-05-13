@@ -5,6 +5,8 @@ index. It is intentionally evidence-based: each completed area points to code or
 tests in this repository. Passing `mix test` is necessary, but it is not by
 itself proof that the full protocol surface is complete.
 
+For the grouped stable-spec work queue, see `docs/stable_spec_matrix.md`.
+
 ## Current Evidence
 
 - Core parser and serializer: `lib/ircxd/message.ex`, `test/ircxd/message_test.exs`.
