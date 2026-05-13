@@ -211,6 +211,7 @@ defmodule Ircxd.Client do
       active_batches: %{},
       multiline_batches: %{},
       labeled_response_batches: %{},
+      labeled_requests: %{},
       multiline_ref: 0
     }
 
@@ -246,7 +247,7 @@ defmodule Ircxd.Client do
   @impl true
   def handle_call({:send, %Message{} = message}, _from, state) do
     case send_message(state, message) do
-      :ok -> {:reply, :ok, state}
+      :ok -> {:reply, :ok, maybe_track_labeled_request(state, message)}
       error -> {:reply, error, state}
     end
   end
@@ -326,6 +327,7 @@ defmodule Ircxd.Client do
           active_batches: %{},
           multiline_batches: %{},
           labeled_response_batches: %{},
+          labeled_requests: %{},
           seen_msgids: MapSet.new(),
           server_time_buffer: [],
           reconnect_attempts: attempt
@@ -898,9 +900,54 @@ defmodule Ircxd.Client do
   defp maybe_emit_duplicate_msgid(state, _event), do: state
 
   defp maybe_emit_labeled_response(state, event, message) do
+    state = maybe_ack_labeled_request(state, event)
+
     case Tags.label(message) do
       nil -> state
       label -> emit(state, {:labeled_response, %{label: label, event: event, message: message}})
+    end
+  end
+
+  defp maybe_track_labeled_request(state, %Message{tags: %{"label" => label}} = message) do
+    request = %{label: label, command: message.command, params: message.params, status: :sent}
+
+    state
+    |> Map.update!(:labeled_requests, &Map.put(&1, label, request))
+    |> emit({:labeled_request, request})
+  end
+
+  defp maybe_track_labeled_request(state, _message), do: state
+
+  defp maybe_ack_labeled_request(state, {:ack, %{label: label}}) when is_binary(label) do
+    case Map.fetch(state.labeled_requests, label) do
+      {:ok, request} ->
+        request = Map.put(request, :status, :acknowledged)
+
+        state
+        |> Map.update!(:labeled_requests, &Map.put(&1, label, request))
+        |> emit({:labeled_request, request})
+
+      :error ->
+        state
+    end
+  end
+
+  defp maybe_ack_labeled_request(state, _event), do: state
+
+  defp complete_labeled_request(state, label, response_type) do
+    case Map.fetch(state.labeled_requests, label) do
+      {:ok, request} ->
+        request =
+          request
+          |> Map.put(:status, :completed)
+          |> Map.put(:response_type, response_type)
+
+        state
+        |> Map.update!(:labeled_requests, &Map.delete(&1, label))
+        |> emit({:labeled_request, request})
+
+      :error ->
+        state
     end
   end
 
@@ -1018,11 +1065,12 @@ defmodule Ircxd.Client do
 
     case batch do
       %{label: label, type: type, events: events} ->
-        emit(
-          state,
+        state
+        |> emit(
           {:labeled_response,
            %{label: label, event: {:batch, %{ref: ref, type: type, events: events}}}}
         )
+        |> complete_labeled_request(label, :batch)
 
       _ ->
         state

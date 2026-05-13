@@ -20,6 +20,7 @@ The library currently provides:
 - Outbound IRCv3 tagged messages for client-only tags and labeled responses.
 - IRCv3 `BATCH`, labeled-response, identity, presence, and standard-reply events.
 - IRCv3 labeled-response `ACK` events and batch-level labeled-response aggregation.
+- IRCv3 labeled-response request lifecycle events for sent, acknowledged, and completed requests.
 - IRCv3 `MONITOR`, `SETNAME`, and invite notification helpers/events.
 - IRCv3 `userhost-in-names` NAMES parsing.
 - Draft IRCv3 `metadata` command helpers, server messages, and key numerics.
@@ -130,12 +131,12 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 `BATCH` start/end tracking and batched message events.
 - Draft IRCv3 multiline batch aggregation, `draft/multiline-concat`, and outbound multiline `PRIVMSG`/`NOTICE` helpers.
 - IRCv3 labeled-response `ACK` and `labeled-response` batch aggregation.
+- IRCv3 labeled-response request lifecycle tracking for outbound labeled commands.
 - IRCv3 `FAIL`, `WARN`, and `NOTE` standard replies.
 - WHO, WHOX, WHOIS, and WHOWAS parser/client event helpers.
 - Outbound IRCv3 tagged messages.
 
 This is not yet complete coverage of every IRCv3 extension. The next slices
-should add full labeled-response request lifecycle tracking, SASL mechanism
-fallback/retry policy, automatic server-time flushing policy, extended-monitor
-integration tests, deeper metadata batch/failure coverage, and broader
-real-server coverage for draft extensions.
+should add SASL mechanism fallback/retry policy, automatic server-time flushing
+policy, deeper metadata batch/failure coverage, and broader real-server
+coverage for draft extensions.
