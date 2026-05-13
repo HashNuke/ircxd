@@ -198,6 +198,8 @@ Remaining real-server work:
 
 - Add real-server `FAIL`, `WARN`, or `NOTE` emission coverage if a deterministic
   InspIRCd command/module path is available; the current local config advertises
-  `standard-replies` but probed commands returned legacy numerics.
+  `standard-replies` but probed commands returned legacy numerics. A disposable
+  InspIRCd fixture with `m_setname` loaded was also probed with an invalid
+  `SETNAME` while `standard-replies` was negotiated; no `FAIL` was emitted.
 - Keep integration connection count under the local connection cap; prefer
   extending existing integration tests when possible.
