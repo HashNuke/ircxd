@@ -74,6 +74,9 @@ defmodule Ircxd.Client do
   def reply(client, target, body, reply_to_msgid),
     do: privmsg(client, target, body, %{"+reply" => reply_to_msgid})
 
+  def context_privmsg(client, target, channel_context, body),
+    do: context_message(client, "PRIVMSG", target, channel_context, body)
+
   def notice(client, target, body), do: GenServer.call(client, {:send, "NOTICE", [target, body]})
 
   def notice(client, target, body, tags) when is_map(tags),
@@ -82,6 +85,9 @@ defmodule Ircxd.Client do
         client,
         {:send, %Message{command: "NOTICE", params: [target, body], tags: tags}}
       )
+
+  def context_notice(client, target, channel_context, body),
+    do: context_message(client, "NOTICE", target, channel_context, body)
 
   def tagmsg(client, target, tags) when is_map(tags),
     do: GenServer.call(client, {:send, %Message{command: "TAGMSG", params: [target], tags: tags}})
@@ -678,6 +684,7 @@ defmodule Ircxd.Client do
        server_time: tag_value(message, &Tags.server_time/1),
        msgid: Tags.msgid(message),
        reply_to_msgid: Tags.reply_to_msgid(message),
+       channel_context: Tags.channel_context(message),
        batch: Tags.batch(message),
        account: Tags.account(message),
        bot?: Tags.bot?(message),
@@ -699,6 +706,7 @@ defmodule Ircxd.Client do
        server_time: tag_value(message, &Tags.server_time/1),
        msgid: Tags.msgid(message),
        reply_to_msgid: Tags.reply_to_msgid(message),
+       channel_context: Tags.channel_context(message),
        batch: Tags.batch(message),
        account: Tags.account(message),
        bot?: Tags.bot?(message),
@@ -1556,6 +1564,24 @@ defmodule Ircxd.Client do
 
   defp reaction_tagmsg(client, target, reply_to_msgid, tag, reaction),
     do: tagmsg(client, target, %{tag => reaction, "+reply" => reply_to_msgid})
+
+  defp context_message(_client, _command, _target, "", _body),
+    do: {:error, :missing_channel_context}
+
+  defp context_message(_client, _command, _target, nil, _body),
+    do: {:error, :missing_channel_context}
+
+  defp context_message(client, command, target, channel_context, body) do
+    GenServer.call(
+      client,
+      {:send,
+       %Message{
+         command: command,
+         params: [target, body],
+         tags: %{"+draft/channel-context" => channel_context}
+       }}
+    )
+  end
 
   defp reaction_from_tags(%{
          "+draft/react" => _reaction,

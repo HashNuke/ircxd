@@ -33,4 +33,7 @@ defmodule Ircxd.Tags do
 
   def reply_to_msgid(%{tags: tags}), do: reply_to_msgid(tags)
   def reply_to_msgid(tags) when is_map(tags), do: Map.get(tags, "+reply")
+
+  def channel_context(%{tags: tags}), do: channel_context(tags)
+  def channel_context(tags) when is_map(tags), do: Map.get(tags, "+draft/channel-context")
 end
