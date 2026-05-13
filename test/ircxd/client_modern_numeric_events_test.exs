@@ -18,8 +18,15 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                ":irc.test 010 nick irc2.test 6697 :Please use this server/port instead",
                ":irc.test 351 nick InspIRCd-3 irc.test :Boringville",
                ":irc.test 263 nick LIST :Server load is temporarily too heavy",
+               ":irc.test 211 nick irc.test 12 34 56 78 90 :link info",
                ":irc.test 212 nick PRIVMSG 42 1 2 3",
+               ":irc.test 213 nick C *@example.test server.test 6667 class",
+               ":irc.test 215 nick I *@example.test * *@example.test 0 class",
+               ":irc.test 216 nick K *@bad.example * :bad host",
+               ":irc.test 241 nick L leaf.example.test * *",
                ":irc.test 242 nick :Server up 42 days 6:12:01",
+               ":irc.test 243 nick O *@oper.example oper *",
+               ":irc.test 244 nick H hub.example.test * *",
                ":irc.test 219 nick u :End of /STATS report",
                ":irc.test 704 nick LIST :Start of help",
                ":irc.test 705 nick LIST :Syntax: LIST [channels]",
@@ -89,10 +96,48 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                    1_000
 
     assert_receive {:ircxd,
+                    {:stats_linkinfo,
+                     %{params: ["irc.test", "12", "34", "56", "78", "90", "link info"]}}},
+                   1_000
+
+    assert_receive {:ircxd,
                     {:stats_command, %{command: "PRIVMSG", count: "42", params: ["1", "2", "3"]}}},
                    1_000
 
+    assert_receive {:ircxd,
+                    {:stats_line,
+                     %{
+                       code: "213",
+                       params: ["C", "*@example.test", "server.test", "6667", "class"]
+                     }}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:stats_line,
+                     %{
+                       code: "215",
+                       params: ["I", "*@example.test", "*", "*@example.test", "0", "class"]
+                     }}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:stats_line, %{code: "216", params: ["K", "*@bad.example", "*", "bad host"]}}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:stats_line, %{code: "241", params: ["L", "leaf.example.test", "*", "*"]}}},
+                   1_000
+
     assert_receive {:ircxd, {:stats_uptime, %{text: "Server up 42 days 6:12:01"}}}, 1_000
+
+    assert_receive {:ircxd,
+                    {:stats_line, %{code: "243", params: ["O", "*@oper.example", "oper", "*"]}}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:stats_line, %{code: "244", params: ["H", "hub.example.test", "*", "*"]}}},
+                   1_000
+
     assert_receive {:ircxd, {:stats_end, %{query: "u", text: "End of /STATS report"}}}, 1_000
     assert_receive {:ircxd, {:help_start, %{subject: "LIST", text: "Start of help"}}}, 1_000
     assert_receive {:ircxd, {:help, %{subject: "LIST", text: "Syntax: LIST [channels]"}}}, 1_000

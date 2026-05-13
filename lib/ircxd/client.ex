@@ -1332,8 +1332,16 @@ defmodule Ircxd.Client do
   defp event_for(%Message{command: "235", params: [_me, mask, type, text]} = message),
     do: {:servlist_end, %{mask: mask, type: type, text: text, message: message}}
 
+  defp event_for(%Message{command: "211", params: [_me | params]} = message),
+    do: {:stats_linkinfo, %{params: params, text: List.last(params), message: message}}
+
   defp event_for(%Message{command: "242", params: [_me, text]} = message),
     do: {:stats_uptime, %{text: text, message: message}}
+
+  defp event_for(%Message{command: command, params: [_me | params]} = message)
+       when command in ["213", "215", "216", "241", "243", "244"] do
+    {:stats_line, %{code: command, params: params, text: List.last(params), message: message}}
+  end
 
   defp event_for(%Message{command: command, params: [_me | params]} = message)
        when command in [
@@ -1347,8 +1355,7 @@ defmodule Ircxd.Client do
               "207",
               "208",
               "209",
-              "210",
-              "211"
+              "210"
             ] do
     {:trace, %{code: command, params: params, text: List.last(params), message: message}}
   end
