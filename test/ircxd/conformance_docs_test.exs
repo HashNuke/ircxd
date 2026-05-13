@@ -134,6 +134,35 @@ defmodule Ircxd.ConformanceDocsTest do
            }
   end
 
+  test "documented verification scripts are executable" do
+    repo_root = Path.expand("../..", __DIR__)
+
+    scripts =
+      [
+        "README.md",
+        "docs/completion_audit.md",
+        "docs/conformance_workflow.md",
+        "docs/spec_audit.md"
+      ]
+      |> Enum.map(&File.read!(Path.join(repo_root, &1)))
+      |> Enum.flat_map(&script_paths/1)
+      |> Enum.uniq()
+      |> Enum.sort()
+
+    assert scripts == [
+             "scripts/run_irssi_manual_check.sh",
+             "scripts/run_services_integration.sh",
+             "scripts/run_standard_replies_integration.sh",
+             "scripts/run_verification_gates.sh"
+           ]
+
+    assert [] =
+             Enum.reject(scripts, fn script ->
+               path = Path.join(repo_root, script)
+               File.exists?(path) and File.regular?(path) and executable?(path)
+             end)
+  end
+
   defp parse_matrix_row("| Area | Status | Evidence | Next grouped work |"), do: []
   defp parse_matrix_row("| --- | --- | --- | --- |"), do: []
 
@@ -168,5 +197,18 @@ defmodule Ircxd.ConformanceDocsTest do
     ~r/`((?:lib|test|docs|scripts)\/[^`]+|mix\.exs|README\.md|LICENSE|\.formatter\.exs)`/
     |> Regex.scan(markdown, capture: :all_but_first)
     |> List.flatten()
+  end
+
+  defp script_paths(markdown) do
+    ~r/(scripts\/[A-Za-z0-9_.\/-]+\.sh)/
+    |> Regex.scan(markdown, capture: :all_but_first)
+    |> List.flatten()
+  end
+
+  defp executable?(path) do
+    path
+    |> File.stat!()
+    |> Map.fetch!(:mode)
+    |> Bitwise.band(0o111) != 0
   end
 end
