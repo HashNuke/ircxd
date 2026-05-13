@@ -5,11 +5,12 @@ defmodule Ircxd.NamesTest do
 
   test "parses NAMES prefixes" do
     assert [
+             %{nick: "all", prefixes: ["~", "&", "@", "%", "+"]},
              %{nick: "owner", prefixes: ["~"]},
              %{nick: "op", prefixes: ["@"]},
              %{nick: "voice", prefixes: ["+"]},
              %{nick: "plain", prefixes: []}
-           ] = Names.parse_names("~owner @op +voice plain")
+           ] = Names.parse_names("~&@%+all ~owner @op +voice plain")
   end
 
   test "parses userhost-in-names entries" do

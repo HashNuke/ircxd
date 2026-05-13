@@ -26,6 +26,7 @@ The library currently provides:
 - Outbound IRCv3 `label` tags are only sent after `labeled-response` is negotiated.
 - Outbound IRCv3 client-only tags are only sent after `message-tags` is negotiated.
 - IRCv3 `MONITOR`, `SETNAME`, and invite notification helpers/events.
+- IRCv3 `multi-prefix` NAMES parsing.
 - IRCv3 `userhost-in-names` NAMES parsing.
 - Draft IRCv3 `metadata` command helpers, server messages, and key numerics.
 - Draft IRCv3 metadata batch aggregation including standard `FAIL` entries.
@@ -131,6 +132,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Modern IRC state-change events: `NICK`, `JOIN`, `PART`, `QUIT`, `KICK`, `TOPIC`, `MODE`, and `ERROR`.
 - IRCv3 `extended-join` account and realname metadata.
 - IRCv3 `account-tag`, `account-notify`, `away-notify`, and `chghost` events.
+- IRCv3 `multi-prefix` rank-ordered prefixes in `RPL_NAMREPLY`.
 - IRCv3 `MONITOR` command helpers and `730`-`734` numeric events.
 - IRCv3 `setname` command/events and `invite-notify` events.
 - Draft IRCv3 `metadata` key validation, `METADATA` command helpers, server events, and `760`/`761`/`766`/`770`/`771`/`772`/`774` numerics.
