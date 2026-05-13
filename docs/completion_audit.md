@@ -18,6 +18,7 @@ IRCv3 features, which are intentionally not being expanded unless reprioritized.
 | Services-backed IRCv3 tests | `scripts/run_services_integration.sh`, `test/ircxd/client_services_integration_test.exs` | Covered by opt-in gate |
 | Real standard-replies emission test | `scripts/run_standard_replies_integration.sh`, `test/ircxd/client_standard_replies_integration_test.exs` | Covered by opt-in gate |
 | Automated tests | Parser/unit tests, scripted IRC server tests, local InspIRCd tests, and opt-in disposable real-server fixtures | Covered |
+| Spec-driven maintenance workflow | `docs/conformance_workflow.md`, `test/ircxd/conformance_docs_test.exs`, `docs/stable_spec_matrix.md` | Covered |
 | Storage/application behavior handled by embedders | `docs/host_boundaries.md`, `docs/embedding_events.md`, `docs/dcc_boundaries.md`, `docs/sts_boundaries.md`, and `docs/websocket_adapters.md` document storage, notifications, STS persistence, WebSocket server lifecycle, and DCC transfer policy as host-owned | Covered |
 
 ## Verification Gates
@@ -33,6 +34,9 @@ Include the optional irssi cross-client gate in that runner:
 ```bash
 IRCXD_INCLUDE_IRSSI=1 scripts/run_verification_gates.sh
 ```
+
+Latest optional full-gate evidence, including irssi, was refreshed on
+2026-05-13.
 
 Format check:
 
@@ -55,7 +59,7 @@ mix test
 Expected current result:
 
 ```text
-254 tests, 0 failures (3 excluded)
+256 tests, 0 failures (3 excluded)
 ```
 
 Generated docs:
