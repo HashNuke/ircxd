@@ -58,7 +58,8 @@ Implemented and tested:
 - Registration: `PASS`, `NICK`, `USER`, `001` through `004`, PING/PONG.
 - Capability negotiation core through `CAP LS 302`, multiline `LS`/`LIST`
   aggregation, initial and host-driven `REQ`, `ACK`, `NAK`, `NEW`, `DEL`, active
-  capability listing, and `CAP REQ :-cap` disable acknowledgements.
+  capability listing, registration-time `CAP END`, post-registration capability
+  changes without extra `CAP END`, and `CAP REQ :-cap` disable acknowledgements.
 - Structured ISUPPORT helpers for `PREFIX`, `CHANMODES`, `CHANLIMIT`,
   `MAXLIST`, and `TARGMAX` parameter values, plus typed integer, character-list,
   and feature-flag readers for common tokens.

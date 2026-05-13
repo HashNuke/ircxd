@@ -719,7 +719,7 @@ defmodule Ircxd.Client do
           send_sasl_start(state)
           {:noreply, %{state | sasl_in_progress?: true}}
         else
-          send_message(state, "CAP", ["END"])
+          maybe_end_cap_negotiation(state)
           {:noreply, state}
         end
 
@@ -727,7 +727,7 @@ defmodule Ircxd.Client do
         nacked_caps = String.split(caps, " ", trim: true)
         state = emit(state, {:cap_nak, nacked_caps})
         state = emit(state, {:message, message})
-        send_message(state, "CAP", ["END"])
+        maybe_end_cap_negotiation(state)
         {:noreply, state}
 
       {:ok, %Message{command: "CAP", params: [_nick, "NEW", caps]} = message} ->
@@ -938,6 +938,9 @@ defmodule Ircxd.Client do
     state = emit(state, {:cap_ls, state.available_caps})
     {:noreply, state}
   end
+
+  defp maybe_end_cap_negotiation(%{registered?: true}), do: :ok
+  defp maybe_end_cap_negotiation(state), do: send_message(state, "CAP", ["END"])
 
   defp maybe_emit_sts_policy(state, %{"sts" => value}) do
     case STS.parse(value, state.tls) do

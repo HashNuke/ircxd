@@ -204,6 +204,7 @@ defmodule Ircxd.ClientCapLifecycleTest do
         notify: self()
       )
 
+    assert_receive {:scripted_irc_line, "CAP END"}, 1_000
     assert_receive {:ircxd, :registered}, 1_000
 
     assert :ok = Ircxd.Client.typing(client, "#elixir", :active)
@@ -212,6 +213,7 @@ defmodule Ircxd.ClientCapLifecycleTest do
     assert :ok = Ircxd.Client.disable_capabilities(client, ["message-tags"])
     assert_receive {:scripted_irc_line, "CAP REQ -message-tags"}, 1_000
     assert_receive {:ircxd, {:cap_ack, ["-message-tags"]}}, 1_000
+    refute_receive {:scripted_irc_line, "CAP END"}, 250
 
     assert {:error, {:capability_not_enabled, "message-tags"}} =
              Ircxd.Client.typing(client, "#elixir", :done)
