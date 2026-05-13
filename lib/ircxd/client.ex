@@ -668,6 +668,7 @@ defmodule Ircxd.Client do
       {:ok, %Message{command: "001"} = message} ->
         state = %{state | registered?: true}
         state = emit(state, :registered)
+        state = emit_event(state, event_for(message), message)
         state = emit(state, {:message, message})
         {:noreply, state}
 
@@ -1161,6 +1162,32 @@ defmodule Ircxd.Client do
   defp event_for(%Message{command: "ERROR", params: params} = message) do
     {:error, %{reason: List.first(params), message: message}}
   end
+
+  defp event_for(%Message{command: "001", params: [nick, text]} = message),
+    do: {:welcome, %{nick: nick, text: text, message: message}}
+
+  defp event_for(%Message{command: "002", params: [_nick, text]} = message),
+    do: {:your_host, %{text: text, message: message}}
+
+  defp event_for(%Message{command: "003", params: [_nick, text]} = message),
+    do: {:server_created, %{text: text, message: message}}
+
+  defp event_for(
+         %Message{
+           command: "004",
+           params: [_nick, server, version, user_modes, channel_modes | rest]
+         } = message
+       ),
+       do:
+         {:server_info,
+          %{
+            server: server,
+            version: version,
+            user_modes: user_modes,
+            channel_modes: channel_modes,
+            params: rest,
+            message: message
+          }}
 
   defp event_for(%Message{command: "321", params: params} = message),
     do: {:list_start, %{params: params, message: message}}
