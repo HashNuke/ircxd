@@ -169,7 +169,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Source masks such as `nick!user@host` and server names.
 - ISUPPORT `005` tokens and NAMES `353` prefixes.
 - IRCv3 `userhost-in-names` full hostmask entries in NAMES replies.
-- IRC casemapping: `ascii`, `rfc1459`, and `strict-rfc1459`.
+- ASCII-only IRC casemapping: `ascii`, `rfc1459`, and `strict-rfc1459`.
 - CTCP payloads.
 - IRCv3 `time`, `msgid`, `label`, `batch`, and `account` tags.
 - Optional IRCv3 `msgid` duplicate marking and `:duplicate_msgid` events.

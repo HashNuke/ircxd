@@ -11,11 +11,11 @@ defmodule Ircxd.Casemapping do
 
   def normalize(value, mapping \\ :rfc1459)
 
-  def normalize(value, :ascii) when is_binary(value), do: String.downcase(value)
+  def normalize(value, :ascii) when is_binary(value), do: ascii_downcase(value)
 
   def normalize(value, :rfc1459) when is_binary(value) do
     value
-    |> String.downcase()
+    |> ascii_downcase()
     |> String.replace("[", "{")
     |> String.replace("]", "}")
     |> String.replace("\\", "|")
@@ -24,7 +24,7 @@ defmodule Ircxd.Casemapping do
 
   def normalize(value, :strict_rfc1459) when is_binary(value) do
     value
-    |> String.downcase()
+    |> ascii_downcase()
     |> String.replace("[", "{")
     |> String.replace("]", "}")
     |> String.replace("\\", "|")
@@ -39,4 +39,14 @@ defmodule Ircxd.Casemapping do
   def from_isupport("rfc1459"), do: :rfc1459
   def from_isupport("strict-rfc1459"), do: :strict_rfc1459
   def from_isupport(_), do: :rfc1459
+
+  defp ascii_downcase(value) do
+    value
+    |> :binary.bin_to_list()
+    |> Enum.map(fn
+      byte when byte in ?A..?Z -> byte + 32
+      byte -> byte
+    end)
+    |> :binary.list_to_bin()
+  end
 end

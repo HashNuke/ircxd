@@ -7,6 +7,12 @@ defmodule Ircxd.CasemappingTest do
     assert Casemapping.normalize("Nick[]\\~", :ascii) == "nick[]\\~"
   end
 
+  test "leaves non-ASCII bytes unchanged while normalizing IRC case" do
+    assert Casemapping.normalize("ÄNick", :ascii) == "Änick"
+    assert Casemapping.normalize("ÄNick[]\\~", :rfc1459) == "Änick{}|^"
+    assert Casemapping.normalize("ÄNick[]\\~", :strict_rfc1459) == "Änick{}|~"
+  end
+
   test "normalizes rfc1459 case mapping" do
     assert Casemapping.normalize("Nick[]\\~", :rfc1459) == "nick{}|^"
     assert Casemapping.equal?("Nick[", "nick{", :rfc1459)
