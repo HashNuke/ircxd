@@ -140,6 +140,15 @@ Run tests:
 mix test
 ```
 
+Optional services-backed IRCv3 tests require a local InspIRCd instance linked
+to Atheme services, with client connections on `127.0.0.1:6670`. These tests
+cover real SASL PLAIN authentication, account login/logout, account-notify, and
+account-tag delivery:
+
+```bash
+IRCXD_SERVICES_INTEGRATION=1 mix test --include services_integration
+```
+
 Manual irssi check:
 
 ```bash

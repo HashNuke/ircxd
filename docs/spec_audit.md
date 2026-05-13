@@ -120,9 +120,11 @@ Implemented and tested:
   before and after `CAP DEL`, and client-tag-deny.
 - SASL `PLAIN`, `EXTERNAL`, and `SCRAM-SHA-256`, including capability
   advertised-mechanism filtering before `CAP REQ`, mechanism list numeric
-  `908`, and fallback behavior.
+  `908`, fallback behavior, and opt-in real-server `PLAIN` auth against
+  Atheme services.
 - Account tracking: `account-tag`, `account-notify`, `extended-join`,
-  account extban helpers.
+  account extban helpers, and opt-in real-server account login/logout plus
+  account-tag delivery.
 - Presence/property updates: `away-notify`, `chghost`, `setname`,
   `invite-notify`.
 - Batches, malformed/unknown batch errors, netsplit/netjoin aggregation,
@@ -184,6 +186,8 @@ Current local InspIRCd integration covers:
 - Registration, `001` through `004`, ISUPPORT, NAMES, JOIN, PRIVMSG.
 - `server-time`, `echo-message`, `extended-join`, `away-notify`,
   `account-notify`.
+- `sasl`, `account-tag`, account registration/login/logout, and tagged account
+  delivery against an opt-in Atheme services fixture on `127.0.0.1:6670`.
 - `standard-replies` capability advertisement and negotiation.
 - `LIST`, `VERSION`, `ISON`, WHOX, channel modes, topics, and ban lists.
 - Nickname collision retry.
@@ -193,9 +197,5 @@ Remaining real-server work:
 - Add real-server `FAIL`, `WARN`, or `NOTE` emission coverage if a deterministic
   InspIRCd command/module path is available; the current local config advertises
   `standard-replies` but probed commands returned legacy numerics.
-- Add service/account-backed tests if the local InspIRCd config is extended with
-  services suitable for SASL/account-notify/account-tag; the current local
-  config advertises `account-notify` but has no services-backed account source
-  and does not advertise `account-tag`.
 - Keep integration connection count under the local connection cap; prefer
   extending existing integration tests when possible.
