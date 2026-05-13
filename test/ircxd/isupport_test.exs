@@ -35,6 +35,26 @@ defmodule Ircxd.ISupportTest do
     assert [] = ISupport.prefix_modes(%{"PREFIX" => true})
   end
 
+  test "finds membership prefixes and modes from PREFIX" do
+    isupport = %{"PREFIX" => "(qaohv)~&@%+"}
+
+    assert ISupport.prefix_for_mode(isupport, "q") == "~"
+    assert ISupport.prefix_for_mode(isupport, "o") == "@"
+    assert ISupport.prefix_for_mode(isupport, "v") == "+"
+    assert ISupport.prefix_for_mode(isupport, "z") == nil
+    assert ISupport.prefix_for_mode(%{}, "o") == "@"
+    assert ISupport.prefix_for_mode(isupport, nil) == nil
+    assert ISupport.prefix_for_mode(isupport, "ov") == nil
+
+    assert ISupport.mode_for_prefix(isupport, "~") == "q"
+    assert ISupport.mode_for_prefix(isupport, "@") == "o"
+    assert ISupport.mode_for_prefix(isupport, "+") == "v"
+    assert ISupport.mode_for_prefix(isupport, "!") == nil
+    assert ISupport.mode_for_prefix(%{}, "+") == "v"
+    assert ISupport.mode_for_prefix(isupport, nil) == nil
+    assert ISupport.mode_for_prefix(isupport, "@+") == nil
+  end
+
   test "parses CHANMODES into argument type groups" do
     assert %{
              type_a: "beI",

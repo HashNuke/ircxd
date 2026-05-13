@@ -40,6 +40,28 @@ defmodule Ircxd.ISupport do
     end
   end
 
+  def prefix_for_mode(isupport, mode)
+      when is_map(isupport) and is_binary(mode) and byte_size(mode) == 1 do
+    isupport
+    |> prefix_modes()
+    |> Enum.find_value(fn %{mode: prefix_mode, prefix: prefix} ->
+      if prefix_mode == mode, do: prefix
+    end)
+  end
+
+  def prefix_for_mode(_isupport, _mode), do: nil
+
+  def mode_for_prefix(isupport, prefix)
+      when is_map(isupport) and is_binary(prefix) and byte_size(prefix) == 1 do
+    isupport
+    |> prefix_modes()
+    |> Enum.find_value(fn %{mode: mode, prefix: mode_prefix} ->
+      if mode_prefix == prefix, do: mode
+    end)
+  end
+
+  def mode_for_prefix(_isupport, _prefix), do: nil
+
   def chanmodes(isupport) when is_map(isupport) do
     parts =
       isupport
