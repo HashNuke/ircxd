@@ -198,6 +198,8 @@ boundary guidance.
 See `docs/dcc_boundaries.md` for DCC event handling and transfer-policy
 guidance.
 
+See `docs/sts_boundaries.md` for STS persistence and secure-reconnect guidance.
+
 See `docs/websocket_adapters.md` for WebSocket adapter examples, including a
 Phoenix Channels adapter shape.
 

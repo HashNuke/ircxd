@@ -54,6 +54,8 @@ guidance.
 See `docs/dcc_boundaries.md` for DCC event handling and transfer-policy
 guidance.
 
+See `docs/sts_boundaries.md` for STS persistence and secure-reconnect guidance.
+
 ## WebSocket Adapters
 
 `Ircxd.WebSocket` validates IRCv3 WebSocket subprotocols and one-line payloads.
