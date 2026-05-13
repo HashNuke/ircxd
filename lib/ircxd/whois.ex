@@ -21,6 +21,12 @@ defmodule Ircxd.Whois do
   def parse_operator([_me, nick, text]), do: %{nick: nick, text: text}
   def parse_operator(_params), do: nil
 
+  def parse_certfp([_me, nick, text]), do: %{nick: nick, text: text}
+  def parse_certfp(_params), do: nil
+
+  def parse_registered_nick([_me, nick, text]), do: %{nick: nick, text: text}
+  def parse_registered_nick(_params), do: nil
+
   def parse_bot([_me, nick, message]), do: %{nick: nick, message: message, bot?: true}
   def parse_bot(_params), do: nil
 
@@ -38,8 +44,14 @@ defmodule Ircxd.Whois do
   def parse_account([_me, nick, account | _rest]), do: %{nick: nick, account: account}
   def parse_account(_params), do: nil
 
+  def parse_special([_me, nick, text]), do: %{nick: nick, text: text}
+  def parse_special(_params), do: nil
+
   def parse_actual_host([_me, nick, text]), do: %{nick: nick, text: text}
   def parse_actual_host(_params), do: nil
+
+  def parse_host([_me, nick, text]), do: %{nick: nick, text: text}
+  def parse_host(_params), do: nil
 
   def parse_modes([_me, nick, modes]),
     do: %{nick: nick, modes: String.split(modes, " ", trim: true)}

@@ -25,8 +25,12 @@ defmodule Ircxd.ClientQueryEventsTest do
              [
                ":irc.test 311 me nick user host * :Real Name",
                ":irc.test 312 me nick irc.test :Server Info",
+               ":irc.test 276 me nick :has client certificate fingerprint abc123",
+               ":irc.test 307 me nick :is a registered nick",
                ":irc.test 319 me nick :@#chan +#other",
                ":irc.test 330 me nick acct :is logged in as",
+               ":irc.test 320 me nick :is using a secure connection",
+               ":irc.test 378 me nick :is connecting from *@example.test",
                ":irc.test 317 me nick 12 1234 :seconds idle, signon time",
                ":irc.test 318 me nick :End of WHOIS list"
              ]
@@ -61,8 +65,16 @@ defmodule Ircxd.ClientQueryEventsTest do
     assert :ok = Ircxd.Client.whois(client, "nick")
     assert_event({:whois_user, %{nick: "nick", username: "user", realname: "Real Name"}})
     assert_event({:whois_server, %{nick: "nick", server: "irc.test", info: "Server Info"}})
+
+    assert_event(
+      {:whois_certfp, %{nick: "nick", text: "has client certificate fingerprint abc123"}}
+    )
+
+    assert_event({:whois_registered_nick, %{nick: "nick", text: "is a registered nick"}})
     assert_event({:whois_channels, %{nick: "nick", channels: ["@#chan", "+#other"]}})
     assert_event({:whois_account, %{nick: "nick", account: "acct"}})
+    assert_event({:whois_special, %{nick: "nick", text: "is using a secure connection"}})
+    assert_event({:whois_host, %{nick: "nick", text: "is connecting from *@example.test"}})
     assert_event({:whois_idle, %{nick: "nick", idle_seconds: 12, signon: 1234}})
     assert_event({:whois_end, %{nick: "nick"}})
 

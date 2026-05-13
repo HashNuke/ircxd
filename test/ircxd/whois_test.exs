@@ -15,8 +15,20 @@ defmodule Ircxd.WhoisTest do
     assert %{nick: "nick", channels: ["@#ops", "+#voice"]} =
              Whois.parse_channels(["me", "nick", "@#ops +#voice"])
 
+    assert %{nick: "nick", text: "has client certificate fingerprint abc123"} =
+             Whois.parse_certfp(["me", "nick", "has client certificate fingerprint abc123"])
+
+    assert %{nick: "nick", text: "is a registered nick"} =
+             Whois.parse_registered_nick(["me", "nick", "is a registered nick"])
+
     assert %{nick: "nick", account: "acct"} =
              Whois.parse_account(["me", "nick", "acct", "is logged in as"])
+
+    assert %{nick: "nick", text: "is using a secure connection"} =
+             Whois.parse_special(["me", "nick", "is using a secure connection"])
+
+    assert %{nick: "nick", text: "is connecting from *@example.test"} =
+             Whois.parse_host(["me", "nick", "is connecting from *@example.test"])
 
     assert %{nick: "nick", idle_seconds: 12, signon: 1234} =
              Whois.parse_idle(["me", "nick", "12", "1234"])

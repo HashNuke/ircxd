@@ -59,6 +59,7 @@ Implemented and tested:
   `HELP`, `INFO`, `LINKS`, `WHO`, `WHOX`, `WHOIS`, `WHOWAS`, `USERHOST`,
   `ISON`, `TRACE`, `USERS`, and `SERVLIST` response events.
 - WHOWAS `314` and `369` typed events.
+- Optional WHOIS `276`, `307`, `320`, and `378` typed events.
 - Away status numerics: `301`, `305`, and `306`.
 - Redirect/retry/operator/admin numerics: `010`, `263`, `381`, `382`, `670`,
   and `691`.

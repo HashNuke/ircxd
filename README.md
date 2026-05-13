@@ -227,7 +227,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Rejection of outbound IRCv3 client-only tags when `message-tags` was not negotiated.
 - Rejection of outbound IRCv3 client-only tags after `CAP DEL message-tags`.
 - IRCv3 `FAIL`, `WARN`, and `NOTE` standard replies.
-- WHO, WHOX, WHOIS, and WHOWAS parser/client event helpers, including `314` and `369`.
+- WHO, WHOX, WHOIS, and WHOWAS parser/client event helpers, including optional WHOIS numerics and `314`/`369`.
 - Outbound IRCv3 tagged messages.
 
 This is not yet complete coverage of every IRCv3 extension. The next slices

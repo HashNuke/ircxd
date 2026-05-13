@@ -780,11 +780,15 @@ defmodule Ircxd.Client do
              "312",
              "313",
              "314",
+             "276",
+             "307",
              "317",
              "319",
              "330",
              "335",
              "338",
+             "320",
+             "378",
              "379",
              "671",
              "318",
@@ -1497,11 +1501,18 @@ defmodule Ircxd.Client do
   defp whois_event("314", params), do: {:whowas_user, Whois.parse_whowas_user(params)}
   defp whois_event("312", params), do: {:whois_server, Whois.parse_server(params)}
   defp whois_event("313", params), do: {:whois_operator, Whois.parse_operator(params)}
+  defp whois_event("276", params), do: {:whois_certfp, Whois.parse_certfp(params)}
+
+  defp whois_event("307", params),
+    do: {:whois_registered_nick, Whois.parse_registered_nick(params)}
+
   defp whois_event("335", params), do: {:whois_bot, Whois.parse_bot(params)}
   defp whois_event("317", params), do: {:whois_idle, Whois.parse_idle(params)}
   defp whois_event("319", params), do: {:whois_channels, Whois.parse_channels(params)}
   defp whois_event("330", params), do: {:whois_account, Whois.parse_account(params)}
+  defp whois_event("320", params), do: {:whois_special, Whois.parse_special(params)}
   defp whois_event("338", params), do: {:whois_actual_host, Whois.parse_actual_host(params)}
+  defp whois_event("378", params), do: {:whois_host, Whois.parse_host(params)}
   defp whois_event("379", params), do: {:whois_modes, Whois.parse_modes(params)}
   defp whois_event("671", params), do: {:whois_secure, Whois.parse_secure(params)}
   defp whois_event("318", params), do: {:whois_end, Whois.parse_end(params)}
