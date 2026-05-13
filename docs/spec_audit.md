@@ -180,13 +180,15 @@ Current local InspIRCd integration covers:
 
 - Registration, `001` through `004`, ISUPPORT, NAMES, JOIN, PRIVMSG.
 - `server-time`, `echo-message`, `extended-join`, `away-notify`.
+- `standard-replies` capability advertisement and negotiation.
 - `LIST`, `VERSION`, `ISON`, WHOX, channel modes, topics, and ban lists.
 - Nickname collision retry.
 
 Remaining real-server work:
 
-- Add coverage for standard replies if a deterministic InspIRCd command/module
-  path is available.
+- Add real-server `FAIL`, `WARN`, or `NOTE` emission coverage if a deterministic
+  InspIRCd command/module path is available; the current local config advertises
+  `standard-replies` but probed commands returned legacy numerics.
 - Add service/account-backed tests if the local InspIRCd config is extended with
   services suitable for SASL/account-notify/account-tag.
 - Keep integration connection count under the local connection cap; prefer

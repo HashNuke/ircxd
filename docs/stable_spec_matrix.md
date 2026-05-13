@@ -49,7 +49,7 @@ Status meanings:
 | MONITOR and extended-monitor | covered | `test/ircxd/monitor_test.exs`, `test/ircxd/client_monitor_test.exs`, `test/ircxd/client_extended_monitor_test.exs` | No current stable gap. |
 | Server time | covered | `test/ircxd/client_server_time_order_test.exs`, `test/ircxd/client_server_time_auto_flush_test.exs`, `test/ircxd/client_integration_test.exs` | No current stable gap. |
 | SNI | covered | `test/ircxd/client_tls_test.exs` | No current stable gap. |
-| Standard replies | covered | `test/ircxd/standard_reply_test.exs`, `test/ircxd/client_standard_reply_test.exs` | Add real-server standard replies as one integration slice. |
+| Standard replies | partial | `test/ircxd/standard_reply_test.exs`, `test/ircxd/client_standard_reply_test.exs`, `test/ircxd/client_integration_test.exs` | Real-server negotiation is covered; add real `FAIL`/`WARN`/`NOTE` emission only when a deterministic InspIRCd path is available. |
 | STS | partial | `test/ircxd/sts_test.exs`, `test/ircxd/client_sts_test.exs` | Policy persistence and enforcement are host-owned, but should get adapter docs/tests if an API is added. |
 | UTF8ONLY | covered | `test/ircxd/client_utf8_only_test.exs` | No current stable gap. |
 | WEBIRC | covered | `test/ircxd/webirc_test.exs`, `test/ircxd/client_webirc_test.exs` | No current stable gap. |
@@ -60,7 +60,8 @@ Status meanings:
 1. `Modern numeric coverage`: continue auditing uncommon Modern IRC and RFC2812
    numerics, then add typed events/tests in grouped commits.
 2. `Real-server standard replies`: find a deterministic InspIRCd module or
-   command path and add an integration test.
+   command path for actual `FAIL`, `WARN`, or `NOTE` emission and add an
+   integration test.
 3. `Real-server account services`: extend local services/config if practical,
    then test SASL/account-tag/account-notify against a real server.
 4. `Host-boundary docs and adapter tests`: document why storage, STS
