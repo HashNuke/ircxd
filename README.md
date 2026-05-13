@@ -23,6 +23,7 @@ The library currently provides:
 - IRCv3 `BATCH`, labeled-response, identity, presence, and standard-reply events.
 - IRCv3 labeled-response `ACK` events and batch-level labeled-response aggregation.
 - IRCv3 labeled-response request lifecycle events for sent, acknowledged, and completed requests.
+- IRCv3 account extended-ban mask helpers.
 - Outbound IRCv3 `label` tags are only sent after `labeled-response` is negotiated.
 - Outbound IRCv3 client-only tags are only sent after `message-tags` is negotiated.
 - IRCv3 `MONITOR`, `SETNAME`, and invite notification helpers/events.
@@ -144,6 +145,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 Bot Mode `BOT` ISUPPORT mode helper, `bot` tag, WHO flag, and `335 RPL_WHOISBOT`.
 - IRCv3 `sts` policy parsing, policy events, no `CAP REQ sts`, and ignored `CAP DEL sts`.
 - IRCv3 `UTF8ONLY` ISUPPORT handling that rejects outbound non-UTF-8 parameters.
+- IRCv3 `ACCOUNTEXTBAN`/`EXTBAN` account ban mask construction.
 - IRCv3 `MONITOR` command helpers and `730`-`734` numeric events.
 - IRCv3 `setname` command/events and `invite-notify` events.
 - Draft IRCv3 `REGISTER`/`VERIFY` helpers, success/verification-required events, and required capability checks.

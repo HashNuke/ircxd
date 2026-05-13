@@ -18,6 +18,7 @@ defmodule Ircxd.Client do
   use GenServer
 
   alias Ircxd.Batch
+  alias Ircxd.AccountExtban
   alias Ircxd.ChatHistory
   alias Ircxd.Metadata
   alias Ircxd.Message
@@ -108,6 +109,9 @@ defmodule Ircxd.Client do
   def whowas(client, nick, count), do: GenServer.call(client, {:send, "WHOWAS", [nick, count]})
 
   def bot_mode(client, enabled \\ true), do: GenServer.call(client, {:bot_mode, enabled})
+
+  def account_extban_mask(client, account, preferred_name \\ nil),
+    do: GenServer.call(client, {:account_extban_mask, account, preferred_name})
 
   def register_account(client, account, email, password),
     do: GenServer.call(client, {:send, "REGISTER", [account, email, password]})
@@ -318,6 +322,10 @@ defmodule Ircxd.Client do
       _ ->
         {:reply, {:error, :bot_mode_not_supported}, state}
     end
+  end
+
+  def handle_call({:account_extban_mask, account, preferred_name}, _from, state) do
+    {:reply, AccountExtban.mask(state.isupport, account, preferred_name), state}
   end
 
   def handle_call(:flush_server_time, _from, state) do
