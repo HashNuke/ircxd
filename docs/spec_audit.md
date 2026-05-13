@@ -101,8 +101,8 @@ Implemented and tested:
 
 - Capability negotiation, active-capability listing/disable flows, and
   cap-notify lifecycle.
-- Message Tags, client-only tags, label tag gating before and after
-  `CAP DEL`, and client-tag-deny.
+- Message Tags, outbound tag-key validation, client-only tags, label tag gating
+  before and after `CAP DEL`, and client-tag-deny.
 - SASL `PLAIN`, `EXTERNAL`, and `SCRAM-SHA-256`, including capability
   advertised-mechanism filtering before `CAP REQ`, mechanism list numeric
   `908`, and fallback behavior.

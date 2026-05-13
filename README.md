@@ -15,6 +15,7 @@ The library currently provides:
 - Outbound IRC parameter validation that rejects CR/LF injection before socket
   writes.
 - IRCv3 message tag parsing, escaping, and serialization.
+- Outbound IRCv3 tag-key validation before serialization.
 - Optional IRCv3 `msgid` duplicate marking hooks.
 - Optional manual ordered flush for timestamped `server-time` events.
 - Optional automatic timed flush for timestamp-ordered `server-time` events.

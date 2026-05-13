@@ -2261,18 +2261,38 @@ defmodule Ircxd.Client do
 
   defp validate_utf8_only(_state, _message), do: :ok
 
-  defp validate_outbound_tags(state, %Message{tags: tags}) when is_map_key(tags, "label") do
-    with :ok <- require_active_cap(state, "labeled-response") do
-      validate_client_only_tags(state, tags)
+  defp validate_outbound_tags(state, %Message{tags: tags}) when is_map(tags) do
+    with :ok <- validate_outbound_tag_keys(tags),
+         :ok <- maybe_require_labeled_response(state, tags) do
+      maybe_require_message_tags(state, tags)
     end
   end
 
-  defp validate_outbound_tags(state, %Message{tags: tags}),
-    do: validate_client_only_tags(state, tags)
-
   defp validate_outbound_tags(_state, _message), do: :ok
 
-  defp validate_client_only_tags(state, tags) do
+  defp validate_outbound_tag_keys(tags) do
+    if Enum.all?(Map.keys(tags), &valid_outbound_tag_key?/1) do
+      :ok
+    else
+      {:error, :invalid_tag_key}
+    end
+  end
+
+  defp valid_outbound_tag_key?(key) when is_binary(key) do
+    String.match?(key, ~r/\A\+?(?:(?:[A-Za-z0-9][A-Za-z0-9.-]*)\/)?[A-Za-z0-9][A-Za-z0-9-]*\z/)
+  end
+
+  defp valid_outbound_tag_key?(_key), do: false
+
+  defp maybe_require_labeled_response(state, tags) do
+    if Map.has_key?(tags, "label") do
+      require_active_cap(state, "labeled-response")
+    else
+      :ok
+    end
+  end
+
+  defp maybe_require_message_tags(state, tags) do
     if Enum.any?(Map.keys(tags), &String.starts_with?(&1, "+")) do
       require_active_cap(state, "message-tags")
     else

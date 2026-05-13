@@ -92,6 +92,52 @@ defmodule Ircxd.ClientTaggedMessagesTest do
     refute_receive {:scripted_irc_line, "@label=request-1 WHOIS alice"}, 250
   end
 
+  test "rejects malformed outbound IRCv3 tag keys" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :message-tags"]
+
+           "CAP REQ message-tags", _state ->
+             [":irc.test CAP * ACK :message-tags"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        caps: ["message-tags"],
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+
+    assert {:error, :invalid_tag_key} =
+             Ircxd.Client.privmsg(client, "#chan", "hello", %{"bad key" => "value"})
+
+    assert {:error, :invalid_tag_key} =
+             Ircxd.Client.privmsg(client, "#chan", "hello", %{"bad;key" => "value"})
+
+    assert {:error, :invalid_tag_key} =
+             Ircxd.Client.privmsg(client, "#chan", "hello", %{"+bad\r\nkey" => "value"})
+
+    refute_receive {:scripted_irc_line, "@bad"}, 250
+    refute_receive {:scripted_irc_line, "key=value PRIVMSG #chan hello"}, 250
+  end
+
   test "rejects client-only tags before message-tags is negotiated" do
     server =
       start_supervised!(
