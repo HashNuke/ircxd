@@ -87,4 +87,41 @@ defmodule Ircxd.ClientChannelContextTest do
     assert {:error, :missing_channel_context} =
              Ircxd.Client.context_privmsg(self(), "bot", "", "private message")
   end
+
+  test "rejects channel-context helpers before message-tags is negotiated" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+
+    assert {:error, {:capability_not_enabled, "message-tags"}} =
+             Ircxd.Client.context_privmsg(client, "bot", "#elixir", "private message")
+
+    refute_receive {:scripted_irc_line,
+                    "@+draft/channel-context=#elixir PRIVMSG bot :private message"},
+                   250
+  end
 end

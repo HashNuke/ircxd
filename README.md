@@ -216,8 +216,10 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 `no-implicit-names` explicit `NAMES` flow and `366 RPL_ENDOFNAMES` event.
 - IRCv3 `+typing` client tag helper, status validation, and typed receive events.
 - IRCv3 `+reply` client tag helper and `reply_to_msgid` metadata on messages.
-- Draft IRCv3 `+draft/react`/`+draft/unreact` helpers and typed reaction events.
-- Draft IRCv3 `+draft/channel-context` helpers and `channel_context` metadata on messages.
+- Draft IRCv3 `+draft/react`/`+draft/unreact` helpers, message-tags gating, and
+  typed reaction events.
+- Draft IRCv3 `+draft/channel-context` helpers, message-tags gating, and
+  `channel_context` metadata on messages.
 - IRCv3 `CLIENTTAGDENY` parsing including wildcard blocks and exemptions.
 - IRCv3 `MONITOR` command helpers and `730`-`734` numeric events.
 - IRCv3 `setname` command/events and `invite-notify` events.

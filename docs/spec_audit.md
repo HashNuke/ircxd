@@ -144,8 +144,8 @@ Implemented and tested:
   safety checks.
 - Channel rename, message redaction, read markers, account registration,
   pre-away, draft reactions, and draft channel-context helpers with capability
-  gating, including `CAP DEL` gating coverage for redaction and read-marker
-  commands.
+  gating, including `message-tags` gating for draft tag helpers and `CAP DEL`
+  gating coverage for redaction and read-marker commands.
 
 Remaining draft/WIP gaps:
 
