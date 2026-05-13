@@ -198,6 +198,7 @@ defmodule Ircxd.Client do
       server_time_buffer: [],
       server_time_flush_timer: nil,
       available_caps: %{},
+      active_caps: MapSet.new(),
       current_nick: Keyword.fetch!(opts, :nick),
       nick_retry_fun: Keyword.get(opts, :nick_retry_fun, &default_nick_retry/2),
       sasl: Keyword.get(opts, :sasl),
@@ -322,6 +323,7 @@ defmodule Ircxd.Client do
           transport: nil,
           registered?: false,
           available_caps: %{},
+          active_caps: MapSet.new(),
           active_batches: %{},
           multiline_batches: %{},
           labeled_response_batches: %{},
@@ -364,6 +366,7 @@ defmodule Ircxd.Client do
 
       {:ok, %Message{command: "CAP", params: [_nick, "ACK", caps]} = message} ->
         acked_caps = String.split(caps, " ", trim: true)
+        state = %{state | active_caps: MapSet.union(state.active_caps, MapSet.new(acked_caps))}
         state = emit(state, {:cap_ack, acked_caps})
         state = emit(state, {:message, message})
 
@@ -392,7 +395,13 @@ defmodule Ircxd.Client do
 
       {:ok, %Message{command: "CAP", params: [_nick, "DEL", caps]} = message} ->
         deleted_caps = String.split(caps, " ", trim: true)
-        state = %{state | available_caps: Map.drop(state.available_caps, deleted_caps)}
+
+        state = %{
+          state
+          | available_caps: Map.drop(state.available_caps, deleted_caps),
+            active_caps: MapSet.difference(state.active_caps, MapSet.new(deleted_caps))
+        }
+
         state = emit(state, {:cap_del, deleted_caps})
         state = emit(state, {:message, message})
         {:noreply, state}
@@ -1159,13 +1168,25 @@ defmodule Ircxd.Client do
   defp send_message(%{transport: nil}, %Message{}), do: {:error, :not_connected}
 
   defp send_message(state, %Message{} = message) do
-    line = Message.serialize(message)
+    with :ok <- validate_outbound_tags(state, message) do
+      line = Message.serialize(message)
 
-    case state.transport do
-      :ssl -> :ssl.send(state.socket, line)
-      :gen_tcp -> :gen_tcp.send(state.socket, line)
+      case state.transport do
+        :ssl -> :ssl.send(state.socket, line)
+        :gen_tcp -> :gen_tcp.send(state.socket, line)
+      end
     end
   end
+
+  defp validate_outbound_tags(state, %Message{tags: tags}) when is_map_key(tags, "label") do
+    if MapSet.member?(state.active_caps, "labeled-response") do
+      :ok
+    else
+      {:error, {:capability_not_enabled, "labeled-response"}}
+    end
+  end
+
+  defp validate_outbound_tags(_state, _message), do: :ok
 
   defp maybe_include_sasl(caps, %{sasl: nil}), do: caps
   defp maybe_include_sasl(caps, _state), do: ["sasl" | caps]

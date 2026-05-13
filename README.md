@@ -23,6 +23,7 @@ The library currently provides:
 - IRCv3 `BATCH`, labeled-response, identity, presence, and standard-reply events.
 - IRCv3 labeled-response `ACK` events and batch-level labeled-response aggregation.
 - IRCv3 labeled-response request lifecycle events for sent, acknowledged, and completed requests.
+- Outbound IRCv3 `label` tags are only sent after `labeled-response` is negotiated.
 - IRCv3 `MONITOR`, `SETNAME`, and invite notification helpers/events.
 - IRCv3 `userhost-in-names` NAMES parsing.
 - Draft IRCv3 `metadata` command helpers, server messages, and key numerics.
@@ -139,6 +140,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Draft IRCv3 multiline batch aggregation, `draft/multiline-concat`, and outbound multiline `PRIVMSG`/`NOTICE` helpers.
 - IRCv3 labeled-response `ACK` and `labeled-response` batch aggregation.
 - IRCv3 labeled-response request lifecycle tracking for outbound labeled commands.
+- Rejection of outbound IRCv3 `label` tags when `labeled-response` was not negotiated.
 - IRCv3 `FAIL`, `WARN`, and `NOTE` standard replies.
 - WHO, WHOX, WHOIS, and WHOWAS parser/client event helpers.
 - Outbound IRCv3 tagged messages.
