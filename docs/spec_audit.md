@@ -8,6 +8,7 @@ itself proof that the full protocol surface is complete.
 ## Current Evidence
 
 - Core parser and serializer: `lib/ircxd/message.ex`, `test/ircxd/message_test.exs`.
+- Modern IRC source parser: `lib/ircxd/source.ex`, `test/ircxd/source_test.exs`.
 - Core client process and event delivery: `lib/ircxd/client.ex`, `lib/ircxd/handler.ex`.
 - Modern IRC command helpers and numerics: `test/ircxd/client_core_commands_test.exs`,
   `test/ircxd/client_registration_numeric_test.exs`,
@@ -45,8 +46,9 @@ itself proof that the full protocol surface is complete.
 
 Implemented and tested:
 
-- Message framing, tags, source, command validation, parameter parsing,
-  byte-limit helpers, and outbound wire-size enforcement before socket writes.
+- Message framing, tags, server sources, full/partial user sources, command
+  validation, parameter parsing, byte-limit helpers, and outbound wire-size
+  enforcement before socket writes.
 - Formatting control-code parsing/stripping for bold, italics, underline,
   strikethrough, monospace, reverse, numeric colors, hex colors, and reset.
 - DCC CTCP query parsing/encoding for `CHAT`, `SEND`, `RESUME`, and `ACCEPT`

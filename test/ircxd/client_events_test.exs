@@ -15,6 +15,7 @@ defmodule Ircxd.ClientEventsTest do
            "CAP END", _state ->
              [
                ":irc.test 001 nick :Welcome",
+               ":WiZ NICK Kilroy",
                ":old!user@host NICK :new",
                ":new!user@host JOIN :#chan",
                ":new!user@host TOPIC #chan :topic text",
@@ -41,6 +42,7 @@ defmodule Ircxd.ClientEventsTest do
       )
 
     assert_event(:registered)
+    assert_event({:nick, %{old_nick: "WiZ", new_nick: "Kilroy"}})
     assert_event({:nick, %{old_nick: "old", new_nick: "new"}})
     assert_event({:join, %{nick: "new", channel: "#chan"}})
     assert_event({:topic, %{nick: "new", channel: "#chan", topic: "topic text"}})

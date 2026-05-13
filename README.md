@@ -6,6 +6,8 @@ applications.
 The library currently provides:
 
 - Modern IRC line parsing and serialization.
+- Modern IRC source mask parsing for server names and full or partial user
+  sources.
 - Modern IRC command-token and parameter-count validation.
 - IRCv3 message tag parsing, escaping, and serialization.
 - Optional IRCv3 `msgid` duplicate marking hooks.
@@ -27,7 +29,9 @@ The library currently provides:
 - SASL mechanism fallback across configured mechanisms such as `EXTERNAL` then `PLAIN`.
 - SASL v3.2 mechanism-list events from `908 RPL_SASLMECHS`.
 - Automatic `PING`/`PONG`.
-- Modern IRC helpers for registration, channel operations, mode queries, server/operator queries, service queries, user queries, messaging, and raw commands.
+- Modern IRC helpers for registration, channel operations, mode queries,
+  server/operator queries, service queries, user queries, messaging, and raw
+  commands.
 - Outbound IRCv3 tagged messages for client-only tags and labeled responses.
 - IRCv3 `BATCH`, labeled-response, identity, presence, and standard-reply events.
 - IRCv3 stable `netsplit` and `netjoin` batch aggregation events.

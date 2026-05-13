@@ -11,12 +11,27 @@ defmodule Ircxd.Source do
   def parse(nil), do: nil
 
   def parse(source) when is_binary(source) do
-    case Regex.run(~r/\A([^!@]+)!([^@]+)@(.+)\z/, source) do
+    case Regex.run(~r/\A([^!@]+)(?:!([^@]+))?(?:@(.+))?\z/, source) do
       [_, nick, user, host] ->
-        %__MODULE__{raw: source, type: :user, nick: nick, user: user, host: host}
+        %__MODULE__{raw: source, type: :user, nick: nick, user: blank_to_nil(user), host: host}
 
-      _ ->
+      [_, nick, user] ->
+        %__MODULE__{raw: source, type: :user, nick: nick, user: user}
+
+      [_, nick] ->
+        if server_name?(nick) do
+          %__MODULE__{raw: source, type: :server, server: source}
+        else
+          %__MODULE__{raw: source, type: :user, nick: nick}
+        end
+
+      nil ->
         %__MODULE__{raw: source, type: :server, server: source}
     end
   end
+
+  defp blank_to_nil(""), do: nil
+  defp blank_to_nil(value), do: value
+
+  defp server_name?(source), do: String.contains?(source, ".")
 end
