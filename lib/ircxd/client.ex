@@ -724,6 +724,12 @@ defmodule Ircxd.Client do
         state = emit(state, {:message, message})
         {:noreply, state}
 
+      {:ok, %Message{command: "105"} = message} ->
+        tokens = ISupport.parse_params(message.params)
+        state = emit_event(state, {:remote_isupport, tokens}, message)
+        state = emit(state, {:message, message})
+        {:noreply, state}
+
       {:ok, %Message{command: "433", params: params} = message} ->
         attempted = Enum.at(params, 1) || state.current_nick
         next_nick = state.nick_retry_fun.(attempted, state)

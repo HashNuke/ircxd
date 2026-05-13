@@ -65,7 +65,7 @@ The library currently provides:
 - Parsed DCC payloads on CTCP `PRIVMSG` and `NOTICE` events.
 - DCC reverse/port-0 detection for host-owned connection policy.
 - Modern IRC formatting control-code parser and stripper.
-- ISUPPORT, NAMES, source mask, casemapping, server-time, msgid, label, batch, and account helpers.
+- ISUPPORT, remote ISUPPORT, NAMES, source mask, casemapping, server-time, msgid, label, batch, and account helpers.
 - Callback-style event delivery through `:notify` or `Ircxd.Handler`.
 
 Storage, scrollback, notification persistence, and application state are not part
@@ -233,6 +233,8 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 labeled-response `ACK` and `labeled-response` batch aggregation.
 - IRCv3 labeled-response request lifecycle tracking for outbound labeled commands.
 - IRCv3 labeled-response lifecycle completion for single standard replies.
+- Modern IRC `105 RPL_REMOTEISUPPORT` parsing without replacing the active
+  server's `005` ISUPPORT state.
 - Rejection of outbound IRCv3 `label` tags when `labeled-response` was not negotiated.
 - Rejection of outbound IRCv3 client-only tags when `message-tags` was not negotiated.
 - Rejection of outbound IRCv3 client-only tags after `CAP DEL message-tags`.

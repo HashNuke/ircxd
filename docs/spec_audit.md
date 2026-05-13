@@ -107,6 +107,8 @@ Implemented and tested:
 - UTF8ONLY outbound validation.
 - WEBIRC and WebSocket protocol-boundary helpers with an adapter behaviour and
   in-memory adapter for tests/embedders.
+- Modern IRC `105 RPL_REMOTEISUPPORT` parsing as remote ISUPPORT events without
+  mutating active `005` ISUPPORT state.
 
 Remaining IRCv3 stable gaps:
 
