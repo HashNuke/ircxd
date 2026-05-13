@@ -64,10 +64,10 @@ Implemented and tested:
 - Structured ISUPPORT helpers for `PREFIX`, concrete membership prefix/mode
   lookup, `CHANMODES`, concrete channel-mode classification, `CHANLIMIT`,
   concrete channel-limit lookup, `MAXLIST`, concrete list-mode limit lookup, and
-  `TARGMAX` parameter values and target-count checks, plus typed integer,
-  character-list, feature-flag readers for common tokens, `CHANTYPES` and
-  `STATUSMSG` target detection, and ASCII-only IRC casemapping / ISUPPORT
-  `CASEMAPPING` comparison helpers.
+  `TARGMAX` / legacy `MAXTARGETS` parameter values and target-count checks,
+  plus typed integer, character-list, feature-flag readers for common tokens,
+  `CHANTYPES` and `STATUSMSG` target detection, and ASCII-only IRC casemapping /
+  ISUPPORT `CASEMAPPING` comparison helpers.
 - Channel operations: `JOIN`, `PART`, `TOPIC`, `NAMES`, `LIST`, `INVITE`,
   `KICK`, `MODE`, mode queries, topic numerics, name replies, channel modes,
   and mask lists.

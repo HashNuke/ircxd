@@ -140,10 +140,20 @@ defmodule Ircxd.ISupport do
     |> Map.new(fn {command, limit} -> {String.upcase(command), limit} end)
   end
 
+  def max_targets(isupport) when is_map(isupport) do
+    positive_integer(isupport, "MAXTARGETS")
+  end
+
   def target_limit(isupport, command) when is_map(isupport) and is_binary(command) do
+    normalized_command = String.upcase(command)
+
     isupport
     |> targmax()
-    |> Map.get(String.upcase(command))
+    |> Map.get(normalized_command)
+    |> case do
+      nil -> legacy_target_limit(isupport, normalized_command)
+      limit -> limit
+    end
   end
 
   def target_limit(_isupport, _command), do: nil
@@ -165,6 +175,19 @@ defmodule Ircxd.ISupport do
       :error -> default
     end
   end
+
+  defp positive_integer(isupport, key) do
+    case Map.fetch(isupport, key) do
+      {:ok, value} -> parse_positive_integer_value(value)
+      :error -> nil
+    end
+  end
+
+  defp legacy_target_limit(isupport, command) when command in ["PRIVMSG", "NOTICE"] do
+    max_targets(isupport)
+  end
+
+  defp legacy_target_limit(_isupport, _command), do: nil
 
   def characters(isupport, key) when is_map(isupport) and is_binary(key) do
     isupport
@@ -252,6 +275,13 @@ defmodule Ircxd.ISupport do
     case Integer.parse(string_value(value)) do
       {integer, ""} when integer >= 0 -> integer
       _ -> default
+    end
+  end
+
+  defp parse_positive_integer_value(value) do
+    case Integer.parse(string_value(value)) do
+      {integer, ""} when integer > 0 -> integer
+      _ -> nil
     end
   end
 

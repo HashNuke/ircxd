@@ -136,6 +136,34 @@ defmodule Ircxd.ISupportTest do
     refute ISupport.target_allowed?(isupport, "WHOIS", -1)
   end
 
+  test "uses MAXTARGETS for legacy PRIVMSG and NOTICE target limits" do
+    isupport = %{"MAXTARGETS" => "4"}
+
+    assert ISupport.max_targets(isupport) == 4
+    assert ISupport.max_targets(%{"MAXTARGETS" => true}) == nil
+    assert ISupport.max_targets(%{"MAXTARGETS" => "0"}) == nil
+    assert ISupport.max_targets(%{}) == nil
+
+    assert ISupport.target_limit(isupport, "PRIVMSG") == 4
+    assert ISupport.target_limit(isupport, "notice") == 4
+    assert ISupport.target_limit(isupport, "JOIN") == nil
+
+    assert ISupport.target_allowed?(isupport, "PRIVMSG", 4)
+    refute ISupport.target_allowed?(isupport, "PRIVMSG", 5)
+
+    assert ISupport.target_allowed?(
+             %{"TARGMAX" => "PRIVMSG:2", "MAXTARGETS" => "4"},
+             "PRIVMSG",
+             2
+           )
+
+    refute ISupport.target_allowed?(
+             %{"TARGMAX" => "PRIVMSG:2", "MAXTARGETS" => "4"},
+             "PRIVMSG",
+             3
+           )
+  end
+
   test "reads typed integer, character-list, and flag values" do
     isupport = %{
       "CHANTYPES" => "#&",
