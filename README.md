@@ -146,6 +146,12 @@ Run every current verification gate, including disposable real-server fixtures:
 scripts/run_verification_gates.sh
 ```
 
+Include the optional irssi cross-client check in the verification runner:
+
+```bash
+IRCXD_INCLUDE_IRSSI=1 scripts/run_verification_gates.sh
+```
+
 Optional services-backed IRCv3 tests require a local InspIRCd instance linked
 to Atheme services, with client connections on `127.0.0.1:6670`. These tests
 cover real SASL PLAIN authentication, account login/logout, account-notify, and

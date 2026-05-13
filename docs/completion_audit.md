@@ -28,6 +28,12 @@ Run all current gates:
 scripts/run_verification_gates.sh
 ```
 
+Include the optional irssi cross-client gate in that runner:
+
+```bash
+IRCXD_INCLUDE_IRSSI=1 scripts/run_verification_gates.sh
+```
+
 Default suite:
 
 ```bash

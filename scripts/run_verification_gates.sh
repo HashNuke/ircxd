@@ -22,4 +22,11 @@ scripts/run_standard_replies_integration.sh
 echo "==> services-backed IRCv3 integration"
 scripts/run_services_integration.sh
 
+if [[ "${IRCXD_INCLUDE_IRSSI:-0}" == "1" ]]; then
+  echo "==> irssi cross-client check"
+  scripts/run_irssi_manual_check.sh
+else
+  echo "==> irssi cross-client check skipped (set IRCXD_INCLUDE_IRSSI=1 to run)"
+fi
+
 echo "==> all verification gates passed"
