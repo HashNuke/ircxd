@@ -393,6 +393,49 @@ defmodule Ircxd.ClientIntegrationTest do
              end)
   end
 
+  test "receives channel mode numerics from InspIRCd" do
+    channel = "#ircxdmode#{System.unique_integer([:positive])}"
+    client_nick = "ircxdmode#{System.unique_integer([:positive])}"
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: @host,
+        port: @port,
+        tls: false,
+        nick: client_nick,
+        username: client_nick,
+        realname: "Ircxd Mode Test",
+        notify: self()
+      )
+
+    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+    assert :ok = Ircxd.Client.join(client, channel)
+
+    assert {:ok, %{nick: ^client_nick, channel: ^channel}} =
+             wait_for_event(fn
+               {:join, %{nick: ^client_nick, channel: ^channel} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert :ok = Ircxd.Client.raw(client, "MODE", [channel])
+
+    assert {:ok, %{channel: ^channel, modes: modes}} =
+             wait_for_event(fn
+               {:channel_mode, %{channel: ^channel} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert String.starts_with?(modes, "+")
+
+    assert {:ok, %{channel: ^channel, created_at: created_at}} =
+             wait_for_event(fn
+               {:channel_created, %{channel: ^channel} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert String.to_integer(created_at) > 0
+  end
+
   test "retries nickname when the requested nick is in use" do
     base_nick = "taken#{System.unique_integer([:positive])}"
     {:ok, holder} = RawIrcClient.connect(host: @host, port: @port, nick: base_nick)
