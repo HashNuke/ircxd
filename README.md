@@ -24,6 +24,7 @@ The library currently provides:
 - IRCv3 labeled-response `ACK` events and batch-level labeled-response aggregation.
 - IRCv3 labeled-response request lifecycle events for sent, acknowledged, and completed requests.
 - Outbound IRCv3 `label` tags are only sent after `labeled-response` is negotiated.
+- Outbound IRCv3 client-only tags are only sent after `message-tags` is negotiated.
 - IRCv3 `MONITOR`, `SETNAME`, and invite notification helpers/events.
 - IRCv3 `userhost-in-names` NAMES parsing.
 - Draft IRCv3 `metadata` command helpers, server messages, and key numerics.
@@ -141,6 +142,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 labeled-response `ACK` and `labeled-response` batch aggregation.
 - IRCv3 labeled-response request lifecycle tracking for outbound labeled commands.
 - Rejection of outbound IRCv3 `label` tags when `labeled-response` was not negotiated.
+- Rejection of outbound IRCv3 client-only tags when `message-tags` was not negotiated.
 - IRCv3 `FAIL`, `WARN`, and `NOTE` standard replies.
 - WHO, WHOX, WHOIS, and WHOWAS parser/client event helpers.
 - Outbound IRCv3 tagged messages.

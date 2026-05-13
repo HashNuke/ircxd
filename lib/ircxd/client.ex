@@ -1179,14 +1179,31 @@ defmodule Ircxd.Client do
   end
 
   defp validate_outbound_tags(state, %Message{tags: tags}) when is_map_key(tags, "label") do
-    if MapSet.member?(state.active_caps, "labeled-response") do
-      :ok
-    else
-      {:error, {:capability_not_enabled, "labeled-response"}}
+    with :ok <- require_active_cap(state, "labeled-response") do
+      validate_client_only_tags(state, tags)
     end
   end
 
+  defp validate_outbound_tags(state, %Message{tags: tags}),
+    do: validate_client_only_tags(state, tags)
+
   defp validate_outbound_tags(_state, _message), do: :ok
+
+  defp validate_client_only_tags(state, tags) do
+    if Enum.any?(Map.keys(tags), &String.starts_with?(&1, "+")) do
+      require_active_cap(state, "message-tags")
+    else
+      :ok
+    end
+  end
+
+  defp require_active_cap(state, cap) do
+    if MapSet.member?(state.active_caps, cap) do
+      :ok
+    else
+      {:error, {:capability_not_enabled, cap}}
+    end
+  end
 
   defp maybe_include_sasl(caps, %{sasl: nil}), do: caps
   defp maybe_include_sasl(caps, _state), do: ["sasl" | caps]

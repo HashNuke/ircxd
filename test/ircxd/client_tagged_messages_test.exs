@@ -91,4 +91,39 @@ defmodule Ircxd.ClientTaggedMessagesTest do
 
     refute_receive {:scripted_irc_line, "@label=request-1 WHOIS alice"}, 250
   end
+
+  test "rejects client-only tags before message-tags is negotiated" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+
+    assert {:error, {:capability_not_enabled, "message-tags"}} =
+             Ircxd.Client.privmsg(client, "#chan", "hello", %{"+draft/reply" => "abc"})
+
+    refute_receive {:scripted_irc_line, "@+draft/reply=abc PRIVMSG #chan hello"}, 250
+  end
 end
