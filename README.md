@@ -51,6 +51,7 @@ The library currently provides:
 - Draft IRCv3 `metadata` command helpers, server messages, and key numerics.
 - Draft IRCv3 metadata batch aggregation including standard `FAIL` entries.
 - IRCv3 WebIRC startup support.
+- IRCv3 WebSocket subprotocol, one-line payload helpers, and adapter behaviour.
 - Draft IRCv3 chathistory command helpers and `TARGETS` events.
 - Draft IRCv3 multiline receive aggregation and outbound multiline message helpers.
 - CTCP encode/decode helpers.
@@ -59,6 +60,11 @@ The library currently provides:
 
 Storage, scrollback, notification persistence, and application state are not part
 of this library. Consumers receive events and decide what to store.
+
+WebSocket socket lifecycle is also adapter-owned. `Ircxd.WebSocket` validates
+the IRCv3 WebSocket subprotocol and one-line payload rules, then host
+applications can provide adapters implementing `Ircxd.WebSocket.Adapter` for
+Phoenix Channels, Cowboy, Bandit, or another stack.
 
 ## Usage
 
@@ -179,6 +185,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Draft IRCv3 `metadata` key validation, `METADATA` command helpers, server events, and `760`/`761`/`766`/`770`/`771`/`772`/`774` numerics.
 - Draft IRCv3 metadata batch aggregation with key-value, key-not-set, and standard `FAIL` entries.
 - IRCv3 WebIRC parameter/option serialization and startup ordering before `CAP`.
+- IRCv3 WebSocket `binary.ircv3.net`/`text.ircv3.net` subprotocols, CRLF-free single-line payload validation, and adapter dispatch.
 - Draft IRCv3 chathistory selectors, command helpers, `CHATHISTORY TARGETS`, and batch-delivered history events.
 - IRCv3 `BATCH` start/end tracking and batched message events.
 - IRCv3 stable `netsplit` and `netjoin` batch aggregation.
