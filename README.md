@@ -10,7 +10,8 @@ The library currently provides:
   validation.
 - Modern IRC source mask parsing for server names and full or partial user
   sources.
-- Modern IRC command-token and parameter-count validation.
+- Modern IRC command-token and parameter-count validation for inbound parsing
+  and outbound client writes.
 - IRCv3 message tag parsing, escaping, and serialization.
 - Optional IRCv3 `msgid` duplicate marking hooks.
 - Optional manual ordered flush for timestamped `server-time` events.

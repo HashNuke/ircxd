@@ -2182,7 +2182,8 @@ defmodule Ircxd.Client do
   defp send_message(%{transport: nil}, %Message{}), do: {:error, :not_connected}
 
   defp send_message(state, %Message{} = message) do
-    with :ok <- validate_outbound_command(state, message),
+    with :ok <- validate_outbound_shape(message),
+         :ok <- validate_outbound_command(state, message),
          :ok <- validate_utf8_only(state, message),
          :ok <- validate_outbound_tags(state, message) do
       line = Message.serialize(message)
@@ -2195,6 +2196,19 @@ defmodule Ircxd.Client do
       else
         {:error, :line_too_long}
       end
+    end
+  end
+
+  defp validate_outbound_shape(%Message{command: command, params: params}) do
+    cond do
+      not is_binary(command) or not Message.valid_command?(command) ->
+        {:error, :invalid_command}
+
+      length(params) > Message.max_params() ->
+        {:error, :too_many_params}
+
+      true ->
+        :ok
     end
   end
 
