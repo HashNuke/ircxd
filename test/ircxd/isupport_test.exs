@@ -243,6 +243,14 @@ defmodule Ircxd.ISupportTest do
     assert ISupport.network_name(%{"NETWORK" => true}) == nil
     assert ISupport.network_name(%{}) == nil
 
+    assert ISupport.bot_mode(%{"BOT" => "b"}) == "b"
+    assert ISupport.bot_mode(%{"BOT" => "B"}) == "B"
+    assert ISupport.bot_mode(%{"BOT" => true}) == nil
+    assert ISupport.bot_mode(%{"BOT" => false}) == nil
+    assert ISupport.bot_mode(%{"BOT" => ""}) == nil
+    assert ISupport.bot_mode(%{"BOT" => "bot"}) == nil
+    assert ISupport.bot_mode(%{}) == nil
+
     assert ISupport.characters(isupport, "CHANTYPES") == ["#", "&"]
     assert ISupport.characters(isupport, "STATUSMSG") == ["@", "+"]
     assert ISupport.characters(isupport, "MISSING") == []

@@ -69,4 +69,49 @@ defmodule Ircxd.ClientBotModeTest do
                     {:whois_bot, %{nick: "robodan", message: "is a Bot on IRCv3", bot?: true}}},
                    1_000
   end
+
+  test "rejects invalid BOT ISUPPORT values" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :"]
+
+           "CAP END", _state ->
+             [
+               ":irc.test 001 nick :Welcome",
+               ":irc.test 005 nick BOT=bot CHANTYPES=# :are supported by this server"
+             ]
+
+           "WHO robodan", _state ->
+             [
+               ":irc.test 352 nick * bot example.test irc.test robodan Hb :0 Robot",
+               ":irc.test 315 nick robodan :End of WHO list"
+             ]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+    assert_receive {:ircxd, {:isupport, %{"BOT" => "bot"}}}, 1_000
+
+    assert {:error, :bot_mode_not_supported} = Ircxd.Client.bot_mode(client, true)
+
+    assert :ok = Ircxd.Client.who(client, "robodan")
+    assert_receive {:ircxd, {:who_reply, %{nick: "robodan", bot?: false}}}, 1_000
+  end
 end

@@ -514,8 +514,8 @@ defmodule Ircxd.Client do
   end
 
   def handle_call({:bot_mode, enabled}, _from, state) do
-    case Map.fetch(state.isupport, "BOT") do
-      {:ok, mode} when is_binary(mode) ->
+    case ISupport.bot_mode(state.isupport) do
+      mode when is_binary(mode) ->
         sign = if enabled, do: "+", else: "-"
 
         case send_message(state, "MODE", [state.current_nick, sign <> mode]) do
@@ -823,7 +823,12 @@ defmodule Ircxd.Client do
         {:noreply, state}
 
       {:ok, %Message{command: "352"} = message} ->
-        state = emit(state, {:who_reply, Who.parse_reply(message.params, state.isupport["BOT"])})
+        state =
+          emit(
+            state,
+            {:who_reply, Who.parse_reply(message.params, ISupport.bot_mode(state.isupport))}
+          )
+
         state = emit(state, {:message, message})
         {:noreply, state}
 
