@@ -54,8 +54,8 @@ Implemented and tested:
   intentionally left to host applications. Parsed DCC payloads are exposed on
   CTCP `PRIVMSG` and `NOTICE` events, including reverse/port-0 detection.
 - Registration: `PASS`, `NICK`, `USER`, `001` through `004`, PING/PONG.
-- Capability negotiation core through `CAP LS 302`, `REQ`, `ACK`, `NAK`, `NEW`,
-  and `DEL`.
+- Capability negotiation core through `CAP LS 302`, multiline `LS`
+  aggregation, `REQ`, `ACK`, `NAK`, `NEW`, and `DEL`.
 - Structured ISUPPORT helpers for `PREFIX`, `CHANMODES`, `CHANLIMIT`,
   `MAXLIST`, and `TARGMAX` parameter values, plus typed integer, character-list,
   and feature-flag readers for common tokens.

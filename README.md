@@ -17,6 +17,7 @@ The library currently provides:
 - Registration with `CAP LS 302`, `NICK`, and `USER`.
 - Optional server password registration with `PASS`.
 - Capability request/ack flow for supported server capabilities.
+- IRCv3 multiline `CAP LS` aggregation before capability requests.
 - SASL PLAIN negotiation support.
 - SASL SCRAM-SHA-256 negotiation support.
 - Configurable SASL failure policy: continue registration or abort with `QUIT`.
