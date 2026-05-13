@@ -26,7 +26,7 @@ Status meanings:
 | Server and user queries | covered | `test/ircxd/client_query_events_test.exs`, `test/ircxd/client_server_query_events_test.exs`, `test/ircxd/who_test.exs`, `test/ircxd/whois_test.exs`, `test/ircxd/user_host_test.exs` | Group WHO/WHOIS/WHOWAS/USERHOST additions together. |
 | Error numerics | covered | `test/ircxd/client_error_numeric_test.exs`, `test/ircxd/client_rfc2812_numeric_test.exs` | Stable Modern IRC error numerics are covered; continue auditing uncommon vendor numerics only when encountered. |
 | Formatting codes | covered | `lib/ircxd/formatting.ex`, `test/ircxd/formatting_test.exs` | No current stable gap. |
-| CTCP and DCC parsing | partial | `lib/ircxd/ctcp.ex`, `lib/ircxd/dcc.ex`, `test/ircxd/ctcp_test.exs`, `test/ircxd/dcc_test.exs`, `test/ircxd/client_dcc_test.exs` | Direct DCC sockets and file policy stay host-owned. |
+| CTCP and DCC parsing | host | `lib/ircxd/ctcp.ex`, `lib/ircxd/dcc.ex`, `test/ircxd/ctcp_test.exs`, `test/ircxd/dcc_test.exs`, `test/ircxd/client_dcc_test.exs`, `docs/host_boundaries.md` | DCC CTCP parsing is covered; direct DCC sockets and file policy stay host-owned. |
 
 ## IRCv3 Stable
 
@@ -50,16 +50,16 @@ Status meanings:
 | Server time | covered | `test/ircxd/client_server_time_order_test.exs`, `test/ircxd/client_server_time_auto_flush_test.exs`, `test/ircxd/client_integration_test.exs` | No current stable gap. |
 | SNI | covered | `test/ircxd/client_tls_test.exs` | No current stable gap. |
 | Standard replies | covered | `test/ircxd/standard_reply_test.exs`, `test/ircxd/client_standard_reply_test.exs`, `test/ircxd/client_integration_test.exs`, `test/ircxd/client_standard_replies_integration_test.exs` | Parser, scripted client events, real negotiation, and opt-in real `FAIL` emission are covered. |
-| STS | partial | `test/ircxd/sts_test.exs`, `test/ircxd/client_sts_test.exs`, `docs/host_boundaries.md` | Policy persistence and enforcement are host-owned; parser and client event/error boundaries are covered. Add adapter tests only if an API is added. |
+| STS | host | `test/ircxd/sts_test.exs`, `test/ircxd/client_sts_test.exs`, `docs/host_boundaries.md` | Policy parsing and client event/error boundaries are covered; cross-restart persistence and enforcement stay host-owned. |
 | UTF8ONLY | covered | `test/ircxd/client_utf8_only_test.exs` | No current stable gap. |
 | WEBIRC | covered | `test/ircxd/webirc_test.exs`, `test/ircxd/client_webirc_test.exs` | No current stable gap. |
-| WebSocket | partial | `lib/ircxd/web_socket.ex`, `lib/ircxd/web_socket/adapter.ex`, `test/ircxd/web_socket_test.exs`, `docs/host_boundaries.md` | Send/close adapter boundaries are covered. Add Phoenix/Cowboy adapter examples only as adapter packages or optional modules. |
+| WebSocket | host | `lib/ircxd/web_socket.ex`, `lib/ircxd/web_socket/adapter.ex`, `test/ircxd/web_socket_test.exs`, `docs/host_boundaries.md` | Subprotocol, payload, send, and close adapter boundaries are covered; Phoenix/Cowboy/Bandit server adapters stay host-owned or optional-package work. |
 
 ## Stable Work Queue
 
-1. `Host-boundary adapter tests`: storage, STS persistence, DCC transport, and
-   WebSocket transport boundaries are documented; add adapter behaviour tests
-   when new adapter APIs are introduced.
+No stable Modern IRC or IRCv3 protocol implementation slice is currently queued.
+Host-owned surfaces remain documented in `docs/host_boundaries.md`; add adapter
+behaviour tests when new optional adapter APIs are introduced.
 
 ## Draft Policy
 

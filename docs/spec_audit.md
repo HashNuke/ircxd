@@ -105,7 +105,7 @@ Implemented and tested:
   `437`, `444`, `445`, `446`, `463`, `466`, `467`, `477`, `478`, `484`,
   `485`, and `492`.
 
-Remaining Modern IRC gaps:
+Remaining Modern IRC host boundaries:
 
 - Stable Modern IRC error numerics are covered by typed or special events.
   Uncommon implementation-specific numerics may still be typed only generically
@@ -149,7 +149,7 @@ Implemented and tested:
 - Modern IRC `105 RPL_REMOTEISUPPORT` parsing as remote ISUPPORT events without
   mutating active `005` ISUPPORT state.
 
-Remaining IRCv3 stable gaps:
+Remaining IRCv3 stable host boundaries:
 
 - Full WebSocket transport adapters are intentionally not bundled yet; only the
   adapter behaviour, payload validation, and send/close dispatch helpers exist.

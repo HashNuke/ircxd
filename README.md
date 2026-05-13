@@ -151,6 +151,14 @@ tests, and cleans them up:
 scripts/run_services_integration.sh
 ```
 
+Optional real standard-replies tests start a disposable InspIRCd instance with
+`m_setname` loaded on `127.0.0.1:6672`. This verifies real
+`FAIL SETNAME INVALID_REALNAME` emission and parsing:
+
+```bash
+scripts/run_standard_replies_integration.sh
+```
+
 Manual irssi check:
 
 ```bash
@@ -300,8 +308,11 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Rejection of outbound IRCv3 client-only tags after `CAP DEL message-tags`.
 - Rejection of outbound IRCv3 `label` tags after `CAP DEL labeled-response`.
 - IRCv3 `FAIL`, `WARN`, and `NOTE` standard replies.
+- Real InspIRCd `FAIL SETNAME INVALID_REALNAME` standard-reply emission through
+  the opt-in standard-replies integration fixture.
 - WHO, WHOX, WHOIS, and WHOWAS parser/client event helpers, including optional WHOIS numerics and `314`/`369`.
 - Outbound IRCv3 tagged messages.
 
-This is not yet complete coverage of every IRCv3 extension. The next slices
-should add broader real-server coverage for draft extensions.
+Stable Modern IRC and IRCv3 protocol coverage is tracked in
+`docs/stable_spec_matrix.md`. Draft extensions are intentionally not the current
+completion target.
