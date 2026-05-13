@@ -20,6 +20,7 @@ defmodule Ircxd.Client do
   alias Ircxd.Batch
   alias Ircxd.AccountExtban
   alias Ircxd.ChatHistory
+  alias Ircxd.ClientTagDeny
   alias Ircxd.Metadata
   alias Ircxd.Message
   alias Ircxd.Monitor
@@ -122,6 +123,8 @@ defmodule Ircxd.Client do
 
   def account_extban_mask(client, account, preferred_name \\ nil),
     do: GenServer.call(client, {:account_extban_mask, account, preferred_name})
+
+  def client_tag_denied?(client, tag), do: GenServer.call(client, {:client_tag_denied?, tag})
 
   def register_account(client, account, email, password),
     do: GenServer.call(client, {:send, "REGISTER", [account, email, password]})
@@ -336,6 +339,10 @@ defmodule Ircxd.Client do
 
   def handle_call({:account_extban_mask, account, preferred_name}, _from, state) do
     {:reply, AccountExtban.mask(state.isupport, account, preferred_name), state}
+  end
+
+  def handle_call({:client_tag_denied?, tag}, _from, state) do
+    {:reply, ClientTagDeny.denied?(state.isupport["CLIENTTAGDENY"], tag), state}
   end
 
   def handle_call(:flush_server_time, _from, state) do

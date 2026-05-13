@@ -31,6 +31,7 @@ The library currently provides:
 - IRCv3 Bot Mode helper, message tag, WHO, and WHOIS events.
 - IRCv3 `+typing` client tag helper/events.
 - IRCv3 `+reply` client tag helper and message metadata.
+- IRCv3 `CLIENTTAGDENY` helpers for client-only tag UI decisions.
 - IRCv3 STS policy parsing and CAP negotiation handling.
 - IRCv3 `UTF8ONLY` outbound parameter enforcement.
 - IRCv3 `no-implicit-names` negotiation with explicit `NAMES` helper/events.
@@ -154,6 +155,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 `no-implicit-names` explicit `NAMES` flow and `366 RPL_ENDOFNAMES` event.
 - IRCv3 `+typing` client tag helper, status validation, and typed receive events.
 - IRCv3 `+reply` client tag helper and `reply_to_msgid` metadata on messages.
+- IRCv3 `CLIENTTAGDENY` parsing including wildcard blocks and exemptions.
 - IRCv3 `MONITOR` command helpers and `730`-`734` numeric events.
 - IRCv3 `setname` command/events and `invite-notify` events.
 - Draft IRCv3 `REGISTER`/`VERIFY` helpers, success/verification-required events, and required capability checks.
