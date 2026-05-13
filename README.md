@@ -170,10 +170,10 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - ISUPPORT `005` tokens, `CHANTYPES` channel detection, `STATUSMSG` target
   detection, valueless and empty-value token normalization, decoded `\xHH`
   value escapes, concrete `PREFIX`, `CHANMODES`, `CHANLIMIT`, and `MAXLIST`
-  lookups, `TARGMAX` / `MAXTARGETS` target-count checks, positive length-limit
-  helpers, `MODES` command-limit lookup, `SILENCE` list-limit lookup, `ELIST`
-  extension checks, `EXCEPTS` / `INVEX` mode helpers, `EXTBAN` parsing, and
-  NAMES `353` prefixes.
+  lookups, `PREFIX` membership mode classification, `TARGMAX` / `MAXTARGETS`
+  target-count checks, positive length-limit helpers, `MODES` command-limit
+  lookup, `SILENCE` list-limit lookup, `ELIST` extension checks, `EXCEPTS` /
+  `INVEX` mode helpers, `EXTBAN` parsing, and NAMES `353` prefixes.
 - IRCv3 `userhost-in-names` full hostmask entries in NAMES replies.
 - ASCII-only IRC casemapping and ISUPPORT `CASEMAPPING` helpers for `ascii`,
   `rfc1459`, and `strict-rfc1459` comparisons.

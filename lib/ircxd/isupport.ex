@@ -88,6 +88,7 @@ defmodule Ircxd.ISupport do
     cond do
       String.contains?(modes.type_a, mode) -> :list
       String.contains?(modes.type_b, mode) -> :always_arg
+      prefix_for_mode(isupport, mode) != nil -> :always_arg
       String.contains?(modes.type_c, mode) -> :set_arg
       String.contains?(modes.type_d, mode) -> :never_arg
       true -> nil

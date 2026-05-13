@@ -92,12 +92,14 @@ defmodule Ircxd.ISupportTest do
   end
 
   test "classifies concrete channel modes from CHANMODES" do
-    isupport = %{"CHANMODES" => "beI,kfL,lj,psmntirRcOAQKVCuzNSMTGZ"}
+    isupport = %{"CHANMODES" => "beI,kfL,lj,psmntirRcOAQKVCuzNSMTGZ", "PREFIX" => "(ov)@+"}
 
     assert ISupport.channel_mode_type(isupport, "b") == :list
     assert ISupport.channel_mode_type(isupport, "I") == :list
     assert ISupport.channel_mode_type(isupport, "k") == :always_arg
     assert ISupport.channel_mode_type(isupport, "L") == :always_arg
+    assert ISupport.channel_mode_type(isupport, "o") == :always_arg
+    assert ISupport.channel_mode_type(isupport, "v") == :always_arg
     assert ISupport.channel_mode_type(isupport, "l") == :set_arg
     assert ISupport.channel_mode_type(isupport, "j") == :set_arg
     assert ISupport.channel_mode_type(isupport, "p") == :never_arg
