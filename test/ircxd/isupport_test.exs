@@ -205,6 +205,20 @@ defmodule Ircxd.ISupportTest do
     refute ISupport.list_extension?(isupport, "mu")
   end
 
+  test "reads ban-exception and invite-exception modes" do
+    assert ISupport.exception_mode(%{"EXCEPTS" => true}) == "e"
+    assert ISupport.exception_mode(%{"EXCEPTS" => "q"}) == "q"
+    assert ISupport.exception_mode(%{"EXCEPTS" => false}) == nil
+    assert ISupport.exception_mode(%{"EXCEPTS" => "ex"}) == nil
+    assert ISupport.exception_mode(%{}) == nil
+
+    assert ISupport.invite_exception_mode(%{"INVEX" => true}) == "I"
+    assert ISupport.invite_exception_mode(%{"INVEX" => "j"}) == "j"
+    assert ISupport.invite_exception_mode(%{"INVEX" => false}) == nil
+    assert ISupport.invite_exception_mode(%{"INVEX" => "IJ"}) == nil
+    assert ISupport.invite_exception_mode(%{}) == nil
+  end
+
   test "reads positive length-limit values for stable ISUPPORT tokens" do
     isupport = %{
       "AWAYLEN" => "160",

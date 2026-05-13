@@ -225,6 +225,14 @@ defmodule Ircxd.ISupport do
 
   def list_extension?(_isupport, _extension), do: false
 
+  def exception_mode(isupport) when is_map(isupport) do
+    mode_token(isupport, "EXCEPTS", "e")
+  end
+
+  def invite_exception_mode(isupport) when is_map(isupport) do
+    mode_token(isupport, "INVEX", "I")
+  end
+
   def enabled?(isupport, key) when is_map(isupport) and is_binary(key) do
     case Map.fetch(isupport, key) do
       {:ok, false} -> false
@@ -297,6 +305,14 @@ defmodule Ircxd.ISupport do
     case Integer.parse(value) do
       {limit, ""} when limit > 0 -> [{key, limit}]
       _ -> []
+    end
+  end
+
+  defp mode_token(isupport, key, default) do
+    case Map.get(isupport, key) do
+      true -> default
+      value when is_binary(value) and byte_size(value) == 1 -> value
+      _value -> nil
     end
   end
 
