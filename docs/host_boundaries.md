@@ -51,8 +51,9 @@ core.
 ## WebSocket Adapters
 
 `Ircxd.WebSocket` validates IRCv3 WebSocket subprotocols and one-line payloads.
-It does not run a WebSocket server. Host applications should implement
-`Ircxd.WebSocket.Adapter`:
+It does not run a WebSocket server. Host applications can call
+`Ircxd.WebSocket.send_frame/4` and `Ircxd.WebSocket.close/3` with an adapter
+that implements `Ircxd.WebSocket.Adapter`:
 
 ```elixir
 @callback send_frame(state(), :binary | :text, binary()) :: :ok | {:error, term()}

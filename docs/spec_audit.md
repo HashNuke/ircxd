@@ -142,15 +142,15 @@ Implemented and tested:
 - STS policy parsing, invalid-policy event emission, SNI TLS options,
   `CAP REQ sts` suppression, and ignored `CAP DEL sts`.
 - UTF8ONLY outbound validation.
-- WEBIRC and WebSocket protocol-boundary helpers with an adapter behaviour and
-  in-memory adapter for tests/embedders.
+- WEBIRC and WebSocket protocol-boundary helpers with send/close adapter
+  behaviour and an in-memory adapter for tests/embedders.
 - Modern IRC `105 RPL_REMOTEISUPPORT` parsing as remote ISUPPORT events without
   mutating active `005` ISUPPORT state.
 
 Remaining IRCv3 stable gaps:
 
 - Full WebSocket transport adapters are intentionally not bundled yet; only the
-  adapter behaviour and payload validation exist.
+  adapter behaviour, payload validation, and send/close dispatch helpers exist.
 - More real-server coverage is still desirable for `standard-replies`; scripted
   parsing and real capability negotiation are covered, but deterministic
   `FAIL`, `WARN`, or `NOTE` emission has not been reproduced against local

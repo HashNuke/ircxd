@@ -60,6 +60,10 @@ defmodule Ircxd.WebSocket do
     end
   end
 
+  def close(adapter, adapter_state, reason) do
+    adapter.close(adapter_state, reason)
+  end
+
   defp strip_crlf(line) do
     line
     |> String.trim_trailing("\n")

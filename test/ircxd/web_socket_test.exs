@@ -13,6 +13,12 @@ defmodule Ircxd.WebSocketTest do
       send(owner, {:frame, mode, payload})
       :ok
     end
+
+    @impl true
+    def close(owner, reason) do
+      send(owner, {:closed, reason})
+      :ok
+    end
   end
 
   test "lists IRCv3 WebSocket subprotocols in preference order" do
@@ -65,6 +71,11 @@ defmodule Ircxd.WebSocketTest do
     assert_receive {:frame, :text, "PRIVMSG #elixir hello"}
   end
 
+  test "delegates websocket close through an adapter" do
+    assert :ok = WebSocket.close(TestAdapter, self(), :normal)
+    assert_receive {:closed, :normal}
+  end
+
   test "ships an in-memory adapter for adapter-boundary tests" do
     assert :ok =
              WebSocket.send_frame(
@@ -85,7 +96,7 @@ defmodule Ircxd.WebSocketTest do
              )
 
     assert_receive {:custom_frame, :text, "PONG irc.example.test"}
-    assert :ok = MemoryAdapter.close(self(), :normal)
+    assert :ok = WebSocket.close(MemoryAdapter, self(), :normal)
     assert_receive {:ircxd_websocket_closed, :normal}
     assert {:error, :invalid_owner} = MemoryAdapter.send_frame(:not_a_pid, :text, "PING x")
   end
