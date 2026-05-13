@@ -58,7 +58,8 @@ Implemented and tested:
   negotiation. Direct DCC sockets, file writes, and user-consent policy are
   intentionally left to host applications. Parsed DCC payloads are exposed on
   CTCP `PRIVMSG` and `NOTICE` events, including reverse/port-0 detection.
-- Registration: `PASS`, `NICK`, `USER`, `001` through `004`, PING/PONG.
+- Registration and connection control: `PASS`, `NICK`, `USER`, `001`
+  through `004`, automatic `PING`/`PONG`, and typed inbound `PONG`.
 - Capability negotiation core through `CAP LS 302`, multiline `LS`/`LIST`
   aggregation, initial and host-driven `REQ`, `ACK`, `NAK`, `NEW`, `DEL`, active
   capability listing, registration-time `CAP END`, post-registration capability
@@ -92,7 +93,8 @@ Implemented and tested:
   and `244`.
 - `300 RPL_NONE`.
 - Operator/server/service helper commands: `OPER`, `KILL`, `SQUERY`,
-  `CONNECT`, `SQUIT`, `REHASH`, `RESTART`, `SUMMON`, `WALLOPS`.
+  `CONNECT`, `SQUIT`, `REHASH`, `RESTART`, `SUMMON`, `WALLOPS`, plus typed
+  inbound `WALLOPS`.
 - Common error numerics as typed `:irc_error` events, including `400`, `407`,
   `408`, `414`, and `415`.
 - RFC2812 compatibility numerics for `SUMMON`/`USERS` and legacy channel-mode,

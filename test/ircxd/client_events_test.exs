@@ -20,6 +20,8 @@ defmodule Ircxd.ClientEventsTest do
                ":new!user@host JOIN :#chan",
                ":new!user@host TOPIC #chan :topic text",
                ":irc.test MODE #chan +o new",
+               ":irc.test PONG nick :server-token",
+               ":irc.test WALLOPS :network notice",
                ":op!user@host KICK #chan new :too loud",
                ":new!user@host PART #chan :bye",
                ":new!user@host QUIT :gone",
@@ -47,6 +49,8 @@ defmodule Ircxd.ClientEventsTest do
     assert_event({:join, %{nick: "new", channel: "#chan"}})
     assert_event({:topic, %{nick: "new", channel: "#chan", topic: "topic text"}})
     assert_event({:mode, %{nick: "irc.test", target: "#chan", modes: "+o", params: ["new"]}})
+    assert_event({:pong, %{server: "irc.test", target: "nick", token: "server-token"}})
+    assert_event({:wallops, %{nick: "irc.test", body: "network notice"}})
     assert_event({:kick, %{nick: "op", channel: "#chan", target_nick: "new", reason: "too loud"}})
     assert_event({:part, %{nick: "new", channel: "#chan", reason: "bye"}})
     assert_event({:quit, %{nick: "new", reason: "gone"}})

@@ -216,7 +216,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - SASL `EXTERNAL` payloads, advertised-mechanism filtering before `CAP REQ`,
   and fallback to `PLAIN`.
 - SASL v3.2 `908 RPL_SASLMECHS` parsing without treating the mechanism list as failure.
-- Modern IRC state-change events: `NICK`, `JOIN`, `PART`, `QUIT`, `KICK`, `TOPIC`, `MODE`, and `ERROR`.
+- Modern IRC state/control events: `NICK`, `JOIN`, `PART`, `QUIT`, `KICK`, `TOPIC`, `MODE`, `PONG`, `WALLOPS`, and `ERROR`.
 - Modern IRC away status numerics: `301`, `305`, and `306`.
 - Modern IRC redirect, retry, operator, rehash, and STARTTLS numerics.
 - Modern IRC stats uptime and invite-list numerics.

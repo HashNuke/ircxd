@@ -1314,6 +1314,47 @@ defmodule Ircxd.Client do
      }}
   end
 
+  defp event_for(%Message{command: "PONG", source: source, params: [target, token]} = message) do
+    parsed_source = Source.parse(source)
+
+    {:pong,
+     %{
+       source: parsed_source,
+       raw_source: source,
+       server: parsed_source && (parsed_source.server || parsed_source.nick),
+       target: target,
+       token: token,
+       message: message
+     }}
+  end
+
+  defp event_for(%Message{command: "PONG", source: source, params: [token]} = message) do
+    parsed_source = Source.parse(source)
+
+    {:pong,
+     %{
+       source: parsed_source,
+       raw_source: source,
+       server: parsed_source && (parsed_source.server || parsed_source.nick),
+       target: nil,
+       token: token,
+       message: message
+     }}
+  end
+
+  defp event_for(%Message{command: "WALLOPS", source: source, params: [body]} = message) do
+    parsed_source = Source.parse(source)
+
+    {:wallops,
+     %{
+       source: parsed_source,
+       raw_source: source,
+       nick: parsed_source && (parsed_source.nick || parsed_source.server),
+       body: body,
+       message: message
+     }}
+  end
+
   defp event_for(%Message{command: "ERROR", params: params} = message) do
     {:error, %{reason: List.first(params), message: message}}
   end
