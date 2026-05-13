@@ -174,6 +174,17 @@ defmodule Ircxd.ISupportTest do
     assert ISupport.mode_limit(%{}) == 3
   end
 
+  test "reads SILENCE list limits" do
+    assert ISupport.silence_limit(%{"SILENCE" => "15"}) == 15
+    assert ISupport.silence_limit(%{"SILENCE" => "32"}) == 32
+    assert ISupport.silence_limit(%{"SILENCE" => true}) == :unlimited
+    assert ISupport.silence_limit(%{"SILENCE" => false}) == nil
+    assert ISupport.silence_limit(%{"SILENCE" => "0"}) == nil
+    assert ISupport.silence_limit(%{"SILENCE" => "-1"}) == nil
+    assert ISupport.silence_limit(%{"SILENCE" => "abc"}) == nil
+    assert ISupport.silence_limit(%{}) == nil
+  end
+
   test "reads typed integer, character-list, and flag values" do
     isupport = %{
       "CHANTYPES" => "#&",

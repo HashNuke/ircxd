@@ -154,6 +154,14 @@ defmodule Ircxd.ISupport do
     end
   end
 
+  def silence_limit(isupport) when is_map(isupport) do
+    case Map.fetch(isupport, "SILENCE") do
+      {:ok, true} -> :unlimited
+      {:ok, value} -> parse_positive_integer_value(value)
+      :error -> nil
+    end
+  end
+
   def target_limit(isupport, command) when is_map(isupport) and is_binary(command) do
     normalized_command = String.upcase(command)
 

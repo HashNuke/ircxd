@@ -65,11 +65,11 @@ Implemented and tested:
   lookup, `CHANMODES`, concrete channel-mode classification, `CHANLIMIT`,
   concrete channel-limit lookup, `MAXLIST`, concrete list-mode limit lookup, and
   `TARGMAX` / legacy `MAXTARGETS` parameter values and target-count checks,
-  `MODES` command-limit lookup, plus typed integer, positive length-limit,
-  character-list, `ELIST` extension, `EXCEPTS` / `INVEX` mode lookup,
-  feature-flag readers for common tokens, `CHANTYPES` and `STATUSMSG` target
-  detection, and ASCII-only IRC casemapping / ISUPPORT `CASEMAPPING`
-  comparison helpers.
+  `MODES` command-limit lookup, `SILENCE` list-limit lookup, plus typed
+  integer, positive length-limit, character-list, `ELIST` extension, `EXCEPTS`
+  / `INVEX` mode lookup, feature-flag readers for common tokens, `CHANTYPES`
+  and `STATUSMSG` target detection, and ASCII-only IRC casemapping / ISUPPORT
+  `CASEMAPPING` comparison helpers.
 - Channel operations: `JOIN`, `PART`, `TOPIC`, `NAMES`, `LIST`, `INVITE`,
   `KICK`, `MODE`, mode queries, topic numerics, name replies, channel modes,
   and mask lists.
