@@ -195,6 +195,9 @@ Current local InspIRCd integration covers:
   real `FAIL` emission coverage through `scripts/run_standard_replies_integration.sh`.
 - `LIST`, `VERSION`, `ISON`, WHOX, channel modes, topics, and ban lists.
 - Nickname collision retry.
+- Optional irssi cross-client visibility through
+  `scripts/run_irssi_manual_check.sh`, which connects irssi to local InspIRCd
+  and verifies that a message sent by `ircxd` appears in the irssi pane.
 
 Remaining real-server work:
 
