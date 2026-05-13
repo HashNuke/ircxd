@@ -163,6 +163,32 @@ defmodule Ircxd.ConformanceDocsTest do
              end)
   end
 
+  test "verification gate runner keeps the documented check sequence" do
+    runner = File.read!(Path.expand("../../scripts/run_verification_gates.sh", __DIR__))
+
+    expected_steps = [
+      "mix format --check-formatted",
+      "mix compile --warnings-as-errors",
+      "mix test",
+      "mix docs",
+      "mix hex.build --unpack",
+      "scripts/run_standard_replies_integration.sh",
+      "scripts/run_services_integration.sh",
+      "scripts/run_irssi_manual_check.sh"
+    ]
+
+    positions =
+      expected_steps
+      |> Enum.map(fn step ->
+        {index, _length} = :binary.match(runner, step)
+        index
+      end)
+
+    assert positions == Enum.sort(positions)
+    assert runner =~ ~s(${IRCXD_INCLUDE_IRSSI:-0})
+    assert runner =~ ~s(rm -rf "${PACKAGE_DIR}")
+  end
+
   defp parse_matrix_row("| Area | Status | Evidence | Next grouped work |"), do: []
   defp parse_matrix_row("| --- | --- | --- | --- |"), do: []
 
