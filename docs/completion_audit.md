@@ -21,6 +21,12 @@ IRCv3 features, which are intentionally not being expanded unless reprioritized.
 
 ## Verification Gates
 
+Run all current gates:
+
+```bash
+scripts/run_verification_gates.sh
+```
+
 Default suite:
 
 ```bash
