@@ -132,6 +132,48 @@ defmodule Ircxd.ClientIntegrationTest do
              end)
   end
 
+  test "receives extended-join metadata from InspIRCd" do
+    channel = "#ircxdext#{System.unique_integer([:positive])}"
+    client_nick = "ircxdext#{System.unique_integer([:positive])}"
+    realname = "Ircxd Extended Join Test"
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: @host,
+        port: @port,
+        tls: false,
+        nick: client_nick,
+        username: client_nick,
+        realname: realname,
+        caps: ["extended-join"],
+        notify: self()
+      )
+
+    assert {:ok, caps} =
+             wait_for_event(fn
+               {:cap_ls, caps} -> {:ok, caps}
+               _ -> :cont
+             end)
+
+    assert Map.has_key?(caps, "extended-join")
+
+    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+
+    assert :ok = Ircxd.Client.join(client, channel)
+
+    assert {:ok,
+            %{
+              nick: ^client_nick,
+              channel: ^channel,
+              account: nil,
+              realname: ^realname
+            }} =
+             wait_for_event(fn
+               {:join, %{nick: ^client_nick, channel: ^channel} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+  end
+
   test "retries nickname when the requested nick is in use" do
     base_nick = "taken#{System.unique_integer([:positive])}"
     {:ok, holder} = RawIrcClient.connect(host: @host, port: @port, nick: base_nick)
