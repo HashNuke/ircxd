@@ -1221,6 +1221,57 @@ defmodule Ircxd.Client do
   defp event_for(%Message{command: "349", params: [_me, channel, text]} = message),
     do: {:exception_list_end, %{channel: channel, text: text, message: message}}
 
+  defp event_for(%Message{command: command, params: [_me | params]} = message)
+       when command in [
+              "401",
+              "402",
+              "403",
+              "404",
+              "405",
+              "406",
+              "409",
+              "411",
+              "412",
+              "417",
+              "421",
+              "431",
+              "432",
+              "436",
+              "441",
+              "442",
+              "443",
+              "451",
+              "461",
+              "462",
+              "464",
+              "465",
+              "471",
+              "472",
+              "473",
+              "474",
+              "475",
+              "476",
+              "481",
+              "482",
+              "483",
+              "491",
+              "501",
+              "502",
+              "524",
+              "525",
+              "696",
+              "723"
+            ] do
+    {:irc_error,
+     %{
+       code: command,
+       target: error_target(params),
+       reason: List.last(params),
+       params: params,
+       message: message
+     }}
+  end
+
   defp event_for(%Message{command: command, params: params} = message)
        when command in ["FAIL", "WARN", "NOTE"] do
     case StandardReply.parse(command, params) do
@@ -1242,6 +1293,9 @@ defmodule Ircxd.Client do
   defp whois_event("379", params), do: {:whois_modes, Whois.parse_modes(params)}
   defp whois_event("671", params), do: {:whois_secure, Whois.parse_secure(params)}
   defp whois_event("318", params), do: {:whois_end, Whois.parse_end(params)}
+
+  defp error_target([target, _reason | _rest]), do: target
+  defp error_target(_params), do: nil
 
   defp handle_batch(%Message{params: params} = message, state) do
     case Batch.parse(params) do
