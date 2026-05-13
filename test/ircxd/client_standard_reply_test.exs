@@ -70,4 +70,77 @@ defmodule Ircxd.ClientStandardReplyTest do
                      }}},
                    1_000
   end
+
+  test "emits labeled-response lifecycle for labeled standard replies" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :message-tags labeled-response standard-replies"]
+
+           "CAP REQ :message-tags labeled-response standard-replies", _state ->
+             [":irc.test CAP * ACK :message-tags labeled-response standard-replies"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome"]
+
+           "@label=req-std HELP missing", _state ->
+             ["@label=req-std FAIL HELP UNKNOWN_COMMAND missing :No help for that subject"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        caps: ["message-tags", "labeled-response", "standard-replies"],
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+    assert :ok = Ircxd.Client.labeled_raw(client, "req-std", "HELP", ["missing"])
+
+    assert_receive {:ircxd,
+                    {:labeled_request,
+                     %{label: "req-std", status: :sent, command: "HELP", params: ["missing"]}}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:standard_reply,
+                     %{
+                       type: :fail,
+                       command: "HELP",
+                       code: "UNKNOWN_COMMAND",
+                       context: ["missing"],
+                       description: "No help for that subject"
+                     }}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:labeled_response,
+                     %{
+                       label: "req-std",
+                       event:
+                         {:standard_reply,
+                          %{
+                            type: :fail,
+                            command: "HELP",
+                            code: "UNKNOWN_COMMAND"
+                          }}
+                     }}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:labeled_request,
+                     %{label: "req-std", status: :completed, response_type: :single}}},
+                   1_000
+  end
 end

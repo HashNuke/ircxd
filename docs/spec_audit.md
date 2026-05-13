@@ -96,7 +96,7 @@ Implemented and tested:
 - Presence/property updates: `away-notify`, `chghost`, `setname`,
   `invite-notify`.
 - Batches, netsplit/netjoin aggregation, labeled-response ACK/batch/request
-  lifecycle.
+  lifecycle, including single standard-reply completion.
 - Bot mode helpers and WHO/WHOIS bot indicators.
 - Echo-message, server-time ordering, message IDs and optional duplicate
   marking.

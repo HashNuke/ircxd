@@ -1747,8 +1747,13 @@ defmodule Ircxd.Client do
     state = maybe_ack_labeled_request(state, event)
 
     case Tags.label(message) do
-      nil -> state
-      label -> emit(state, {:labeled_response, %{label: label, event: event, message: message}})
+      nil ->
+        state
+
+      label ->
+        state
+        |> emit({:labeled_response, %{label: label, event: event, message: message}})
+        |> maybe_complete_labeled_request(event, label)
     end
   end
 
@@ -1777,6 +1782,11 @@ defmodule Ircxd.Client do
   end
 
   defp maybe_ack_labeled_request(state, _event), do: state
+
+  defp maybe_complete_labeled_request(state, {:ack, _payload}, _label), do: state
+
+  defp maybe_complete_labeled_request(state, _event, label),
+    do: complete_labeled_request(state, label, :single)
 
   defp complete_labeled_request(state, label, response_type) do
     case Map.fetch(state.labeled_requests, label) do

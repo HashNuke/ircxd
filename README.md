@@ -230,6 +230,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Work-in-progress `soju.im/FILEHOST` ISUPPORT parsing and upload URL safety checks.
 - IRCv3 labeled-response `ACK` and `labeled-response` batch aggregation.
 - IRCv3 labeled-response request lifecycle tracking for outbound labeled commands.
+- IRCv3 labeled-response lifecycle completion for single standard replies.
 - Rejection of outbound IRCv3 `label` tags when `labeled-response` was not negotiated.
 - Rejection of outbound IRCv3 client-only tags when `message-tags` was not negotiated.
 - Rejection of outbound IRCv3 client-only tags after `CAP DEL message-tags`.
