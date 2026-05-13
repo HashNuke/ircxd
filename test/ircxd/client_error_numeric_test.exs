@@ -15,10 +15,15 @@ defmodule Ircxd.ClientErrorNumericTest do
            "CAP END", _state ->
              [
                ":irc.test 001 nick :Welcome",
+               ":irc.test 400 nick WHO :Unknown error",
                ":irc.test 401 nick missing :No such nick/channel",
                ":irc.test 403 nick #missing :No such channel",
                ":irc.test 404 nick #chan :Cannot send to channel",
+               ":irc.test 407 nick #a,#b :Too many targets",
+               ":irc.test 408 nick ServiceName :No such service",
                ":irc.test 409 nick :No origin specified",
+               ":irc.test 414 nick *.example.* :Wildcard in toplevel domain",
+               ":irc.test 415 nick bad*mask :Bad server/host mask",
                ":irc.test 421 nick BOGUS :Unknown command",
                ":irc.test 461 nick WHO :Not enough parameters",
                ":irc.test 471 nick #full :Cannot join channel (+l)",
@@ -48,9 +53,14 @@ defmodule Ircxd.ClientErrorNumericTest do
       )
 
     assert_error("401", "missing", "No such nick/channel")
+    assert_error("400", "WHO", "Unknown error")
     assert_error("403", "#missing", "No such channel")
     assert_error("404", "#chan", "Cannot send to channel")
+    assert_error("407", "#a,#b", "Too many targets")
+    assert_error("408", "ServiceName", "No such service")
     assert_error("409", nil, "No origin specified")
+    assert_error("414", "*.example.*", "Wildcard in toplevel domain")
+    assert_error("415", "bad*mask", "Bad server/host mask")
     assert_error("421", "BOGUS", "Unknown command")
     assert_error("461", "WHO", "Not enough parameters")
     assert_error("471", "#full", "Cannot join channel (+l)")

@@ -66,7 +66,8 @@ Implemented and tested:
 - Stats uptime and invite-list numerics: `242`, `336`, and `337`.
 - Operator/server/service helper commands: `OPER`, `KILL`, `SQUERY`,
   `CONNECT`, `SQUIT`, `REHASH`, `RESTART`, `SUMMON`, `WALLOPS`.
-- Common error numerics as typed `:irc_error` events.
+- Common error numerics as typed `:irc_error` events, including `400`, `407`,
+  `408`, `414`, and `415`.
 
 Remaining Modern IRC gaps:
 

@@ -183,6 +183,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - Modern IRC away status numerics: `301`, `305`, and `306`.
 - Modern IRC redirect, retry, operator, rehash, and STARTTLS numerics.
 - Modern IRC stats uptime and invite-list numerics.
+- Modern IRC error numerics including `400`, `407`, `408`, `414`, and `415`.
 - Modern IRC server-query numeric events for `LIST`, `MOTD`, `ADMIN`, `LUSERS`, `TIME`, `INFO`, `LINKS`, and `USERHOST`.
 - Modern IRC numeric events for `VERSION`, `STATS`, `HELP`, user/channel modes, invites, and channel mask lists.
 - Modern IRC topic query numeric events `331`, `332`, and `333`.

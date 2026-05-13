@@ -1447,15 +1447,20 @@ defmodule Ircxd.Client do
 
   defp event_for(%Message{command: command, params: [_me | params]} = message)
        when command in [
+              "400",
               "401",
               "402",
               "403",
               "404",
               "405",
               "406",
+              "407",
+              "408",
               "409",
               "411",
               "412",
+              "414",
+              "415",
               "417",
               "421",
               "431",
