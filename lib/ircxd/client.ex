@@ -27,6 +27,7 @@ defmodule Ircxd.Client do
   alias Ircxd.SASL
   alias Ircxd.Source
   alias Ircxd.ISupport
+  alias Ircxd.STS
   alias Ircxd.StandardReply
   alias Ircxd.Tags
   alias Ircxd.WebIRC
@@ -441,12 +442,14 @@ defmodule Ircxd.Client do
       {:ok, %Message{command: "CAP", params: [_nick, "NEW", caps]} = message} ->
         new_caps = parse_caps(caps)
         state = %{state | available_caps: Map.merge(state.available_caps, new_caps)}
+        state = maybe_emit_sts_policy(state, new_caps)
         state = emit(state, {:cap_new, new_caps})
         state = emit(state, {:message, message})
         {:noreply, state}
 
       {:ok, %Message{command: "CAP", params: [_nick, "DEL", caps]} = message} ->
         deleted_caps = String.split(caps, " ", trim: true)
+        deleted_caps = Enum.reject(deleted_caps, &(&1 == "sts"))
 
         state = %{
           state
@@ -587,7 +590,10 @@ defmodule Ircxd.Client do
       state.caps
       |> maybe_include_sasl(state)
       |> Enum.uniq()
+      |> Enum.reject(&(&1 == "sts"))
       |> Enum.filter(&Map.has_key?(state.available_caps, &1))
+
+    state = maybe_emit_sts_policy(state, state.available_caps)
 
     if requested == [] do
       send_message(state, "CAP", ["END"])
@@ -598,6 +604,24 @@ defmodule Ircxd.Client do
     state = emit(state, {:cap_ls, state.available_caps})
     {:noreply, state}
   end
+
+  defp maybe_emit_sts_policy(state, %{"sts" => value}) do
+    case STS.parse(value, state.tls) do
+      {:ok, policy} ->
+        emit(
+          state,
+          {:sts_policy,
+           policy
+           |> Map.put(:host, state.host)
+           |> Map.put(:tls?, state.tls)}
+        )
+
+      {:error, reason} ->
+        emit(state, {:sts_policy_error, %{host: state.host, value: value, reason: reason}})
+    end
+  end
+
+  defp maybe_emit_sts_policy(state, _caps), do: state
 
   defp event_for(%Message{command: "PRIVMSG", source: source, params: [target, body]} = message) do
     parsed_source = Source.parse(source)
