@@ -167,7 +167,8 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 `TAGMSG` send and receive handling.
 - Typed registration numerics `001` through `004`.
 - Source masks such as `nick!user@host` and server names.
-- ISUPPORT `005` tokens and NAMES `353` prefixes.
+- ISUPPORT `005` tokens, `CHANTYPES` channel detection, and NAMES `353`
+  prefixes.
 - IRCv3 `userhost-in-names` full hostmask entries in NAMES replies.
 - ASCII-only IRC casemapping and ISUPPORT `CASEMAPPING` helpers for `ascii`,
   `rfc1459`, and `strict-rfc1459` comparisons.

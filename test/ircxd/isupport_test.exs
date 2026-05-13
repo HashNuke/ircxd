@@ -102,4 +102,17 @@ defmodule Ircxd.ISupportTest do
     refute ISupport.equal?(%{"CASEMAPPING" => "ascii"}, "Nick[", "nick{")
     assert ISupport.equal?(%{}, "Nick[", "nick{")
   end
+
+  test "detects channel targets from ISUPPORT CHANTYPES" do
+    assert ISupport.channel?(%{"CHANTYPES" => "#&"}, "#elixir")
+    assert ISupport.channel?(%{"CHANTYPES" => "#&"}, "&local")
+    refute ISupport.channel?(%{"CHANTYPES" => "#&"}, "!safe")
+
+    assert ISupport.channel?(%{"CHANTYPES" => "#&!"}, "!safe")
+    assert ISupport.channel?(%{}, "#default")
+    assert ISupport.channel?(%{}, "&default")
+    refute ISupport.channel?(%{}, "+modeless")
+    refute ISupport.channel?(%{"CHANTYPES" => true}, "#bad-token")
+    refute ISupport.channel?(%{"CHANTYPES" => "#"}, nil)
+  end
 end

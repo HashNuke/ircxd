@@ -115,6 +115,23 @@ defmodule Ircxd.ISupport do
     Ircxd.Casemapping.equal?(left, right, casemap(isupport))
   end
 
+  def channel?(isupport, target) when is_map(isupport) and is_binary(target) do
+    isupport
+    |> channel_types()
+    |> Enum.any?(&String.starts_with?(target, &1))
+  end
+
+  def channel?(_isupport, _target), do: false
+
+  defp channel_types(%{"CHANTYPES" => value}) when is_binary(value) do
+    value
+    |> String.graphemes()
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  defp channel_types(%{"CHANTYPES" => _value}), do: []
+  defp channel_types(_isupport), do: ["#", "&"]
+
   defp parse_pair_list(value) do
     value
     |> string_value()
