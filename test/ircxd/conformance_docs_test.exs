@@ -79,6 +79,18 @@ defmodule Ircxd.ConformanceDocsTest do
     assert [] = missing_paths
   end
 
+  test "IRCv3 index audit references point to existing artifacts" do
+    audit = File.read!(Path.expand("../../docs/ircv3_index_audit.md", __DIR__))
+    repo_root = Path.expand("../..", __DIR__)
+
+    missing_paths =
+      audit
+      |> document_paths()
+      |> Enum.reject(&File.exists?(Path.join(repo_root, &1)))
+
+    assert [] = missing_paths
+  end
+
   defp parse_matrix_row("| Area | Status | Evidence | Next grouped work |"), do: []
   defp parse_matrix_row("| --- | --- | --- | --- |"), do: []
 
