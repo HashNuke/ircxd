@@ -64,6 +64,12 @@ Optional irssi cross-client check:
 scripts/run_irssi_manual_check.sh
 ```
 
+Expected current result:
+
+```text
+irssi observed message from <ircxd nick> in <channel>: <message>
+```
+
 Opt-in services fixture:
 
 ```bash
