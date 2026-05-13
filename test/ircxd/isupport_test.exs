@@ -225,6 +225,7 @@ defmodule Ircxd.ISupportTest do
     isupport = %{
       "CHANTYPES" => "#&",
       "STATUSMSG" => "@+",
+      "NETWORK" => "Example Network",
       "NICKLEN" => "30",
       "CHANNELLEN" => "64",
       "SAFELIST" => true,
@@ -236,6 +237,11 @@ defmodule Ircxd.ISupportTest do
     assert ISupport.integer(isupport, "CHANNELLEN") == 64
     assert ISupport.integer(isupport, "BADLEN") == nil
     assert ISupport.integer(isupport, "MISSING", 9) == 9
+
+    assert ISupport.network_name(isupport) == "Example Network"
+    assert ISupport.network_name(%{"NETWORK" => ""}) == nil
+    assert ISupport.network_name(%{"NETWORK" => true}) == nil
+    assert ISupport.network_name(%{}) == nil
 
     assert ISupport.characters(isupport, "CHANTYPES") == ["#", "&"]
     assert ISupport.characters(isupport, "STATUSMSG") == ["@", "+"]

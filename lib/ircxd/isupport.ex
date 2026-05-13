@@ -199,6 +199,9 @@ defmodule Ircxd.ISupport do
     end
   end
 
+  def network_name(%{"NETWORK" => value}) when is_binary(value) and value != "", do: value
+  def network_name(_isupport), do: nil
+
   def length_limit(isupport, key) when is_map(isupport) and is_binary(key) do
     normalized_key = String.upcase(key)
 
