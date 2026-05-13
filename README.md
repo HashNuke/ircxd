@@ -159,6 +159,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 `away-notify` state changes against InspIRCd.
 - Modern IRC `LIST` numerics against InspIRCd.
 - Modern IRC `VERSION` and `ISON` numerics against InspIRCd.
+- WHOX `354` numerics against InspIRCd.
 - Nickname collision retry against InspIRCd.
 - Optional reconnect after a transport close.
 - SASL PLAIN client negotiation against a scripted IRC server.

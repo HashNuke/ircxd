@@ -310,6 +310,57 @@ defmodule Ircxd.ClientIntegrationTest do
     RawIrcClient.close(holder)
   end
 
+  test "receives WHOX numerics from InspIRCd" do
+    client_nick = "ircxdwhox#{System.unique_integer([:positive])}"
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: @host,
+        port: @port,
+        tls: false,
+        nick: client_nick,
+        username: client_nick,
+        realname: "Ircxd WHOX Test",
+        notify: self()
+      )
+
+    assert {:ok, :registered} = wait_for_event(&match_event(&1, :registered), 15_000)
+
+    assert {:ok, isupport} =
+             wait_for_event(fn
+               {:isupport, tokens} when is_map_key(tokens, "WHOX") -> {:ok, tokens}
+               _ -> :cont
+             end)
+
+    assert isupport["WHOX"] == true
+    assert :ok = Ircxd.Client.who(client, client_nick, "%tcuhsnfar,42")
+
+    assert {:ok,
+            %{
+              channel: "*",
+              username: username,
+              host: "127.0.0.1",
+              server: "irc.local",
+              nick: ^client_nick,
+              flags: flags,
+              account: "0",
+              realname: "Ircxd WHOX Test"
+            }} =
+             wait_for_event(fn
+               {:whox_reply, %{nick: ^client_nick} = payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+
+    assert username =~ "ircxdwhox"
+    assert String.contains?(flags, "H")
+
+    assert {:ok, %{mask: ^client_nick}} =
+             wait_for_event(fn
+               {:who_end, payload} -> {:ok, payload}
+               _ -> :cont
+             end)
+  end
+
   test "retries nickname when the requested nick is in use" do
     base_nick = "taken#{System.unique_integer([:positive])}"
     {:ok, holder} = RawIrcClient.connect(host: @host, port: @port, nick: base_nick)
