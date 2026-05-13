@@ -59,6 +59,10 @@ defmodule Ircxd.ClientCoreCommandsTest do
     assert :ok = Ircxd.Client.nick(client, "nick2")
     assert :ok = Ircxd.Client.list(client, ["#elixir", "#erlang"], "irc.example.test")
     assert :ok = Ircxd.Client.invite(client, "alice", "#elixir")
+    assert :ok = Ircxd.Client.mode_query(client, "#elixir")
+    assert :ok = Ircxd.Client.channel_modes(client, "#erlang")
+    assert :ok = Ircxd.Client.user_modes(client, "nick")
+    assert :ok = Ircxd.Client.mode(client, "#elixir", "+o", ["alice"])
     assert :ok = Ircxd.Client.motd(client, "irc.example.test")
     assert :ok = Ircxd.Client.version(client, "irc.example.test")
     assert :ok = Ircxd.Client.admin(client, "irc.example.test")
@@ -89,6 +93,10 @@ defmodule Ircxd.ClientCoreCommandsTest do
     assert_receive {:scripted_irc_line, "NICK nick2"}, 1_000
     assert_receive {:scripted_irc_line, "LIST #elixir,#erlang irc.example.test"}, 1_000
     assert_receive {:scripted_irc_line, "INVITE alice #elixir"}, 1_000
+    assert_receive {:scripted_irc_line, "MODE #elixir"}, 1_000
+    assert_receive {:scripted_irc_line, "MODE #erlang"}, 1_000
+    assert_receive {:scripted_irc_line, "MODE nick"}, 1_000
+    assert_receive {:scripted_irc_line, "MODE #elixir +o alice"}, 1_000
     assert_receive {:scripted_irc_line, "MOTD irc.example.test"}, 1_000
     assert_receive {:scripted_irc_line, "VERSION irc.example.test"}, 1_000
     assert_receive {:scripted_irc_line, "ADMIN irc.example.test"}, 1_000

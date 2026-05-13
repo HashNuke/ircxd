@@ -53,7 +53,8 @@ Implemented and tested:
 - Capability negotiation core through `CAP LS 302`, `REQ`, `ACK`, `NAK`, `NEW`,
   and `DEL`.
 - Channel operations: `JOIN`, `PART`, `TOPIC`, `NAMES`, `LIST`, `INVITE`,
-  `KICK`, `MODE`, topic numerics, name replies, channel modes, and mask lists.
+  `KICK`, `MODE`, mode queries, topic numerics, name replies, channel modes,
+  and mask lists.
 - Server/user queries: `MOTD`, `VERSION`, `ADMIN`, `LUSERS`, `TIME`, `STATS`,
   `HELP`, `INFO`, `LINKS`, `WHO`, `WHOX`, `WHOIS`, `WHOWAS`, `USERHOST`,
   `ISON`, `TRACE`, `USERS`, and `SERVLIST` response events.
@@ -65,8 +66,6 @@ Remaining Modern IRC gaps:
 
 - Some legacy numerics are still typed only generically or raw if not commonly
   used by clients.
-- `MODE` has helper support for setting modes, but mode-query helpers still use
-  `raw/3` for parameter-shape edge cases.
 - No DCC/XDCC implementation; DCC is outside the main client/server protocol
   but listed in the local spec references.
 

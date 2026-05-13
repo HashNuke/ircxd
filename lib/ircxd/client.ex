@@ -76,6 +76,10 @@ defmodule Ircxd.Client do
   def mode(client, target, modes, params \\ []),
     do: GenServer.call(client, {:send, "MODE", [target, modes | params]})
 
+  def mode_query(client, target), do: GenServer.call(client, {:send, "MODE", [target]})
+  def channel_modes(client, channel), do: mode_query(client, channel)
+  def user_modes(client, nick), do: mode_query(client, nick)
+
   def kick(client, channel, nick, reason \\ ""),
     do: GenServer.call(client, {:send, "KICK", [channel, nick, reason]})
 
