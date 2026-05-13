@@ -25,6 +25,7 @@ The library currently provides:
 - `JOIN`, `NAMES`, `PART`, `TOPIC`, `MODE`, `KICK`, `PRIVMSG`, `NOTICE`, `TAGMSG`, `QUIT`, and raw command helpers.
 - Outbound IRCv3 tagged messages for client-only tags and labeled responses.
 - IRCv3 `BATCH`, labeled-response, identity, presence, and standard-reply events.
+- IRCv3 stable `netsplit` and `netjoin` batch aggregation events.
 - IRCv3 labeled-response `ACK` events and batch-level labeled-response aggregation.
 - IRCv3 labeled-response request lifecycle events for sent, acknowledged, and completed requests.
 - IRCv3 account extended-ban mask helpers.
@@ -180,6 +181,7 @@ Current tests cover the first compatibility slice from Modern IRC and IRCv3:
 - IRCv3 WebIRC parameter/option serialization and startup ordering before `CAP`.
 - Draft IRCv3 chathistory selectors, command helpers, `CHATHISTORY TARGETS`, and batch-delivered history events.
 - IRCv3 `BATCH` start/end tracking and batched message events.
+- IRCv3 stable `netsplit` and `netjoin` batch aggregation.
 - Draft IRCv3 multiline batch aggregation, `draft/multiline-concat`, and outbound multiline `PRIVMSG`/`NOTICE` helpers.
 - IRCv3 labeled-response `ACK` and `labeled-response` batch aggregation.
 - IRCv3 labeled-response request lifecycle tracking for outbound labeled commands.

@@ -288,6 +288,7 @@ defmodule Ircxd.Client do
       labeled_response_batches: %{},
       labeled_requests: %{},
       metadata_batches: %{},
+      net_batches: %{},
       multiline_ref: 0
     }
 
@@ -441,6 +442,7 @@ defmodule Ircxd.Client do
           labeled_response_batches: %{},
           labeled_requests: %{},
           metadata_batches: %{},
+          net_batches: %{},
           seen_msgids: MapSet.new(),
           server_time_buffer: [],
           server_time_flush_timer: nil,
@@ -1073,6 +1075,7 @@ defmodule Ircxd.Client do
         state = maybe_start_multiline(state, ref, batch)
         state = maybe_start_labeled_response_batch(state, ref, batch)
         state = maybe_start_metadata_batch(state, ref, batch)
+        state = maybe_start_net_batch(state, ref, batch)
         state = emit(state, {:batch_start, Map.put(batch, :ref, ref)})
         state = emit(state, {:message, message})
         {:noreply, state}
@@ -1083,6 +1086,7 @@ defmodule Ircxd.Client do
         state = maybe_emit_multiline(state, ref, batch)
         state = maybe_emit_labeled_response_batch(state, ref, batch)
         state = maybe_emit_metadata_batch(state, ref, batch)
+        state = maybe_emit_net_batch(state, ref, batch)
         state = emit(state, {:batch_end, %{ref: ref, batch: batch}})
         state = emit(state, {:message, message})
         {:noreply, state}
@@ -1305,6 +1309,7 @@ defmodule Ircxd.Client do
         state = maybe_collect_multiline(state, ref, event, message)
         state = maybe_collect_labeled_response_batch(state, ref, event)
         state = maybe_collect_metadata_batch(state, ref, event)
+        state = maybe_collect_net_batch(state, ref, event)
 
         emit(
           state,
@@ -1463,6 +1468,40 @@ defmodule Ircxd.Client do
 
   defp maybe_emit_metadata_batch(state, ref, _batch) do
     %{state | metadata_batches: Map.delete(state.metadata_batches, ref)}
+  end
+
+  defp maybe_start_net_batch(state, ref, %{type: type, params: [server_a, server_b]})
+       when type in ["netsplit", "netjoin"] do
+    net_batch = %{type: type, from_server: server_a, to_server: server_b, events: []}
+    %{state | net_batches: Map.put(state.net_batches, ref, net_batch)}
+  end
+
+  defp maybe_start_net_batch(state, _ref, _batch), do: state
+
+  defp maybe_collect_net_batch(state, ref, event) do
+    case Map.fetch(state.net_batches, ref) do
+      {:ok, batch} ->
+        batch = %{batch | events: batch.events ++ [event]}
+        %{state | net_batches: Map.put(state.net_batches, ref, batch)}
+
+      :error ->
+        state
+    end
+  end
+
+  defp maybe_emit_net_batch(state, ref, %{type: type}) when type in ["netsplit", "netjoin"] do
+    {batch, net_batches} = Map.pop(state.net_batches, ref)
+    state = %{state | net_batches: net_batches}
+
+    case batch do
+      %{type: "netsplit"} = batch -> emit(state, {:netsplit, Map.put(batch, :ref, ref)})
+      %{type: "netjoin"} = batch -> emit(state, {:netjoin, Map.put(batch, :ref, ref)})
+      _ -> state
+    end
+  end
+
+  defp maybe_emit_net_batch(state, ref, _batch) do
+    %{state | net_batches: Map.delete(state.net_batches, ref)}
   end
 
   defp send_message(%{transport: nil}, _command, _params), do: {:error, :not_connected}
