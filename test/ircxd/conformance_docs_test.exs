@@ -91,6 +91,26 @@ defmodule Ircxd.ConformanceDocsTest do
     assert [] = missing_paths
   end
 
+  test "all repository docs are included in generated ExDoc extras" do
+    repo_root = Path.expand("../..", __DIR__)
+
+    docs_files =
+      repo_root
+      |> Path.join("docs/*.md")
+      |> Path.wildcard()
+      |> Enum.map(&Path.relative_to(&1, repo_root))
+      |> Enum.sort()
+
+    configured_extras =
+      Ircxd.MixProject.project()
+      |> Keyword.fetch!(:docs)
+      |> Keyword.fetch!(:extras)
+      |> Enum.reject(&(&1 == "README.md"))
+      |> Enum.sort()
+
+    assert docs_files == configured_extras
+  end
+
   defp parse_matrix_row("| Area | Status | Evidence | Next grouped work |"), do: []
   defp parse_matrix_row("| --- | --- | --- | --- |"), do: []
 

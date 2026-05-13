@@ -43,6 +43,7 @@ defmodule Ircxd.MixProject do
         "docs/spec_audit.md",
         "docs/stable_spec_matrix.md",
         "docs/ircv3_index_audit.md",
+        "docs/conformance_workflow.md",
         "docs/host_boundaries.md",
         "docs/embedding_events.md",
         "docs/dcc_boundaries.md",
@@ -55,7 +56,8 @@ defmodule Ircxd.MixProject do
           "docs/completion_audit.md",
           "docs/spec_audit.md",
           "docs/stable_spec_matrix.md",
-          "docs/ircv3_index_audit.md"
+          "docs/ircv3_index_audit.md",
+          "docs/conformance_workflow.md"
         ],
         "Embedding Guides": [
           "docs/host_boundaries.md",
