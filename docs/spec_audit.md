@@ -63,6 +63,7 @@ Implemented and tested:
 - Away status numerics: `301`, `305`, and `306`.
 - Redirect/retry/operator/admin numerics: `010`, `263`, `381`, `382`, `670`,
   and `691`.
+- Stats uptime and invite-list numerics: `242`, `336`, and `337`.
 - Operator/server/service helper commands: `OPER`, `KILL`, `SQUERY`,
   `CONNECT`, `SQUIT`, `REHASH`, `RESTART`, `SUMMON`, `WALLOPS`.
 - Common error numerics as typed `:irc_error` events.

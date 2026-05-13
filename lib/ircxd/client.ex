@@ -1332,6 +1332,9 @@ defmodule Ircxd.Client do
   defp event_for(%Message{command: "235", params: [_me, mask, type, text]} = message),
     do: {:servlist_end, %{mask: mask, type: type, text: text, message: message}}
 
+  defp event_for(%Message{command: "242", params: [_me, text]} = message),
+    do: {:stats_uptime, %{text: text, message: message}}
+
   defp event_for(%Message{command: command, params: [_me | params]} = message)
        when command in [
               "200",
@@ -1408,6 +1411,12 @@ defmodule Ircxd.Client do
 
   defp event_for(%Message{command: "341", params: [_me, nick, channel]} = message),
     do: {:inviting, %{nick: nick, channel: channel, message: message}}
+
+  defp event_for(%Message{command: "336", params: [_me, channel, mask]} = message),
+    do: {:invite_list, %{channel: channel, mask: mask, message: message}}
+
+  defp event_for(%Message{command: "337", params: [_me, channel, text]} = message),
+    do: {:invite_list_end, %{channel: channel, text: text, message: message}}
 
   defp event_for(%Message{command: "367", params: [_me, channel, mask | rest]} = message),
     do: {:ban_list, %{channel: channel, mask: mask, params: rest, message: message}}

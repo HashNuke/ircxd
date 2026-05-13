@@ -19,6 +19,7 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                ":irc.test 351 nick InspIRCd-3 irc.test :Boringville",
                ":irc.test 263 nick LIST :Server load is temporarily too heavy",
                ":irc.test 212 nick PRIVMSG 42 1 2 3",
+               ":irc.test 242 nick :Server up 42 days 6:12:01",
                ":irc.test 219 nick u :End of /STATS report",
                ":irc.test 704 nick LIST :Start of help",
                ":irc.test 705 nick LIST :Syntax: LIST [channels]",
@@ -27,6 +28,8 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                ":irc.test 324 nick #elixir +nt",
                ":irc.test 329 nick #elixir 1760000000",
                ":irc.test 341 nick alice #elixir",
+               ":irc.test 336 nick #elixir *!*@invited.example",
+               ":irc.test 337 nick #elixir :End of channel invite list",
                ":irc.test 367 nick #elixir *!*@example.test setter 1760000001",
                ":irc.test 368 nick #elixir :End of channel ban list",
                ":irc.test 346 nick #elixir *!*@invite.example setter 1760000002",
@@ -89,6 +92,7 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                     {:stats_command, %{command: "PRIVMSG", count: "42", params: ["1", "2", "3"]}}},
                    1_000
 
+    assert_receive {:ircxd, {:stats_uptime, %{text: "Server up 42 days 6:12:01"}}}, 1_000
     assert_receive {:ircxd, {:stats_end, %{query: "u", text: "End of /STATS report"}}}, 1_000
     assert_receive {:ircxd, {:help_start, %{subject: "LIST", text: "Start of help"}}}, 1_000
     assert_receive {:ircxd, {:help, %{subject: "LIST", text: "Syntax: LIST [channels]"}}}, 1_000
@@ -102,6 +106,13 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                    1_000
 
     assert_receive {:ircxd, {:inviting, %{nick: "alice", channel: "#elixir"}}}, 1_000
+
+    assert_receive {:ircxd, {:invite_list, %{channel: "#elixir", mask: "*!*@invited.example"}}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:invite_list_end, %{channel: "#elixir", text: "End of channel invite list"}}},
+                   1_000
 
     assert_receive {:ircxd,
                     {:ban_list,
