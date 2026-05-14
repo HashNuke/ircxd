@@ -186,6 +186,8 @@ cleans up the session.
 See `docs/spec_audit.md` for the current prompt-to-artifact audit and known
 remaining gaps.
 
+See `docs/modern_irc_audit.md` for the current Modern IRC source check.
+
 See `docs/completion_audit.md` for the current requirement-to-artifact checklist
 and verification gates.
 

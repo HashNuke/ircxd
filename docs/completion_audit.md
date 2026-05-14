@@ -10,7 +10,7 @@ IRCv3 features, which are intentionally not being expanded unless reprioritized.
 | --- | --- | --- |
 | Elixir library named `ircxd` in `~/projects/ircxd` | `mix.exs`, `lib/ircxd.ex`, `lib/ircxd/client.ex` | Covered |
 | Usable by other Elixir apps | Public `Ircxd.start_link/1`, `Ircxd.Client` helpers, `Ircxd.Handler`, `notify: pid` event delivery, `docs/host_boundaries.md` | Covered |
-| IRC v2 / Modern IRC client support | Parser, serializer, command helpers, numerics, CTCP/DCC parsing, formatting, ISUPPORT, and client lifecycle tests listed in `docs/spec_audit.md` and `docs/stable_spec_matrix.md` | Covered for core protocol; direct DCC sockets/files are host-owned |
+| IRC v2 / Modern IRC client support | Parser, serializer, command helpers, numerics, CTCP/DCC parsing, formatting, ISUPPORT, and client lifecycle tests listed in `docs/spec_audit.md`, `docs/modern_irc_audit.md`, and `docs/stable_spec_matrix.md` | Covered for core protocol; direct DCC sockets/files are host-owned |
 | IRCv3 stable support | Stable matrix rows in `docs/stable_spec_matrix.md`; tests for CAP, tags, SASL, account tracking, presence, batch, labeled-response, monitor, STS boundaries, UTF8ONLY, WEBIRC, WebSocket boundaries, and standard replies | Covered for stable protocol |
 | IRCv3 draft/WIP support | `docs/ircv3_index_audit.md` plus existing draft helper tests for metadata, chathistory, multiline, channel rename, redaction, read markers, account registration, pre-away, reactions, channel context, extended-isupport, and SNI option handling | Partial by policy; drafts are not current completion scope |
 | Local InspIRCd compatibility tests | `test/ircxd/client_integration_test.exs` against `127.0.0.1:6667` | Covered |

@@ -7,6 +7,9 @@ sections, not as isolated token-by-token fixes.
 The current IRCv3 index classification is recorded in
 `docs/ircv3_index_audit.md`.
 
+The current Modern IRC source check is recorded in
+`docs/modern_irc_audit.md`.
+
 Status meanings:
 
 - `covered`: implemented with automated tests in this repository.
