@@ -49,12 +49,13 @@ run_mix "mix docs"
 echo "==> package metadata"
 rm -rf "${PACKAGE_DIR}"
 run_mix "mix hex.build --unpack"
-require_package_artifact "docs/conformance_workflow.md"
-require_package_artifact "docs/completion_audit.md"
-require_executable_package_artifact "scripts/run_verification_gates.sh"
-require_executable_package_artifact "scripts/run_services_integration.sh"
-require_executable_package_artifact "scripts/run_standard_replies_integration.sh"
-require_executable_package_artifact "scripts/run_irssi_manual_check.sh"
+for artifact in docs/*.md; do
+  require_package_artifact "${artifact}"
+done
+
+for artifact in scripts/*.sh; do
+  require_executable_package_artifact "${artifact}"
+done
 rm -rf "${PACKAGE_DIR}"
 
 echo "==> real standard-replies integration"
