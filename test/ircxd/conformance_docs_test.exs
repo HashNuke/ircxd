@@ -173,9 +173,9 @@ defmodule Ircxd.ConformanceDocsTest do
       "mix test",
       "mix docs",
       "mix hex.build --unpack",
-      "scripts/run_standard_replies_integration.sh",
-      "scripts/run_services_integration.sh",
-      "scripts/run_irssi_manual_check.sh"
+      "==> real standard-replies integration\"\nscripts/run_standard_replies_integration.sh",
+      "==> services-backed IRCv3 integration\"\nscripts/run_services_integration.sh",
+      "==> irssi cross-client check\"\n  scripts/run_irssi_manual_check.sh"
     ]
 
     positions =
@@ -188,6 +188,15 @@ defmodule Ircxd.ConformanceDocsTest do
     assert positions == Enum.sort(positions)
     assert runner =~ ~s(${IRCXD_INCLUDE_IRSSI:-0})
     assert runner =~ ~s(rm -rf "${PACKAGE_DIR}")
+    assert runner =~ ~s(require_package_artifact "docs/conformance_workflow.md")
+    assert runner =~ ~s(require_package_artifact "docs/completion_audit.md")
+    assert runner =~ ~s(require_executable_package_artifact "scripts/run_verification_gates.sh")
+    assert runner =~ ~s(require_executable_package_artifact "scripts/run_services_integration.sh")
+
+    assert runner =~
+             ~s(require_executable_package_artifact "scripts/run_standard_replies_integration.sh")
+
+    assert runner =~ ~s(require_executable_package_artifact "scripts/run_irssi_manual_check.sh")
   end
 
   test "real-server integration tests stay opt-in and covered by runners" do
