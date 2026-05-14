@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PACKAGE_DIR="${ROOT_DIR}/ircxd-0.1.0"
+PACKAGE_DIR="${ROOT_DIR}/ircxd-1.0.0"
 
 run_mix() {
   if command -v zsh >/dev/null 2>&1; then

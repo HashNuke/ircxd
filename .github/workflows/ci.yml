@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28"
+          elixir-version: "1.19"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y inspircd
+
+      - name: Install Hex and Rebar
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+
+      - name: Cache Mix dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
+
+      - name: Fetch dependencies
+        run: mix deps.get
+
+      - name: Start InspIRCd fixture
+        run: |
+          cat >/tmp/ircxd-ci.conf <<'EOF'
+          <server name="irc.local"
+                  description="ircxd CI"
+                  network="Localnet">
+
+          <admin name="ircxd"
+                 nick="ircxd"
+                 email="ircxd@localhost">
+
+          <module name="cap">
+          <module name="ircv3">
+          <module name="ircv3_servertime">
+          <module name="ircv3_msgid">
+          <module name="ircv3_echomessage">
+          <module name="ircv3_labeledresponse">
+
+          <bind address="127.0.0.1" port="6667" type="clients">
+
+          <connect allow="*"
+                   timeout="60"
+                   threshold="20"
+                   pingfreq="120"
+                   hardsendq="262144"
+                   softsendq="8192"
+                   recvq="8192"
+                   localmax="20"
+                   globalmax="20"
+                   maxchans="20">
+
+          <files motd="/etc/inspircd/inspircd.motd">
+          <dns server="127.0.0.1" timeout="5">
+
+          <options syntaxhints="no"
+                   announcets="yes"
+                   hostintopic="yes"
+                   pingwarning="15"
+                   splitwhois="no"
+                   exemptchanops="">
+
+          <security hideserver=""
+                    userstats="Pu"
+                    customversion=""
+                    flatlinks="no"
+                    hidesplits="no"
+                    hidebans="no"
+                    maxtargets="20">
+
+          <performance quietbursts="yes"
+                       softlimit="1024"
+                       somaxconn="128"
+                       netbuffersize="10240">
+
+          <whowas groupsize="10"
+                  maxgroups="100000"
+                  maxkeep="3d">
+          EOF
+
+          sudo cp /tmp/ircxd-ci.conf /etc/inspircd/ircxd-ci.conf
+          sudo chown irc:irc /etc/inspircd/ircxd-ci.conf
+          sudo -u irc inspircd --config /etc/inspircd/ircxd-ci.conf --debug --nolog --nopid >/tmp/ircxd-ci.log 2>&1 &
+
+          for _ in {1..50}; do
+            if (echo >/dev/tcp/127.0.0.1/6667) >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 0.1
+          done
+
+          echo "InspIRCd did not start" >&2
+          tail -100 /tmp/ircxd-ci.log >&2 || true
+          exit 1
+
+      - name: Compile without warnings
+        run: mix compile --warnings-as-errors
+
+      - name: Run tests
+        run: mix test

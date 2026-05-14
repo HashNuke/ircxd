@@ -126,7 +126,7 @@ defmodule Ircxd.ConformanceDocsTest do
              ".formatter.exs"
            ]
 
-    assert Keyword.fetch!(package, :licenses) == ["MIT"]
+    assert Keyword.fetch!(package, :licenses) == ["Apache-2.0"]
 
     assert Keyword.fetch!(package, :links) == %{
              "Repository" => "https://github.com/HashNuke/ircxd",

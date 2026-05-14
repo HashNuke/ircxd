@@ -4,7 +4,7 @@ defmodule Ircxd.MixProject do
   def project do
     [
       app: :ircxd,
-      version: "0.1.0",
+      version: "1.0.0",
       elixir: "~> 1.19",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -76,7 +76,7 @@ defmodule Ircxd.MixProject do
   defp package do
     [
       files: ["lib", "docs", "scripts", "mix.exs", "README.md", "LICENSE", ".formatter.exs"],
-      licenses: ["MIT"],
+      licenses: ["Apache-2.0"],
       links: %{
         "Repository" => "https://github.com/HashNuke/ircxd",
         "Modern IRC" => "https://modern.ircdocs.horse/",
