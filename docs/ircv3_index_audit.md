@@ -1,6 +1,9 @@
 # IRCv3 Index Audit
 
-Checked against <https://ircv3.net/irc/> on 2026-05-13.
+Checked against <https://ircv3.net/irc/> on 2026-05-14.
+
+The 2026-05-14 recheck did not change the stable versus work-in-progress
+classification used by `docs/stable_spec_matrix.md`.
 
 This file records how the current IRCv3 index is classified for `ircxd` work.
 It is a companion to `docs/stable_spec_matrix.md`; implementation evidence stays
