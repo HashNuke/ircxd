@@ -30,6 +30,27 @@ defmodule Ircxd.ServerIsupportTest do
     assert tokens["CASEMAPPING"] == "ascii"
   end
 
+  test "advertises the channel modes and prefixes implemented by the server" do
+    {:ok, server} = Server.start_link(port: 0)
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, client} =
+      Client.start_link(
+        host: "127.0.0.1",
+        port: Server.port(server),
+        nick: "mode-discovery-client",
+        username: "user",
+        realname: "Ircxd mode discovery client",
+        notify: self()
+      )
+
+    on_exit(fn -> stop_if_alive(client) end)
+    assert_receive {:ircxd, :registered}, 2_000
+    assert_receive {:ircxd, {:isupport, tokens}}, 2_000
+    assert tokens["PREFIX"] == "(ov)@+"
+    assert tokens["CHANMODES"] == "b,k,l,imnpst"
+  end
+
   defp stop_if_alive(pid) do
     GenServer.stop(pid)
   catch

@@ -50,6 +50,8 @@ to listen on different (or independently configured) endpoints.
    LUSERS now reports registered-user and channel counts.
    VERSION now returns configured server identity and implementation details.
    Registration now advertises configurable ISUPPORT tokens via `005`.
+   The default ISUPPORT set now advertises the implemented channel prefixes
+   and mode classes with `PREFIX=(ov)@+` and `CHANMODES=b,k,l,imnpst`.
    TIME now returns a parseable UTC timestamp.
    ADMIN now returns configurable location and email information.
    WHO now reports tracked username and realname identity for channel members.
@@ -333,3 +335,5 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated standard replies with 99 focused server tests, 355 non-external tests, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 623.99 ms median per 100k iterations (160,260 ops/s, p95 699.98 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Added standard channel operator delegation and revocation with `MODE +o/-o`, including authority regression coverage after delegation and revocation | `test/ircxd/server_operator_mode_test.exs` |
 | 2026-07-29 | Revalidated operator delegation with 100 focused server tests, 356 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 663.42 ms median per 100k iterations (150,735 ops/s, p95 754.33 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added regression coverage and default `005` metadata for implemented channel prefixes and mode classes (`PREFIX=(ov)@+`, `CHANMODES=b,k,l,imnpst`) | `test/ircxd/server_isupport_test.exs` |
+| 2026-07-29 | Revalidated ISUPPORT discovery with 101 focused server tests, 357 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 604.57 ms median per 100k iterations (165,407 ops/s, p95 726.2 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |

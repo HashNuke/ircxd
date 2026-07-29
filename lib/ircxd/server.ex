@@ -415,7 +415,14 @@ defmodule Ircxd.Server do
   defp normalize_motd(motd) when is_list(motd), do: Enum.map(motd, &to_string/1)
   defp normalize_motd(_motd), do: []
 
-  defp normalize_isupport(nil), do: ["CHANTYPES=#&", "NICKLEN=30", "CASEMAPPING=ascii"]
+  defp normalize_isupport(nil),
+    do: [
+      "CHANTYPES=#&",
+      "NICKLEN=30",
+      "CASEMAPPING=ascii",
+      "PREFIX=(ov)@+",
+      "CHANMODES=b,k,l,imnpst"
+    ]
 
   defp normalize_isupport(tokens) when is_binary(tokens),
     do: String.split(tokens, " ", trim: true)
