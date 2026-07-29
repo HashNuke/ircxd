@@ -62,6 +62,7 @@ defmodule Ircxd.Server do
     tls? = Keyword.get(opts, :tls, false)
     tls_options = Keyword.get(opts, :tls_options, [])
     motd = normalize_motd(Keyword.get(opts, :motd, []))
+    info = normalize_info(Keyword.get(opts, :info))
     isupport = normalize_isupport(Keyword.get(opts, :isupport))
     admin = normalize_admin(Keyword.get(opts, :admin))
     authenticator = init_authenticator(Keyword.get(opts, :authenticator))
@@ -80,6 +81,7 @@ defmodule Ircxd.Server do
          server_name: server_name,
          password: password,
          motd: motd,
+         info: info,
          isupport: isupport,
          admin: admin,
          registration_timeout: Keyword.get(opts, :registration_timeout, 60_000),
@@ -418,6 +420,11 @@ defmodule Ircxd.Server do
   defp normalize_motd(motd) when is_list(motd), do: Enum.map(motd, &to_string/1)
   defp normalize_motd(_motd), do: []
 
+  defp normalize_info(nil), do: ["Ircxd.Server", "Embeddable IRC server for Elixir applications"]
+  defp normalize_info(info) when is_binary(info), do: [info]
+  defp normalize_info(info) when is_list(info), do: Enum.map(info, &to_string/1)
+  defp normalize_info(_info), do: normalize_info(nil)
+
   defp normalize_isupport(nil),
     do: [
       "CHANTYPES=#&",
@@ -709,6 +716,24 @@ defmodule Ircxd.Server do
       _ ->
         state
     end
+  end
+
+  defp handle_registered_command(state, connection, %{command: "INFO"}) do
+    nick = state.connections[connection].nick
+
+    state =
+      Enum.reduce(state.info, state, fn line, state ->
+        message = %Ircxd.Message{source: state.server_name, command: "371", params: [nick, line]}
+        broadcast(state, MapSet.new([connection]), message, connection)
+      end)
+
+    end_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "374",
+      params: [nick, "End of /INFO list"]
+    }
+
+    broadcast(state, MapSet.new([connection]), end_message, connection)
   end
 
   defp handle_registered_command(state, connection, %{
