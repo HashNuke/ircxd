@@ -47,6 +47,8 @@ defmodule Ircxd.ServerAuthenticationTest do
     assert_receive {:authentication_attempt, "db-user", "secret", %{server: "ircxd.test"}},
                    2_000
 
+    assert_receive {:ircxd, {:logged_in, %{account: "account-123"}}}, 2_000
+
     assert_receive {:ircxd, :registered}, 2_000
 
     assert :ok = Client.whois(client, "auth-test")

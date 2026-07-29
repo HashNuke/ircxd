@@ -115,6 +115,14 @@ defmodule Ircxd.Server.Connection do
 
         case Ircxd.Server.authenticate(state.server, username, password, metadata) do
           {:ok, account} ->
+            userhost = "#{state.nick || "*"}!#{state.username || "user"}@#{state.server_name}"
+
+            send_message(
+              state,
+              "900",
+              [state.nick || "*", userhost, format_account(account), "You are now logged in"]
+            )
+
             send_message(state, "903", [state.nick, "SASL authentication successful"])
             maybe_register(%{state | authenticated?: true, account: account})
 
@@ -267,4 +275,7 @@ defmodule Ircxd.Server.Connection do
       _ -> :error
     end
   end
+
+  defp format_account(account) when is_binary(account), do: account
+  defp format_account(account), do: to_string(account)
 end
