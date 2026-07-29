@@ -34,6 +34,7 @@ to listen on different (or independently configured) endpoints.
 4. [ ] Implement identity and channel state with tests for `JOIN`, `PART`,
    `PRIVMSG`, `NOTICE`, `TOPIC`, `NAMES`, `PING`, and `QUIT`. JOIN/PART/NAMES,
    PRIVMSG/NOTICE/TOPIC, PING/PONG, and explicit QUIT cleanup slices are covered.
+   Read-only user and channel MODE queries are now covered as an interoperability slice.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -85,3 +86,4 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated the supervised-server embedding change with 25 server tests and the full suite | `mix format --check-formatted`, `mix test` |
 | 2026-07-29 | Added `421` unknown-command and `451` pre-registration command errors | `test/ircxd/server_protocol_errors_test.exs` |
 | 2026-07-29 | Revalidated protocol errors with 27 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added read-only `MODE` query replies (`221` user modes and `324` channel modes) | `test/ircxd/server_mode_test.exs` |

@@ -430,6 +430,34 @@ defmodule Ircxd.Server do
     end
   end
 
+  defp handle_registered_command(state, connection, %{
+         command: "MODE",
+         params: [target]
+       }) do
+    nick = state.connections[connection].nick
+
+    cond do
+      target == nick ->
+        message = %Ircxd.Message{source: state.server_name, command: "221", params: [nick, "+"]}
+        broadcast(state, MapSet.new([connection]), message, connection)
+
+      valid_channel?(target) and Map.has_key?(state.channels, target) ->
+        message = %Ircxd.Message{
+          source: state.server_name,
+          command: "324",
+          params: [nick, target, "+"]
+        }
+
+        broadcast(state, MapSet.new([connection]), message, connection)
+
+      valid_channel?(target) ->
+        error_reply(state, connection, "403", [nick, target, "No such channel"])
+
+      true ->
+        error_reply(state, connection, "401", [nick, target, "No such nick/channel"])
+    end
+  end
+
   defp handle_registered_command(state, connection, %{command: command}) do
     error_reply(state, connection, "421", [
       state.connections[connection].nick,
