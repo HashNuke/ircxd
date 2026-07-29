@@ -1,0 +1,71 @@
+# Ircxd.Server implementation plan
+
+## Goal
+
+Add an embeddable IRC server namespace to this library without changing the
+existing client API. Applications start each server as a normal child in their
+own supervision tree, and multiple server instances must be isolated and able
+to listen on different (or independently configured) endpoints.
+
+## Design constraints
+
+- Keep all server modules under `Ircxd.Server`.
+- Expose a supervision-tree-friendly `start_link/1` and child specification.
+- Keep listener, connection, protocol state, and application callbacks
+  separately testable.
+- Use the existing `Ircxd.Message` representation and wire-size rules where
+  appropriate, while handling server-specific registration and numerics.
+- Tests must drive the server with `Ircxd.Client`; raw sockets are limited to
+  focused transport/error tests where the client cannot express the case.
+- Validate interoperability with irssi after the scripted client suite works.
+
+## TDD tasks
+
+1. [x] Define the public server lifecycle API and child spec with tests for
+   starting/stopping one server and two isolated server instances.
+2. [x] Add a TCP listener/acceptor boundary with tests using an ephemeral port,
+   clean shutdown, and port-bind failure behavior.
+3. [ ] Implement per-connection registration (`NICK`, `USER`, `PASS`, `CAP`)
+   and test the complete handshake through `Ircxd.Client`. Basic handshake,
+   SASL gating, duplicate-nick rejection, and configured server-password
+   acceptance/rejection are covered; add remaining validation and timeout cases.
+4. [ ] Implement identity and channel state with tests for `JOIN`, `PART`,
+   `PRIVMSG`, `NOTICE`, `TOPIC`, `NAMES`, `PING`, and `QUIT`. JOIN/PART/NAMES,
+   PRIVMSG/NOTICE/TOPIC, PING/PONG, and explicit QUIT cleanup slices are covered.
+5. [x] Implement initial server-to-client event fan-out and isolation tests
+   proving clients on different server instances cannot observe one another.
+   Continue extending the command surface.
+6. [x] Add a configurable subscriber callback and test that published messages
+   reach the embedding application with connection metadata.
+7. [ ] Add configurable callbacks/handler hooks and test callback failures and
+   connection cleanup without taking down the listener.
+8. [x] Add an authentication contract for SASL and test database-backed host
+   callbacks, success, failure, and account metadata without embedding a DB.
+9. [ ] Add protocol limits and malformed-input tests, including line size,
+   registration timeouts, unknown commands, and nick/channel validation.
+10. [x] Run the full ExUnit suite, then run an irssi manual/integration check;
+   document supported behavior and known boundaries.
+11. [ ] Commit each coherent TDD slice with a detailed rationale and push every
+   commit to the configured remote.
+
+The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
+
+## Progress log
+
+| Date | Change | Evidence |
+|---|---|---|
+| 2026-07-29 | Plan created on `server`; implementation not started | `plans/server.md` |
+| 2026-07-29 | Added `Ircxd.Server` listener, connection registration, and split lifecycle/registration tests | `lib/ircxd/server.ex`, `lib/ircxd/server/connection.ex`, `test/ircxd/server_*_test.exs` |
+| 2026-07-29 | Added IRCv3 server tracking matrix and subscriber-contract boundary | `docs/server_ircv3_matrix.md` |
+| 2026-07-29 | Added subscriber callback and application-owned PLAIN SASL authentication with success/failure tests | `Ircxd.Server.Subscriber`, `Ircxd.Server.Authenticator`, `test/ircxd/server_subscriber_test.exs`, `test/ircxd/server_authentication_test.exs` |
+| 2026-07-29 | Added channel `PRIVMSG`/`NOTICE` fan-out, connection `PING`/`PONG`, and cross-instance subscriber isolation | `test/ircxd/server_messaging_test.exs`, `test/ircxd/server_connection_test.exs`, `test/ircxd/server_isolation_test.exs` |
+| 2026-07-29 | Verified irssi 1.4.5 can connect to an ephemeral `Ircxd.Server` listener; server observed one live connection | `mix run` + `irssi` compatibility check |
+| 2026-07-29 | Added NAMES replies and PART fan-out with preserved reasons | `test/ircxd/server_channels_test.exs` |
+| 2026-07-29 | Added channel topic publication and topic state | `test/ircxd/server_topic_test.exs` |
+| 2026-07-29 | Added QUIT fan-out and removal from channel membership/NAMES state | `test/ircxd/server_quit_test.exs` |
+| 2026-07-29 | Added nickname ownership and `433` retry behavior | `test/ircxd/server_registration_test.exs` |
+| 2026-07-29 | Added direct nickname-target `PRIVMSG` and `NOTICE` routing | `test/ircxd/server_direct_message_test.exs` |
+| 2026-07-29 | Added `message-tags` capability advertisement/ACK and tagged `TAGMSG` fan-out | `test/ircxd/server_tagmsg_test.exs` |
+| 2026-07-29 | Added channel-target validation and `403 ERR_NOSUCHCHANNEL` | `test/ircxd/server_validation_test.exs` |
+| 2026-07-29 | Added configured server-password registration with `PASS`/`464` tests | `test/ircxd/server_password_test.exs` |
+| 2026-07-29 | Full ExUnit suite and irssi 1.4.5 connection smoke check pass; registered the server matrix as ExDoc extra | `mix test`, `mix run` irssi check, `mix.exs` |

@@ -63,7 +63,8 @@ defmodule Ircxd.MixProject do
         "docs/dcc_boundaries.md",
         "docs/sts_boundaries.md",
         "docs/websocket_adapters.md",
-        "docs/specs.md"
+        "docs/specs.md",
+        "docs/server_ircv3_matrix.md"
       ],
       groups_for_extras: [
         Audits: [
@@ -81,6 +82,7 @@ defmodule Ircxd.MixProject do
           "docs/sts_boundaries.md",
           "docs/websocket_adapters.md"
         ],
+        Server: ["docs/server_ircv3_matrix.md"],
         References: ["docs/specs.md"]
       ]
     ]
