@@ -106,6 +106,7 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Rejected post-registration `USER` changes with `462 ERR_ALREADYREGISTERED` and preserved connection identity | `test/ircxd/server_registration_test.exs` |
 | 2026-07-29 | Added channel `KICK` handling with broadcast/removal and a client-driven membership regression test | `test/ircxd/server_kick_test.exs` |
 | 2026-07-29 | Added member-authorized channel `INVITE` delivery with `341` and a client-driven target notification test | `test/ircxd/server_invite_test.exs` |
+| 2026-07-29 | Revalidated INVITE with 52 server tests, the full ExUnit suite, formatting checks, and the existing irssi 1.4.5 smoke gate | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Revalidated KICK with 51 server tests, the full ExUnit suite, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, named tmux irssi check |
 | 2026-07-29 | Revalidated registration identity protection with 50 server tests, formatting checks, and the full ExUnit suite | `mix format --check-formatted`, `mix test test/ircxd/server_*_test.exs`, `mix test` |
 | 2026-07-29 | Propagated successful authenticator account values into server identity state and WHOIS `330` replies | `test/ircxd/server_authentication_test.exs` |
