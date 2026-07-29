@@ -2,9 +2,9 @@ defmodule Ircxd.Server do
   @moduledoc """
   Embeddable IRC server.
 
-  Add `{Ircxd.Server, port: 6667}` to an application's supervision tree. Each
-  server owns its listener and connections, so multiple instances can run in
-  the same VM.
+  Add `{Ircxd.Server, id: :public_irc, port: 6667}` to an application's
+  supervision tree. Each server owns its listener and connections, so multiple
+  instances can run in the same VM when they have distinct child IDs.
   """
 
   use GenServer
@@ -13,6 +13,16 @@ defmodule Ircxd.Server do
   alias Ircxd.Server.SubscriberWorker
 
   @default_server_name "ircxd.local"
+
+  def child_spec(opts) do
+    %{
+      id: Keyword.get(opts, :id, __MODULE__),
+      start: {__MODULE__, :start_link, [opts]},
+      type: :worker,
+      restart: :permanent,
+      shutdown: 5_000
+    }
+  end
 
   def start_link(opts) when is_list(opts) do
     GenServer.start_link(__MODULE__, opts, Keyword.take(opts, [:name]))

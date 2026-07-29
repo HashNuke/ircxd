@@ -22,7 +22,8 @@ to listen on different (or independently configured) endpoints.
 ## TDD tasks
 
 1. [x] Define the public server lifecycle API and child spec with tests for
-   starting/stopping one server and two isolated server instances.
+   starting/stopping one server, two isolated instances, and multiple
+   independently identified children in one supervisor.
 2. [x] Add a TCP listener/acceptor boundary with tests using an ephemeral port,
    clean shutdown, and port-bind failure behavior.
 3. [ ] Implement per-connection registration (`NICK`, `USER`, `PASS`, `CAP`)
@@ -78,3 +79,4 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated registration hardening with 23 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Added `CAP NAK` responses for unsupported capability requests | `test/ircxd/server_capability_test.exs` |
 | 2026-07-29 | Revalidated capability handling with 24 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added distinct child IDs for multiple supervised servers and documented the embedding API | `test/ircxd/server_lifecycle_test.exs`, `README.md` |

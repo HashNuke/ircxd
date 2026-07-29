@@ -17,4 +17,29 @@ defmodule Ircxd.ServerLifecycleTest do
 
     assert Server.port(first) != Server.port(second)
   end
+
+  test "supports multiple servers as children of one supervisor" do
+    {:ok, supervisor} =
+      Supervisor.start_link(
+        [
+          {Server, [id: :first_irc, port: 0, server_name: "first.test"]},
+          {Server, [id: :second_irc, port: 0, server_name: "second.test"]}
+        ],
+        strategy: :one_for_one
+      )
+
+    on_exit(fn -> stop_if_alive(supervisor) end)
+
+    children = Supervisor.which_children(supervisor) |> Enum.sort_by(&elem(&1, 0))
+
+    [{:first_irc, first, :worker, [Server]}, {:second_irc, second, :worker, [Server]}] = children
+
+    assert Server.port(first) != Server.port(second)
+  end
+
+  defp stop_if_alive(pid) do
+    Supervisor.stop(pid)
+  catch
+    :exit, _reason -> :ok
+  end
 end

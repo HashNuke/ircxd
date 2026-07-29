@@ -87,6 +87,26 @@ end
 :ok = Ircxd.Client.privmsg(client, "#elixir", "hello from ircxd")
 ```
 
+## Embedded IRC Server
+
+Applications can start one or more independent IRC servers in their own
+supervision tree. Give each server child a distinct `:id`:
+
+```elixir
+children = [
+  {Ircxd.Server, id: :public_irc, port: 6667, server_name: "public.example"},
+  {Ircxd.Server, id: :internal_irc, port: 6668, server_name: "internal.example"}
+]
+
+Supervisor.start_link(children, strategy: :one_for_one)
+```
+
+The server accepts `subscriber: {Module, init_arg}` for application-owned
+message persistence or side effects, and `authenticator: {Module, init_arg}`
+for application-owned SASL credential checks. See
+`docs/server_ircv3_matrix.md` and `plans/server.md` for the current protocol
+coverage and boundaries.
+
 Use `Ircxd.Handler` when you want callback-style event handling:
 
 ```elixir

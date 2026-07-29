@@ -14,7 +14,7 @@ Status values:
 
 | Area | Status | Planned evidence |
 |---|---|---|
-| Supervision-tree lifecycle and ephemeral listeners | implemented | `Ircxd.Server`, `server_lifecycle_test.exs` |
+| Supervision-tree lifecycle and ephemeral listeners | implemented | `Ircxd.Server`, `server_lifecycle_test.exs`; multiple children use distinct configured IDs |
 | Multiple server-instance isolation | implemented | `server_lifecycle_test.exs` |
 | Registration (`CAP`, `NICK`, `USER`, `PASS`, welcome numerics) | partial | `server_registration_test.exs`, `server_password_test.exs`; handshake, duplicate nick policy, password/464 rejection, nickname validation/432, and configurable registration timeout exist; add remaining policy cases |
 | Core connection commands (`PING`, `PONG`, `QUIT`) | partial | `server_connection_test.exs`, `server_quit_test.exs`; explicit QUIT exists, add malformed/disconnect cases |
