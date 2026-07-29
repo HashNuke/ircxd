@@ -1139,6 +1139,23 @@ defmodule Ircxd.Server do
 
   defp names_channel(state, connection, channel) do
     members = Map.get(state.channels, channel, MapSet.new())
+    secret? = MapSet.member?(Map.get(state.channel_modes, channel, MapSet.new()), "s")
+
+    if secret? and not MapSet.member?(members, connection) do
+      end_message = %Ircxd.Message{
+        source: state.server_name,
+        command: "366",
+        params: [state.connections[connection].nick, channel, "End of NAMES list"]
+      }
+
+      broadcast(state, MapSet.new([connection]), end_message, connection)
+    else
+      names_channel_visible(state, connection, channel)
+    end
+  end
+
+  defp names_channel_visible(state, connection, channel) do
+    members = Map.get(state.channels, channel, MapSet.new())
 
     multi_prefix? =
       "multi-prefix" in Map.get(state.connection_capabilities, connection, MapSet.new())

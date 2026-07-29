@@ -30,6 +30,10 @@ defmodule Ircxd.ServerSecretModeTest do
     assert_receive {:ircxd, {:list_start, _}}, 2_000
     assert_receive {:ircxd, {:list_entry, %{channel: "#secret", visible: "1"}}}, 2_000
     assert_receive {:ircxd, {:list_end, _}}, 2_000
+
+    assert :ok = Client.names(bob, "#secret")
+    refute_receive {:ircxd, {:names, %{channel: "#secret"}}}, 300
+    assert_receive {:ircxd, {:names_end, %{channel: "#secret"}}}, 2_000
   end
 
   defp start_client(server, nick) do
