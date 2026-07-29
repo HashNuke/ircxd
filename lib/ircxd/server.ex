@@ -312,6 +312,7 @@ defmodule Ircxd.Server do
         "extended-join",
         "away-notify",
         "account-notify",
+        "account-tag",
         "echo-message",
         "sasl"
       ],
@@ -321,6 +322,7 @@ defmodule Ircxd.Server do
         "extended-join",
         "away-notify",
         "account-notify",
+        "account-tag",
         "echo-message"
       ]
   end
@@ -1597,6 +1599,22 @@ defmodule Ircxd.Server do
     end
   end
 
+  defp add_account_tag(state, recipients, %Ircxd.Message{} = message, sender) do
+    account_tag_recipient? =
+      Enum.any?(recipients, fn connection ->
+        "account-tag" in Map.get(state.connection_capabilities, connection, MapSet.new())
+      end)
+
+    account = get_in(state.connections, [sender, :account])
+
+    if account_tag_recipient? and not is_nil(account) and
+         not Map.has_key?(message.tags, "account") do
+      %{message | tags: Map.put(message.tags, "account", format_account(account))}
+    else
+      message
+    end
+  end
+
   defp broadcast(state, recipients, message, sender) do
     metadata = %{
       server: state.server_name,
@@ -1604,6 +1622,7 @@ defmodule Ircxd.Server do
       recipients: MapSet.to_list(recipients)
     }
 
+    message = add_account_tag(state, recipients, message, sender)
     {state, message} = add_message_id(state, recipients, message)
     state = dispatch_to_subscriber(state, message, metadata)
     Enum.each(recipients, &send(&1, {:server_send, message}))

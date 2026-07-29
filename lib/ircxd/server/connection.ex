@@ -287,6 +287,7 @@ defmodule Ircxd.Server.Connection do
     |> add_message_id(state)
     |> add_server_time(state)
     |> filter_tags(state)
+    |> filter_account_tag(state)
     |> filter_extended_join(state)
   end
 
@@ -305,11 +306,18 @@ defmodule Ircxd.Server.Connection do
 
   defp filter_tags(message, state) do
     if MapSet.member?(state.active_capabilities, "message-tags") or
+         MapSet.member?(state.active_capabilities, "account-tag") or
          MapSet.member?(state.active_capabilities, "server-time") do
       message
     else
       %{message | tags: %{}}
     end
+  end
+
+  defp filter_account_tag(message, state) do
+    if MapSet.member?(state.active_capabilities, "account-tag"),
+      do: message,
+      else: %{message | tags: Map.delete(message.tags, "account")}
   end
 
   defp filter_extended_join(
