@@ -389,6 +389,7 @@ defmodule Ircxd.Server do
         "setname",
         "echo-message",
         "invite-notify",
+        "labeled-response",
         "sasl"
       ],
       else: [
@@ -403,7 +404,8 @@ defmodule Ircxd.Server do
         "no-implicit-names",
         "setname",
         "echo-message",
-        "invite-notify"
+        "invite-notify",
+        "labeled-response"
       ]
   end
 
@@ -775,9 +777,11 @@ defmodule Ircxd.Server do
 
   defp handle_registered_command(state, connection, %{
          command: "WHOIS",
-         params: [target | _rest]
+         params: [target | _rest],
+         tags: tags
        }) do
     requester = state.connections[connection].nick
+    response_tags = Map.take(tags, ["label"])
 
     case Enum.find_value(state.connections, fn
            {_pid, %{nick: ^target} = client} -> client
@@ -791,6 +795,7 @@ defmodule Ircxd.Server do
         realname = client.realname || client.nick
 
         user_message = %Ircxd.Message{
+          tags: response_tags,
           source: state.server_name,
           command: "311",
           params: [requester, client.nick, username, "user", "*", realname]
@@ -805,6 +810,7 @@ defmodule Ircxd.Server do
 
             away ->
               away_message = %Ircxd.Message{
+                tags: response_tags,
                 source: state.server_name,
                 command: "301",
                 params: [requester, client.nick, away]
@@ -820,6 +826,7 @@ defmodule Ircxd.Server do
 
             account ->
               account_message = %Ircxd.Message{
+                tags: response_tags,
                 source: state.server_name,
                 command: "330",
                 params: [requester, client.nick, format_account(account), "is logged in as"]
@@ -829,6 +836,7 @@ defmodule Ircxd.Server do
           end
 
         server_message = %Ircxd.Message{
+          tags: response_tags,
           source: state.server_name,
           command: "312",
           params: [requester, client.nick, state.server_name, "Ircxd server"]
@@ -837,6 +845,7 @@ defmodule Ircxd.Server do
         state = broadcast(state, MapSet.new([connection]), server_message, connection)
 
         end_message = %Ircxd.Message{
+          tags: response_tags,
           source: state.server_name,
           command: "318",
           params: [requester, client.nick, "End of /WHOIS list"]

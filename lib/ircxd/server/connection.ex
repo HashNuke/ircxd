@@ -362,7 +362,8 @@ defmodule Ircxd.Server.Connection do
   defp filter_tags(message, state) do
     if MapSet.member?(state.active_capabilities, "message-tags") or
          MapSet.member?(state.active_capabilities, "account-tag") or
-         MapSet.member?(state.active_capabilities, "server-time") do
+         MapSet.member?(state.active_capabilities, "server-time") or
+         MapSet.member?(state.active_capabilities, "labeled-response") do
       message
     else
       %{message | tags: %{}}

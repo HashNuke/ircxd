@@ -120,6 +120,8 @@ to listen on different (or independently configured) endpoints.
    current channel members while preserving the normal target notification.
    The listener supports implicit TLS through `tls: true` and application-
    supplied `tls_options`; TLS connections share the normal protocol state.
+   `labeled-response` is advertised and labeled WHOIS replies preserve the
+   request label through the client’s labeled-response lifecycle.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -316,3 +318,6 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Added implicit TLS listener support with transport-aware accept, handshake, connection, and shutdown paths; verified registration and PING/PONG over TLS with `Ircxd.Client` | `test/ircxd/server_tls_test.exs`, `test/support/tls/server.crt`, `test/support/tls/server.key` |
 | 2026-07-29 | Revalidated TLS transport support with 96 focused server tests, the full suite, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 623.87 ms median per 100k iterations (160,290 ops/s, p95 724.05 ms) | `mix test`, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Added a dedicated direct irssi interoperability script that starts `Ircxd.Server` in a named tmux session, joins an irssi channel, and verifies an `Ircxd.Client` message is visible there | `scripts/run_irssi_server_check.sh` |
+| 2026-07-29 | Added `labeled-response` capability support for WHOIS reply sequences, preserving request labels through `311`/`301`/`330`/`312`/`318` responses | `test/ircxd/server_labeled_response_test.exs` |
+| 2026-07-29 | Revalidated labeled WHOIS responses with 97 focused server tests, 353 non-external tests, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 665.15 ms median per 100k iterations (150,342 ops/s, p95 738.42 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | A repository-wide `mix test` attempt remained environment-gated by the existing InspIRCd integration test timing out during CAP LS on `127.0.0.1:6667`; the local/non-external suite passed independently | `test/ircxd/client_integration_test.exs` |

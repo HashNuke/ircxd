@@ -152,6 +152,7 @@ defmodule Ircxd.ConformanceDocsTest do
 
     assert scripts == [
              "scripts/run_irssi_manual_check.sh",
+             "scripts/run_irssi_server_check.sh",
              "scripts/run_services_integration.sh",
              "scripts/run_standard_replies_integration.sh",
              "scripts/run_verification_gates.sh"
