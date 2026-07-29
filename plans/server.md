@@ -53,6 +53,7 @@ to listen on different (or independently configured) endpoints.
    TIME now returns a parseable UTC timestamp.
    ADMIN now returns configurable location and email information.
    WHO now reports tracked username and realname identity for channel members.
+   WHO now also resolves online nicknames with `*` as the channel field.
    WHOIS now returns tracked user and server identity details.
    Successful SASL authentication now tracks the application account and exposes it through WHOIS `330`.
    Successful SASL authentication now also returns standard `900 RPL_LOGGEDIN` account metadata.
@@ -216,6 +217,8 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Added `442` membership validation for topic changes with client-driven regression coverage | `test/ircxd/server_topic_test.exs` |
 | 2026-07-29 | Revalidated topic authorization with 87 focused server tests, the full ExUnit suite, and formatting/whitespace checks | `mix test`, `mix format --check-formatted` |
 | 2026-07-29 | Added empty-channel lifecycle cleanup with client-driven LIST and fresh-state coverage; revalidated with 88 focused server tests and the full suite | `test/ircxd/server_channel_lifecycle_test.exs`, `mix test` |
+| 2026-07-29 | Added nickname-targeted WHO replies with client-driven `352`/`315` coverage | `test/ircxd/server_who_test.exs` |
+| 2026-07-29 | Revalidated WHO channel and nickname queries with 89 focused server tests, the full ExUnit suite, and formatting/whitespace checks | `mix test`, `mix format --check-formatted` |
 | 2026-07-29 | Revalidated invite policy with 85 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the existing direct named-tmux irssi interoperability gate | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
 | 2026-07-29 | Added per-recipient IRCv3 `account-tag` routing for authenticated messages with tagged and untagged client coverage | `test/ircxd/server_account_tag_test.exs` |
 | 2026-07-29 | Revalidated `account-tag` with 72 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 authenticating, joining, and sending a live message through the disposable server | `mix test`, `mix format --check-formatted`, named tmux irssi check |

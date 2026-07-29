@@ -37,6 +37,31 @@ defmodule Ircxd.ServerWhoTest do
     assert_receive {:ircxd, {:who_end, %{mask: "#who"}}}, 2_000
   end
 
+  test "returns an online nickname from WHO" do
+    {:ok, server} = Server.start_link(port: 0)
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, client} =
+      Client.start_link(
+        host: "127.0.0.1",
+        port: Server.port(server),
+        nick: "who-nick",
+        username: "who-user",
+        realname: "Ircxd WHO nickname client",
+        notify: self()
+      )
+
+    on_exit(fn -> stop_if_alive(client) end)
+    assert_receive {:ircxd, :registered}, 2_000
+    assert :ok = Client.who(client, "who-nick")
+
+    assert_receive {:ircxd,
+                    {:who_reply, %{channel: "*", nick: "who-nick", username: "who-user"}}},
+                   2_000
+
+    assert_receive {:ircxd, {:who_end, %{mask: "who-nick"}}}, 2_000
+  end
+
   defp stop_if_alive(pid) do
     GenServer.stop(pid)
   catch

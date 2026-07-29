@@ -621,15 +621,27 @@ defmodule Ircxd.Server do
        }) do
     requester = state.connections[connection].nick
 
-    members =
+    {members, reply_channel} =
       case Map.fetch(state.channels, mask) do
         {:ok, members} ->
           secret? = MapSet.member?(Map.get(state.channel_modes, mask, MapSet.new()), "s")
 
-          if secret? and not MapSet.member?(members, connection), do: MapSet.new(), else: members
+          members =
+            if secret? and not MapSet.member?(members, connection),
+              do: MapSet.new(),
+              else: members
+
+          {members, mask}
 
         :error ->
-          MapSet.new()
+          members =
+            state.connections
+            |> Enum.find_value(MapSet.new(), fn
+              {member, %{nick: ^mask}} -> MapSet.new([member])
+              _other -> nil
+            end)
+
+          {members, "*"}
       end
 
     state =
@@ -643,7 +655,7 @@ defmodule Ircxd.Server do
           command: "352",
           params: [
             requester,
-            mask,
+            reply_channel,
             username,
             "user",
             state.server_name,
