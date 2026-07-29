@@ -58,7 +58,8 @@ to listen on different (or independently configured) endpoints.
    Channel mode `+i` now blocks uninvited JOIN with `473` and consumes invites on JOIN.
    The first channel member is an operator, shown as `@` in NAMES; MODE and KICK now require operator authority.
    Channel mode `+t` now restricts topic changes to operators with `482` enforcement.
-   Channel mode `+m` now restricts channel messages to operators with `404` enforcement; voice grants remain planned.
+   Channel mode `+m` now restricts channel messages to operators and voiced
+   members with `404` enforcement.
    Channel mode `+k` now stores a channel key and rejects incorrect JOIN keys with `475`.
    Channel mode `+l` now rejects JOINs at capacity with `471` and supports removing the limit.
    Channel modes `+v`/`-v` now grant and revoke moderated-channel speaking rights; voiced users appear as `+` in NAMES.
@@ -90,6 +91,8 @@ to listen on different (or independently configured) endpoints.
    `no-implicit-names` available for clients that opt out.
    Negotiated `setname` clients can change their realname, receive the
    capability-gated fan-out, and observe the updated value through WHOIS.
+   `CAP REQ -capability` now disables an active capability per connection and
+   synchronizes the server-side capability state.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -171,6 +174,8 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated common-channel account-notify behavior with 70 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 negotiating the capability and joining a live channel | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Added capability-correct sender echo behavior for `PRIVMSG`, `NOTICE`, and `TAGMSG` with opt-in/out coverage | `test/ircxd/server_echo_message_test.exs` |
 | 2026-07-29 | Revalidated `echo-message` with 71 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 receiving a live relayed message after capability negotiation | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added positive and negative capability requests so clients can disable negotiated extensions and covered the resulting `echo-message` routing change | `lib/ircxd/server/connection.ex`, `test/ircxd/server_capability_disable_test.exs` |
+| 2026-07-29 | Revalidated capability disabling with 78 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the protocol microbenchmarks; tagged `PRIVMSG` parsing measured 642.65 ms median for 100k iterations | `mix test`, `mix format --check-formatted`, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Added per-recipient IRCv3 `account-tag` routing for authenticated messages with tagged and untagged client coverage | `test/ircxd/server_account_tag_test.exs` |
 | 2026-07-29 | Revalidated `account-tag` with 72 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 authenticating, joining, and sending a live message through the disposable server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Added negotiated `multi-prefix` NAMES output with simultaneous operator/voice prefix coverage | `test/ircxd/server_multi_prefix_test.exs` |

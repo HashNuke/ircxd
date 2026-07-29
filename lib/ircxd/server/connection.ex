@@ -90,15 +90,22 @@ defmodule Ircxd.Server.Connection do
 
   defp handle_message(%Message{command: "CAP", params: ["REQ", caps]}, state) do
     requested = String.split(caps, " ", trim: true)
+    requests = Enum.map(requested, &capability_request/1)
 
     cond do
       requested == [] ->
         send_message(state, "CAP", ["*", "NAK", ""])
+        {:noreply, state}
 
-      Enum.all?(requested, &(&1 in state.capabilities)) ->
+      Enum.all?(requests, fn {_action, capability} -> capability in state.capabilities end) ->
         send_message(state, "CAP", ["*", "ACK", Enum.join(requested, " ")])
 
-        active_capabilities = MapSet.union(state.active_capabilities, MapSet.new(requested))
+        active_capabilities =
+          Enum.reduce(requests, state.active_capabilities, fn
+            {:enable, capability}, active -> MapSet.put(active, capability)
+            {:disable, capability}, active -> MapSet.delete(active, capability)
+          end)
+
         Ircxd.Server.capabilities(state.server, self(), active_capabilities)
 
         {:noreply, %{state | active_capabilities: active_capabilities}}
@@ -108,6 +115,9 @@ defmodule Ircxd.Server.Connection do
         {:noreply, state}
     end
   end
+
+  defp capability_request("-" <> capability), do: {:disable, capability}
+  defp capability_request(capability), do: {:enable, capability}
 
   defp handle_message(%Message{command: "AUTHENTICATE", params: ["PLAIN"]}, state) do
     send_message(state, "AUTHENTICATE", ["+"])
