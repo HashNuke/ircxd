@@ -26,16 +26,33 @@ defmodule Ircxd.ServerChatHistoryTest do
     assert_receive {:ircxd, {:join, %{channel: "#history"}}}, 2_000
 
     assert :ok = Client.privmsg(sender, "#history", "saved message")
-    assert_receive {:ircxd, {:privmsg, %{body: "saved message"}}}, 2_000
+    assert_receive {:ircxd, {:privmsg, %{body: "saved message", msgid: first_msgid}}}, 2_000
+
+    assert :ok = Client.privmsg(sender, "#history", "newer message")
+    assert_receive {:ircxd, {:privmsg, %{body: "newer message", msgid: second_msgid}}}, 2_000
 
     assert :ok = Client.chathistory_latest(reader, "#history", :latest, 10)
-    assert_receive {:ircxd, {:batch_start, %{type: "chathistory", params: ["#history"]}}}, 2_000
+    assert_receive {:ircxd, {:batch_start, %{ref: latest_ref, type: "chathistory"}}}, 2_000
 
     assert_receive {:ircxd,
-                    {:privmsg, %{target: "#history", body: "saved message", batch: _reference}}},
+                    {:privmsg, %{target: "#history", body: "saved message", batch: ^latest_ref}}},
                    2_000
 
-    assert_receive {:ircxd, {:batch_end, %{ref: _reference}}}, 2_000
+    assert_receive {:ircxd,
+                    {:privmsg, %{target: "#history", body: "newer message", batch: ^latest_ref}}},
+                   2_000
+
+    assert_receive {:ircxd, {:batch_end, %{ref: ^latest_ref}}}, 2_000
+
+    assert :ok = Client.chathistory_before(reader, "#history", {:msgid, second_msgid}, 10)
+    assert_receive {:ircxd, {:batch_start, %{ref: before_ref, type: "chathistory"}}}, 2_000
+    assert_receive {:ircxd, {:privmsg, %{body: "saved message", batch: ^before_ref}}}, 2_000
+    assert_receive {:ircxd, {:batch_end, %{ref: ^before_ref}}}, 2_000
+
+    assert :ok = Client.chathistory_after(reader, "#history", {:msgid, first_msgid}, 10)
+    assert_receive {:ircxd, {:batch_start, %{ref: after_ref, type: "chathistory"}}}, 2_000
+    assert_receive {:ircxd, {:privmsg, %{body: "newer message", batch: ^after_ref}}}, 2_000
+    assert_receive {:ircxd, {:batch_end, %{ref: ^after_ref}}}, 2_000
   end
 
   defp start_client(server, nick, caps) do

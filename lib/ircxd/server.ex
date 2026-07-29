@@ -1402,9 +1402,16 @@ defmodule Ircxd.Server do
 
   defp handle_registered_command(state, connection, %{
          command: "CHATHISTORY",
-         params: ["LATEST", target, _selector, limit | _rest]
+         params: [query, target, selector, limit | _rest]
        }) do
-    serve_latest_history(state, connection, target, parse_history_limit(limit))
+    serve_history(
+      state,
+      connection,
+      query,
+      target,
+      selector,
+      parse_history_limit(limit)
+    )
   end
 
   defp handle_registered_command(state, connection, %{command: "CHATHISTORY"}) do
@@ -2441,7 +2448,8 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp serve_latest_history(state, connection, target, limit) do
+  defp serve_history(state, connection, query, target, selector, limit)
+       when query in ["LATEST", "BEFORE", "AFTER"] do
     requester = state.connections[connection].nick
 
     cond do
@@ -2452,14 +2460,7 @@ defmodule Ircxd.Server do
         error_reply(state, connection, "442", [requester, target, "You're not on that channel"])
 
       true ->
-        entries =
-          state.history
-          |> Enum.filter(fn
-            %{params: [^target, _body]} -> true
-            _entry -> false
-          end)
-          |> Enum.take(limit)
-          |> Enum.reverse()
+        entries = select_history(state.history, query, target, selector, limit)
 
         ref = "history-#{Integer.to_string(state.message_id + 1, 16)}"
 
@@ -2486,6 +2487,41 @@ defmodule Ircxd.Server do
         broadcast(state, MapSet.new([connection]), end_message, connection)
     end
   end
+
+  defp select_history(history, "LATEST", target, _selector, limit) do
+    history
+    |> channel_history(target)
+    |> Enum.take(limit)
+    |> Enum.reverse()
+  end
+
+  defp select_history(history, query, target, selector, limit)
+       when query in ["BEFORE", "AFTER"] do
+    entries = history |> channel_history(target) |> Enum.reverse()
+
+    case Enum.find_index(entries, &history_selector_match?(&1, selector)) do
+      nil -> []
+      index when query == "BEFORE" -> entries |> Enum.take(index) |> Enum.take(-limit)
+      index -> entries |> Enum.drop(index + 1) |> Enum.take(limit)
+    end
+  end
+
+  defp channel_history(history, target) do
+    Enum.filter(history, fn
+      %{params: [^target, _body]} -> true
+      _entry -> false
+    end)
+  end
+
+  defp history_selector_match?(_entry, "*"), do: false
+
+  defp history_selector_match?(%{tags: tags}, "msgid=" <> msgid),
+    do: Map.get(tags, "msgid") == msgid
+
+  defp history_selector_match?(%{tags: tags}, "timestamp=" <> timestamp),
+    do: Map.get(tags, "time") == timestamp
+
+  defp history_selector_match?(_entry, _selector), do: false
 
   defp record_history(state, %Ircxd.Message{command: command, params: [target, _body]} = message)
        when command in ["PRIVMSG", "NOTICE"] do
