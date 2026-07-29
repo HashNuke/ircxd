@@ -194,8 +194,9 @@ to listen on different (or independently configured) endpoints.
    command-specific policy is tracked in the IRCv3 matrix.
 10. [x] Run the full ExUnit suite, then run an irssi manual/integration check;
    document supported behavior and known boundaries.
-11. [ ] Commit each coherent TDD slice with a detailed rationale and push every
-   commit to the configured remote.
+11. [x] Commit each coherent TDD slice with a detailed rationale and push every
+   commit to the configured remote. Pushnotify was unavailable in this
+   environment, so commit progress was reported in the collaboration log.
 
 The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 
@@ -432,4 +433,5 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Completed the baseline-plan audit: registration, identity/channel state, subscriber hooks, authentication contract, and named malformed-input requirements are now marked complete; stabilized kick-test mailbox ordering with negotiated `no-implicit-names`, then revalidated 381 non-external tests, irssi interoperability, and benchmarks at 619.58 ms tagged parsing per 100k (p95 697.49 ms) | `plans/server.md`, `test/ircxd/server_kick_test.exs`, `mix test`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Added labeled-response propagation for client `PING`/server `PONG`, preserving the request label through the existing outbound tag policy and client lifecycle | `lib/ircxd/server/connection.ex`, `test/ircxd/server_labeled_response_test.exs` |
 | 2026-07-29 | Revalidated labeled PING/PONG response correlation with 126 focused server tests, 382 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 609.34 ms median per 100k iterations (164,111 ops/s, p95 709.17 ms), serialization 231.28 ms (432,374 ops/s), tag escaping 165.72 ms (603,413 ops/s), styled-text parsing 196.42 ms (509,121 ops/s), and ISUPPORT parsing 590.96 ms (169,217 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Finalized the original server-objective audit: all eleven plan tasks are now evidenced as complete; broader IRCv3 items remain explicitly documented as partial in `docs/server_ircv3_matrix.md` for future extension | `plans/server.md`, `docs/server_ircv3_matrix.md`, pushed `server` branch history |
 | 2026-07-29 | Revalidated no-authenticator SASL handling with 124 focused server tests, 380 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 605.02 ms median per 100k iterations (165,284 ops/s, p95 699.21 ms), serialization 239.57 ms (417,420 ops/s), tag escaping 171.13 ms (584,348 ops/s), styled-text parsing 207.16 ms (482,723 ops/s), and ISUPPORT parsing 587.42 ms (170,237 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
