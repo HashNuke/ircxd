@@ -226,7 +226,20 @@ defmodule Ircxd.Server do
     state
   end
 
-  defp handle_client_command(state, connection, %{
+  defp handle_client_command(state, connection, message) do
+    case Map.fetch(state.connections, connection) do
+      {:ok, %{registered?: true}} ->
+        handle_registered_command(state, connection, message)
+
+      {:ok, %{nick: nick}} ->
+        error_reply(state, connection, "451", [nick || "*", "You have not registered"])
+
+      :error ->
+        state
+    end
+  end
+
+  defp handle_registered_command(state, connection, %{
          command: "JOIN",
          params: [channel]
        }) do
@@ -254,7 +267,7 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp handle_client_command(state, connection, %{
+  defp handle_registered_command(state, connection, %{
          command: "NAMES",
          params: [channel]
        }) do
@@ -282,7 +295,7 @@ defmodule Ircxd.Server do
     broadcast(state, MapSet.new([connection]), end_message, connection)
   end
 
-  defp handle_client_command(state, connection, %{
+  defp handle_registered_command(state, connection, %{
          command: "PART",
          params: [channel | rest]
        }) do
@@ -310,7 +323,7 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp handle_client_command(state, connection, %{
+  defp handle_registered_command(state, connection, %{
          command: "QUIT",
          params: params
        }) do
@@ -334,7 +347,7 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp handle_client_command(state, connection, %{
+  defp handle_registered_command(state, connection, %{
          command: "TOPIC",
          params: [channel, topic]
        }) do
@@ -356,7 +369,7 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp handle_client_command(state, connection, %{
+  defp handle_registered_command(state, connection, %{
          command: "TOPIC",
          params: [channel]
        }) do
@@ -383,7 +396,7 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp handle_client_command(state, connection, %{
+  defp handle_registered_command(state, connection, %{
          command: command,
          params: [target, body]
        })
@@ -400,7 +413,7 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp handle_client_command(state, connection, %{
+  defp handle_registered_command(state, connection, %{
          command: "TAGMSG",
          params: [target],
          tags: tags
@@ -417,7 +430,13 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp handle_client_command(state, _connection, _message), do: state
+  defp handle_registered_command(state, connection, %{command: command}) do
+    error_reply(state, connection, "421", [
+      state.connections[connection].nick,
+      command,
+      "Unknown command"
+    ])
+  end
 
   defp broadcast(state, recipients, message, sender) do
     metadata = %{

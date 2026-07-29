@@ -47,6 +47,8 @@ to listen on different (or independently configured) endpoints.
    callbacks, success, failure, and account metadata without embedding a DB.
 9. [ ] Add protocol limits and malformed-input tests, including line size,
    registration timeouts, unknown commands, and nick/channel validation.
+   Registration timeouts, nickname validation, unknown commands, and the
+   pre-registration command gate are now covered.
 10. [x] Run the full ExUnit suite, then run an irssi manual/integration check;
    document supported behavior and known boundaries.
 11. [ ] Commit each coherent TDD slice with a detailed rationale and push every
@@ -81,3 +83,4 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated capability handling with 24 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Added distinct child IDs for multiple supervised servers and documented the embedding API | `test/ircxd/server_lifecycle_test.exs`, `README.md` |
 | 2026-07-29 | Revalidated the supervised-server embedding change with 25 server tests and the full suite | `mix format --check-formatted`, `mix test` |
+| 2026-07-29 | Added `421` unknown-command and `451` pre-registration command errors | `test/ircxd/server_protocol_errors_test.exs` |

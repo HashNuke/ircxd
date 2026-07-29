@@ -166,7 +166,10 @@ defmodule Ircxd.Server.Connection do
     {:stop, :normal, state}
   end
 
-  defp handle_message(_message, state), do: {:noreply, state}
+  defp handle_message(%Message{} = message, state) do
+    Ircxd.Server.command(state.server, self(), message)
+    {:noreply, state}
+  end
 
   defp maybe_register(%{registered?: true} = state), do: {:noreply, state}
 
