@@ -59,19 +59,22 @@ defmodule Ircxd.Server do
     port = Keyword.get(opts, :port, 6667)
     server_name = Keyword.get(opts, :server_name, @default_server_name)
     password = Keyword.get(opts, :password)
+    tls? = Keyword.get(opts, :tls, false)
+    tls_options = Keyword.get(opts, :tls_options, [])
     motd = normalize_motd(Keyword.get(opts, :motd, []))
     isupport = normalize_isupport(Keyword.get(opts, :isupport))
     admin = normalize_admin(Keyword.get(opts, :admin))
     authenticator = init_authenticator(Keyword.get(opts, :authenticator))
 
-    with {:ok, listener} <- listen(port) do
-      {:ok, {_address, actual_port}} = :inet.sockname(listener)
+    with {:ok, {transport, listener}} <- listen(port, tls?, tls_options),
+         {:ok, {_address, actual_port}} <- socket_name(transport, listener) do
       owner = self()
-      {:ok, acceptor} = Task.start(fn -> accept_loop(listener, owner) end)
+      {:ok, acceptor} = Task.start(fn -> accept_loop(transport, listener, owner) end)
 
       {:ok,
        %{
          listener: listener,
+         transport: transport,
          acceptor: acceptor,
          port: actual_port,
          server_name: server_name,
@@ -257,9 +260,10 @@ defmodule Ircxd.Server do
   end
 
   @impl true
-  def handle_info({:accepted, socket}, state) do
+  def handle_info({:accepted, transport, socket}, state) do
     case Connection.start(
            socket: socket,
+           transport: transport,
            server: self(),
            server_name: state.server_name,
            isupport: state.isupport,
@@ -269,7 +273,7 @@ defmodule Ircxd.Server do
            capabilities: state.capabilities
          ) do
       {:ok, connection} ->
-        case :gen_tcp.controlling_process(socket, connection) do
+        case controlling_process(transport, socket, connection) do
           :ok ->
             send(connection, :activate)
             ref = Process.monitor(connection)
@@ -296,12 +300,12 @@ defmodule Ircxd.Server do
 
           {:error, reason} ->
             Process.exit(connection, :shutdown)
-            :gen_tcp.close(socket)
+            close_socket(transport, socket)
             {:stop, reason, state}
         end
 
       {:error, reason} ->
-        :gen_tcp.close(socket)
+        close_socket(transport, socket)
         {:stop, reason, state}
     end
   end
@@ -318,15 +322,43 @@ defmodule Ircxd.Server do
   @impl true
   def terminate(_reason, state) do
     if Process.alive?(state.acceptor), do: Process.exit(state.acceptor, :shutdown)
-    :gen_tcp.close(state.listener)
+    close_socket(state.transport, state.listener)
     Enum.each(Map.keys(state.connections), &Process.exit(&1, :shutdown))
 
     if state.subscriber, do: GenServer.stop(state.subscriber.pid, :shutdown)
   end
 
-  defp listen(port) do
-    :gen_tcp.listen(port, [:binary, packet: :line, active: false, reuseaddr: true])
+  defp listen(port, false, _tls_options) do
+    case :gen_tcp.listen(port, [:binary, packet: :line, active: false, reuseaddr: true]) do
+      {:ok, listener} -> {:ok, {:gen_tcp, listener}}
+      error -> error
+    end
   end
+
+  defp listen(port, true, tls_options) do
+    :ssl.start()
+
+    options =
+      [packet: :line, active: false, reuseaddr: true]
+      |> Keyword.merge(tls_options)
+      |> then(&[:binary | &1])
+
+    case :ssl.listen(port, options) do
+      {:ok, listener} -> {:ok, {:ssl, listener}}
+      error -> error
+    end
+  end
+
+  defp socket_name(:gen_tcp, listener), do: :inet.sockname(listener)
+  defp socket_name(:ssl, listener), do: :ssl.sockname(listener)
+
+  defp controlling_process(:gen_tcp, socket, process),
+    do: :gen_tcp.controlling_process(socket, process)
+
+  defp controlling_process(:ssl, socket, process), do: :ssl.controlling_process(socket, process)
+
+  defp close_socket(:gen_tcp, socket), do: :gen_tcp.close(socket)
+  defp close_socket(:ssl, socket), do: :ssl.close(socket)
 
   defp init_subscriber(nil), do: nil
 
@@ -2102,12 +2134,39 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp accept_loop(listener, owner) do
+  defp accept_loop(:gen_tcp, listener, owner) do
     case :gen_tcp.accept(listener) do
       {:ok, socket} ->
         :ok = :gen_tcp.controlling_process(socket, owner)
-        send(owner, {:accepted, socket})
-        accept_loop(listener, owner)
+        send(owner, {:accepted, :gen_tcp, socket})
+        accept_loop(:gen_tcp, listener, owner)
+
+      {:error, :closed} ->
+        :ok
+
+      {:error, reason} ->
+        send(owner, {:accept_error, reason})
+    end
+  end
+
+  defp accept_loop(:ssl, listener, owner) do
+    case :ssl.transport_accept(listener) do
+      {:ok, socket} ->
+        case :ssl.handshake(socket) do
+          :ok ->
+            :ok = :ssl.controlling_process(socket, owner)
+            send(owner, {:accepted, :ssl, socket})
+            accept_loop(:ssl, listener, owner)
+
+          {:ok, socket} ->
+            :ok = :ssl.controlling_process(socket, owner)
+            send(owner, {:accepted, :ssl, socket})
+            accept_loop(:ssl, listener, owner)
+
+          {:error, reason} ->
+            :ssl.close(socket)
+            send(owner, {:accept_error, reason})
+        end
 
       {:error, :closed} ->
         :ok

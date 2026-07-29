@@ -111,6 +111,17 @@ Server information can be configured with `motd: ["Welcome"]` and
 `isupport: ["CHANTYPES=#&", "NICKLEN=30"]`. Administrative details use
 `admin: %{location: ["Operations"], email: "admin@example.test"}`.
 
+For an implicit TLS listener, set `tls: true` and provide standard Erlang SSL
+options such as `certfile` and `keyfile` through `tls_options`:
+
+```elixir
+{Ircxd.Server,
+ id: :secure_irc,
+ port: 6697,
+ tls: true,
+ tls_options: [certfile: "/path/to/server.crt", keyfile: "/path/to/server.key"]}
+```
+
 Use `Ircxd.Handler` when you want callback-style event handling:
 
 ```elixir

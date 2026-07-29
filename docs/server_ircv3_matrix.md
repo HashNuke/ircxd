@@ -30,7 +30,7 @@ Status values:
 | Account, away, monitor, and user-property tracking | partial | `server_authentication_test.exs`, `server_account_notify_test.exs`, `server_away_test.exs`, `server_away_notify_test.exs`, `server_monitor_test.exs`, `server_user_queries_test.exs`, `server_setname_test.exs`; application-owned account propagation, negotiated self/common-channel `ACCOUNT` notifications, negotiated AWAY fan-out with `305`/`306` and `away-notify`, negotiated realname changes via `SETNAME`, away-aware WHOIS `301`, MONITOR add/remove/clear/list/status with `730`/`731`/`732`/`733`, connect/disconnect notifications, and `ISON`/`USERHOST` replies with `303`/`302` exist, add remaining user-property tracking |
 | Batches, multiline, history, and redaction | planned | focused feature test files |
 | Standard replies and labeled responses | planned | focused feature test files |
-| TLS listener and STS policy | planned | `server_tls_test.exs`; host certificate configuration remains host-owned |
+| TLS listener and STS policy | partial | `server_tls_test.exs`; implicit TLS listeners accept `tls_options` and share the normal server protocol path, while certificate provisioning and STS policy remain host-owned |
 | Persistence, moderation policy, and application side effects | host | subscriber/callback contract |
 | irssi interoperability | partial | irssi is installed; run an opt-in manual/integration check after core commands stabilize |
 

@@ -118,6 +118,8 @@ to listen on different (or independently configured) endpoints.
    `CAP LIST` now returns the sorted active capability set for the connection.
    `invite-notify` is advertised and sends capability-gated INVITE notices to
    current channel members while preserving the normal target notification.
+   The listener supports implicit TLS through `tls: true` and application-
+   supplied `tls_options`; TLS connections share the normal protocol state.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -311,3 +313,5 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated nickname changes with 94 focused server tests, the full suite, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 610.2 ms median per 100k iterations (163,881 ops/s, p95 678.46 ms) | `mix test`, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Added IRCv3 `invite-notify` advertisement and capability-gated INVITE fan-out to channel members, with legacy-client isolation coverage | `test/ircxd/server_invite_notify_test.exs` |
 | 2026-07-29 | Revalidated `invite-notify` with 95 focused server tests, the full suite, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 632.48 ms median per 100k iterations (158,108 ops/s, p95 695.6 ms) | `mix test`, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added implicit TLS listener support with transport-aware accept, handshake, connection, and shutdown paths; verified registration and PING/PONG over TLS with `Ircxd.Client` | `test/ircxd/server_tls_test.exs`, `test/support/tls/server.crt`, `test/support/tls/server.key` |
+| 2026-07-29 | Revalidated TLS transport support with 96 focused server tests, the full suite, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 623.87 ms median per 100k iterations (160,290 ops/s, p95 724.05 ms) | `mix test`, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |

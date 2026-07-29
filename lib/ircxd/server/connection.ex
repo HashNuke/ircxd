@@ -10,11 +10,13 @@ defmodule Ircxd.Server.Connection do
   @impl true
   def init(opts) do
     socket = Keyword.fetch!(opts, :socket)
+    transport = Keyword.get(opts, :transport, :gen_tcp)
     registration_timeout = Keyword.get(opts, :registration_timeout, 60_000)
 
     {:ok,
      %{
        socket: socket,
+       transport: transport,
        server: Keyword.fetch!(opts, :server),
        server_name: Keyword.fetch!(opts, :server_name),
        isupport: Keyword.fetch!(opts, :isupport),
@@ -35,14 +37,14 @@ defmodule Ircxd.Server.Connection do
 
   @impl true
   def handle_info(:activate, state) do
-    :ok = :inet.setopts(state.socket, active: true)
+    :ok = setopts(state.transport, state.socket, active: true)
     {:noreply, state}
   end
 
   def handle_info({:server_send, %Message{} = message}, state) do
     message = outbound_message(state, message)
 
-    case :gen_tcp.send(state.socket, Message.serialize(message)) do
+    case send_data(state.transport, state.socket, Message.serialize(message)) do
       :ok -> {:noreply, state}
       {:error, reason} -> {:stop, reason, state}
     end
@@ -62,8 +64,24 @@ defmodule Ircxd.Server.Connection do
     end
   end
 
+  def handle_info({:ssl, socket, line}, %{socket: socket} = state) do
+    case Message.parse(line) do
+      {:ok, message} ->
+        handle_message(message, state)
+
+      {:error, reason} when reason in [:line_too_long, :tag_section_too_long] ->
+        send_message(state, "417", [state.nick || "*", "Input line too long"])
+        {:noreply, state}
+
+      {:error, _reason} ->
+        {:noreply, state}
+    end
+  end
+
   def handle_info({:tcp_closed, _socket}, state), do: {:stop, :normal, state}
   def handle_info({:tcp_error, _socket, reason}, state), do: {:stop, reason, state}
+  def handle_info({:ssl_closed, _socket}, state), do: {:stop, :normal, state}
+  def handle_info({:ssl_error, _socket, reason}, state), do: {:stop, reason, state}
 
   def handle_info(:registration_timeout, %{registered?: false} = state) do
     send_message(state, "ERROR", ["Registration timeout"])
@@ -74,7 +92,7 @@ defmodule Ircxd.Server.Connection do
 
   @impl true
   def terminate(_reason, state) do
-    :gen_tcp.close(state.socket)
+    close_socket(state.transport, state.socket)
   catch
     :error, :closed -> :ok
   end
@@ -299,8 +317,17 @@ defmodule Ircxd.Server.Connection do
     message = outbound_message(state, %Message{command: command, params: params})
     metadata = %{server: state.server_name, connection: self(), nick: state.nick}
     Ircxd.Server.publish(state.server, message, metadata)
-    :gen_tcp.send(state.socket, Message.serialize(message))
+    send_data(state.transport, state.socket, Message.serialize(message))
   end
+
+  defp setopts(:gen_tcp, socket, options), do: :inet.setopts(socket, options)
+  defp setopts(:ssl, socket, options), do: :ssl.setopts(socket, options)
+
+  defp send_data(:gen_tcp, socket, data), do: :gen_tcp.send(socket, data)
+  defp send_data(:ssl, socket, data), do: :ssl.send(socket, data)
+
+  defp close_socket(:gen_tcp, socket), do: :gen_tcp.close(socket)
+  defp close_socket(:ssl, socket), do: :ssl.close(socket)
 
   defp add_server_time(%Message{} = message, state) do
     if MapSet.member?(state.active_capabilities, "server-time") do
