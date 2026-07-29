@@ -186,6 +186,62 @@ defmodule Ircxd.Server do
   end
 
   defp handle_client_command(state, connection, %{
+         command: "NAMES",
+         params: [channel]
+       }) do
+    members = Map.get(state.channels, channel, MapSet.new())
+
+    names =
+      members
+      |> Enum.map(&state.connections[&1].nick)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(" ")
+
+    names_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "353",
+      params: [state.connections[connection].nick, "=", channel, names]
+    }
+
+    end_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "366",
+      params: [state.connections[connection].nick, channel, "End of NAMES list"]
+    }
+
+    state = broadcast(state, MapSet.new([connection]), names_message, connection)
+    broadcast(state, MapSet.new([connection]), end_message, connection)
+  end
+
+  defp handle_client_command(state, connection, %{
+         command: "PART",
+         params: [channel | rest]
+       }) do
+    case Map.fetch(state.connections, connection) do
+      {:ok, %{nick: nick} = client} when is_binary(nick) ->
+        members = Map.get(state.channels, channel, MapSet.new())
+
+        if MapSet.member?(members, connection) do
+          source = source_for(client, state.server_name)
+          message = %Ircxd.Message{source: source, command: "PART", params: [channel | rest]}
+          state = broadcast(state, members, message, connection)
+          channels = Map.put(state.channels, channel, MapSet.delete(members, connection))
+          client_channels = MapSet.delete(client.channels, channel)
+
+          connections =
+            Map.update!(state.connections, connection, &Map.put(&1, :channels, client_channels))
+
+          %{state | channels: channels, connections: connections}
+        else
+          state
+        end
+
+      _ ->
+        state
+    end
+  end
+
+  defp handle_client_command(state, connection, %{
          command: command,
          params: [target, body]
        })
