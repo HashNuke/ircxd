@@ -54,6 +54,7 @@ defmodule Ircxd.Server do
          port: actual_port,
          server_name: server_name,
          password: password,
+         registration_timeout: Keyword.get(opts, :registration_timeout, 60_000),
          connections: %{},
          channels: %{},
          topics: %{},
@@ -136,6 +137,7 @@ defmodule Ircxd.Server do
            server: self(),
            server_name: state.server_name,
            password: state.password,
+           registration_timeout: state.registration_timeout,
            auth_required?: not is_nil(state.authenticator),
            capabilities: state.capabilities
          ) do

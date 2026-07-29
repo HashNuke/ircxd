@@ -16,7 +16,7 @@ Status values:
 |---|---|---|
 | Supervision-tree lifecycle and ephemeral listeners | implemented | `Ircxd.Server`, `server_lifecycle_test.exs` |
 | Multiple server-instance isolation | implemented | `server_lifecycle_test.exs` |
-| Registration (`CAP`, `NICK`, `USER`, `PASS`, welcome numerics) | partial | `server_registration_test.exs`, `server_password_test.exs`; basic handshake, duplicate nick policy, and configured password/464 rejection exist, add validation/timeouts |
+| Registration (`CAP`, `NICK`, `USER`, `PASS`, welcome numerics) | partial | `server_registration_test.exs`, `server_password_test.exs`; handshake, duplicate nick policy, password/464 rejection, nickname validation/432, and configurable registration timeout exist; add remaining policy cases |
 | Core connection commands (`PING`, `PONG`, `QUIT`) | partial | `server_connection_test.exs`, `server_quit_test.exs`; explicit QUIT exists, add malformed/disconnect cases |
 | Channels (`JOIN`, `PART`, `NAMES`, `TOPIC`) | partial | `server_channels_test.exs`, `server_topic_test.exs`, `server_validation_test.exs`; core state and basic target validation exist, add modes/policy |
 | Published messages (`PRIVMSG`, `NOTICE`, `TAGMSG`) | partial | `server_messaging_test.exs`, `server_isolation_test.exs`, `server_direct_message_test.exs`, `server_tagmsg_test.exs`; channel/direct routing and tagged TAGMSG exist, add validation |

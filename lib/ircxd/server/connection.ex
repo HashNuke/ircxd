@@ -10,6 +10,7 @@ defmodule Ircxd.Server.Connection do
   @impl true
   def init(opts) do
     socket = Keyword.fetch!(opts, :socket)
+    registration_timeout = Keyword.get(opts, :registration_timeout, 60_000)
 
     {:ok,
      %{
@@ -19,6 +20,7 @@ defmodule Ircxd.Server.Connection do
        capabilities: Keyword.fetch!(opts, :capabilities),
        password: Keyword.get(opts, :password),
        password_authenticated?: is_nil(Keyword.get(opts, :password)),
+       registration_timer: registration_timer(registration_timeout),
        auth_required?: Keyword.get(opts, :auth_required?, false),
        authenticated?: false,
        account: nil,
@@ -49,6 +51,13 @@ defmodule Ircxd.Server.Connection do
 
   def handle_info({:tcp_closed, _socket}, state), do: {:stop, :normal, state}
   def handle_info({:tcp_error, _socket, reason}, state), do: {:stop, reason, state}
+
+  def handle_info(:registration_timeout, %{registered?: false} = state) do
+    send_message(state, "ERROR", ["Registration timeout"])
+    {:stop, :normal, state}
+  end
+
+  def handle_info(:registration_timeout, state), do: {:noreply, state}
 
   @impl true
   def terminate(_reason, state) do
@@ -111,8 +120,18 @@ defmodule Ircxd.Server.Connection do
   end
 
   defp handle_message(%Message{command: "NICK", params: [nick]}, state) do
-    state = %{state | nick: nick}
-    maybe_register(state)
+    cond do
+      state.registered? ->
+        send_message(state, "462", [state.nick || "*", "You may not reregister"])
+        {:noreply, state}
+
+      valid_nick?(nick) ->
+        maybe_register(%{state | nick: nick})
+
+      true ->
+        send_message(state, "432", [state.nick || "*", nick, "Erroneous nickname"])
+        {:noreply, state}
+    end
   end
 
   defp handle_message(
@@ -154,7 +173,8 @@ defmodule Ircxd.Server.Connection do
       :ok ->
         send_message(state, "001", [nick, "Welcome to Ircxd"])
         send_message(state, "002", [nick, "Your host is #{state.server_name}"])
-        {:noreply, %{state | registered?: true}}
+        cancel_registration_timer(state)
+        {:noreply, %{state | registered?: true, registration_timer: nil}}
 
       {:error, :nick_in_use} ->
         send_message(state, "433", [nick, nick, "Nickname is already in use"])
@@ -163,6 +183,20 @@ defmodule Ircxd.Server.Connection do
   end
 
   defp maybe_register(state), do: {:noreply, state}
+
+  defp valid_nick?(nick) when is_binary(nick) do
+    String.match?(nick, ~r/\A[A-Za-z\[\]\\\^`{}|][A-Za-z0-9\-\[\]\\\^`{}|]{0,29}\z/)
+  end
+
+  defp valid_nick?(_nick), do: false
+
+  defp registration_timer(timeout) when is_integer(timeout) and timeout > 0,
+    do: Process.send_after(self(), :registration_timeout, timeout)
+
+  defp registration_timer(_timeout), do: nil
+
+  defp cancel_registration_timer(%{registration_timer: nil}), do: :ok
+  defp cancel_registration_timer(%{registration_timer: timer}), do: Process.cancel_timer(timer)
 
   defp send_message(state, command, params) do
     message = %Message{command: command, params: params}
