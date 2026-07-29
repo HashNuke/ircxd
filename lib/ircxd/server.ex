@@ -99,6 +99,7 @@ defmodule Ircxd.Server do
          channel_keys: %{},
          channel_limits: %{},
          channel_bans: %{},
+         batches: %{},
          monitors: %{},
          connection_capabilities: %{},
          message_id: 0,
@@ -399,6 +400,7 @@ defmodule Ircxd.Server do
         "invite-notify",
         "labeled-response",
         "standard-replies",
+        "batch",
         "sasl"
       ],
       else: [
@@ -415,7 +417,8 @@ defmodule Ircxd.Server do
         "echo-message",
         "invite-notify",
         "labeled-response",
-        "standard-replies"
+        "standard-replies",
+        "batch"
       ]
   end
 
@@ -1330,6 +1333,7 @@ defmodule Ircxd.Server do
                 params: [target, body]
               }
 
+              state = maybe_start_batch(state, connection, tags, recipients)
               broadcast(state, recipients, message, connection)
 
             {:error, error_command, params} when command == "PRIVMSG" ->
@@ -1365,6 +1369,7 @@ defmodule Ircxd.Server do
               params: [target]
             }
 
+            state = maybe_start_batch(state, connection, tags, recipients)
             broadcast(state, recipients, message, connection)
 
           {:error, _error_command, _params} ->
@@ -1372,6 +1377,35 @@ defmodule Ircxd.Server do
         end
 
       _ ->
+        state
+    end
+  end
+
+  defp handle_registered_command(
+         state,
+         connection,
+         %{
+           command: "BATCH",
+           params: params
+         } = message
+       ) do
+    case Ircxd.Batch.parse(params) do
+      {:ok, %{direction: :start, ref: ref, type: type, params: batch_params}} ->
+        source = source_for(state.connections[connection], state.server_name)
+
+        batch = %{
+          message: %{message | source: source},
+          type: type,
+          params: batch_params,
+          recipients: MapSet.new()
+        }
+
+        %{state | batches: Map.put(state.batches, {connection, ref}, batch)}
+
+      {:ok, %{direction: :end, ref: ref}} ->
+        finish_batch(state, connection, ref, message)
+
+      {:error, _reason} ->
         state
     end
   end
@@ -2348,6 +2382,47 @@ defmodule Ircxd.Server do
     state
   end
 
+  defp maybe_start_batch(state, connection, tags, recipients) do
+    case Map.get(tags, "batch") do
+      nil ->
+        state
+
+      ref ->
+        case Map.fetch(state.batches, {connection, ref}) do
+          {:ok, %{message: message, recipients: current} = batch} ->
+            new_recipients = MapSet.difference(recipients, current)
+            state = broadcast(state, new_recipients, message, connection)
+
+            batches =
+              Map.put(state.batches, {connection, ref}, %{
+                batch
+                | recipients: MapSet.union(current, new_recipients)
+              })
+
+            %{state | batches: batches}
+
+          :error ->
+            state
+        end
+    end
+  end
+
+  defp finish_batch(state, connection, ref, message) do
+    case Map.pop(state.batches, {connection, ref}) do
+      {nil, _batches} ->
+        state
+
+      {%{recipients: recipients}, batches} ->
+        message = %{
+          message
+          | source: source_for(state.connections[connection], state.server_name)
+        }
+
+        state = %{state | batches: batches}
+        broadcast(state, recipients, message, connection)
+    end
+  end
+
   defp source_for(%{nick: nick}, server_name), do: "#{nick}!user@#{server_name}"
 
   defp format_account(account) when is_binary(account), do: account
@@ -2425,6 +2500,12 @@ defmodule Ircxd.Server do
           state
           | connections: connections,
             channels: channels,
+            batches:
+              state.batches
+              |> Enum.reject(fn {{batch_connection, _ref}, _batch} ->
+                batch_connection == connection
+              end)
+              |> Map.new(),
             monitors: Map.delete(state.monitors, connection),
             connection_capabilities: Map.delete(state.connection_capabilities, connection)
         }
