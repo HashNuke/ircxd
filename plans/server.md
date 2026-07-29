@@ -168,11 +168,11 @@ to listen on different (or independently configured) endpoints.
    reach the embedding application with connection metadata. Callback state is
    serialized in a dedicated worker so slow or failing persistence cannot block
    the listener or command routing.
-7. [ ] Add configurable callbacks/handler hooks and test callback failures and
-   connection cleanup without taking down the listener. Subscriber callback
-   execution is isolated in a worker; initialization failures now return a
-   structured startup error before the acceptor starts, while callback failures
-   preserve the listener.
+7. [x] Add configurable callbacks/handler hooks and test callback failures and
+   connection cleanup without taking down the listener. The subscriber
+   contract is isolated in a worker; initialization failures now return a
+   structured startup error before the acceptor starts, while callback
+   failures preserve the listener.
 8. [x] Add an authentication contract for SASL and test database-backed host
    callbacks, success, failure, and account metadata without embedding a DB.
 9. [ ] Add protocol limits and malformed-input tests, including line size,
@@ -421,3 +421,4 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated authentication failure isolation with 122 focused server tests, 378 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 655.95 ms median per 100k iterations (152,450 ops/s, p95 753.51 ms), serialization 246.66 ms (405,425 ops/s), tag escaping 181.65 ms (550,506 ops/s), styled-text parsing 201.73 ms (495,702 ops/s), and ISUPPORT parsing 597.2 ms (167,448 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Made authenticator initialization return structured errors before listener startup, including provider `{:error, reason}`, invalid returns, and raised initialization failures; added startup regression coverage | `lib/ircxd/server.ex`, `test/ircxd/server_authentication_test.exs` |
 | 2026-07-29 | Revalidated authenticator startup handling with 123 focused server tests, 379 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 662.79 ms median per 100k iterations (150,878 ops/s, p95 720.8 ms), serialization 237.36 ms (421,301 ops/s), tag escaping 183.79 ms (544,111 ops/s), styled-text parsing 200.12 ms (499,690 ops/s), and ISUPPORT parsing 577.03 ms (173,300 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Marked the subscriber callback/handler-hook task complete and documented the `Ircxd.Server.Subscriber` contract, metadata, serialized state, and embedding example; revalidated 11 focused callback/authentication tests, 379 non-external tests, irssi interoperability, and protocol microbenchmarks with tagged parsing at 627.62 ms per 100k iterations (159,331 ops/s, p95 758.57 ms) | `README.md`, `plans/server.md`, `mix test`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |

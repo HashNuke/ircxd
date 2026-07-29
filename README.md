@@ -107,6 +107,34 @@ for application-owned SASL credential checks. See
 `docs/server_ircv3_matrix.md` and `plans/server.md` for the current protocol
 coverage and boundaries.
 
+Subscribers implement `Ircxd.Server.Subscriber`. The callback state is kept
+inside a serialized worker, and each published message includes server and
+connection metadata:
+
+```elixir
+defmodule MyApp.IrcSubscriber do
+  @behaviour Ircxd.Server.Subscriber
+
+  @impl true
+  def init(db), do: {:ok, db}
+
+  @impl true
+  def handle_publish(message, metadata, db) do
+    MyApp.Messages.persist(db, message, metadata)
+    {:ok, db}
+  end
+end
+
+{Ircxd.Server,
+ id: :public_irc,
+ port: 6667,
+ subscriber: {MyApp.IrcSubscriber, MyApp.Repo}}
+```
+
+Subscriber callbacks should return `{:ok, state}`. Callback exceptions are
+contained by the server worker; persistence remains owned by the embedding
+application.
+
 Server information can be configured with `motd: ["Welcome"]`,
 `info: ["Ircxd.Server"]`, and `isupport: ["CHANTYPES=#&", "NICKLEN=30"]`.
 Help text uses `help: %{"JOIN" => ["JOIN <channel>"]}`. Administrative
