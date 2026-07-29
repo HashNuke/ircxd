@@ -112,6 +112,7 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Added invite-only channel mode `+i`, invitation tracking, and `473` JOIN policy coverage | `test/ircxd/server_channel_modes_test.exs` |
 | 2026-07-29 | Added first-member channel operators, `@` NAMES prefixes, `482` enforcement for MODE/KICK, and deterministic operator-order tests | `test/ircxd/server_operator_test.exs` |
 | 2026-07-29 | Added topic-lock mode `+t` and verified non-operator topic changes receive `482` | `test/ircxd/server_topic_mode_test.exs` |
+| 2026-07-29 | Revalidated topic-lock policy with 55 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Revalidated operator permissions with 54 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Revalidated `+i` channel policy with 53 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Revalidated INVITE with 52 server tests, the full ExUnit suite, formatting checks, and the existing irssi 1.4.5 smoke gate | `mix test`, `mix format --check-formatted`, named tmux irssi check |
