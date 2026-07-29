@@ -75,3 +75,4 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Isolated subscriber callbacks in a serialized worker and covered slow/failing callback behavior | `Ircxd.Server.SubscriberWorker`, `test/ircxd/server_subscriber_test.exs` |
 | 2026-07-29 | Re-ran full tests, irssi compatibility, and protocol microbenchmarks after subscriber isolation | `mix test`, `mix run` irssi check, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Added nickname grammar validation (`432`) and configurable incomplete-registration timeouts | `test/ircxd/server_registration_test.exs` |
+| 2026-07-29 | Revalidated registration hardening with 23 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
