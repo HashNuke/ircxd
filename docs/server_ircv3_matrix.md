@@ -19,10 +19,10 @@ Status values:
 | Registration (`CAP`, `NICK`, `USER`, welcome numerics) | partial | `server_registration_test.exs`; duplicate nick rejection exists, add PASS/validation/timeout cases |
 | Core connection commands (`PING`, `PONG`, `QUIT`) | partial | `server_connection_test.exs`, `server_quit_test.exs`; explicit QUIT exists, add malformed/disconnect cases |
 | Channels (`JOIN`, `PART`, `NAMES`, `TOPIC`) | partial | `server_channels_test.exs`, `server_topic_test.exs`; core state exists, add validation and modes |
-| Published messages (`PRIVMSG`, `NOTICE`, `TAGMSG`) | partial | `server_messaging_test.exs`, `server_isolation_test.exs`, `server_direct_message_test.exs`; channel/direct PRIVMSG/NOTICE exists, add TAGMSG and validation |
+| Published messages (`PRIVMSG`, `NOTICE`, `TAGMSG`) | partial | `server_messaging_test.exs`, `server_isolation_test.exs`, `server_direct_message_test.exs`, `server_tagmsg_test.exs`; channel/direct routing and tagged TAGMSG exist, add validation |
 | Subscriber callback contract and failure isolation | partial | `server_subscriber_test.exs`; add explicit crash/slow-callback isolation tests |
 | Application-owned SASL authentication | partial | `server_authentication_test.exs`; PLAIN success/failure exist, add mechanisms and policy cases |
-| Capability negotiation and `CAP LS/REQ/END` | partial | `server_capabilities_test.exs`; SASL advertisement/ACK is covered by authentication tests |
+| Capability negotiation and `CAP LS/REQ/END` | partial | `server_tagmsg_test.exs`, `server_authentication_test.exs`; message-tags and SASL advertisement/ACK exist, add unsupported-request/error cases |
 | Message tags, server-time, and message IDs | planned | `server_message_tags_test.exs` |
 | SASL mechanisms beyond PLAIN | planned | `server_sasl_test.exs` |
 | Account, away, monitor, and user-property tracking | planned | focused feature test files |

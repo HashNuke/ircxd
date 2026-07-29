@@ -16,6 +16,7 @@ defmodule Ircxd.Server.Connection do
        socket: socket,
        server: Keyword.fetch!(opts, :server),
        server_name: Keyword.fetch!(opts, :server_name),
+       capabilities: Keyword.fetch!(opts, :capabilities),
        auth_required?: Keyword.get(opts, :auth_required?, false),
        authenticated?: false,
        account: nil,
@@ -55,14 +56,16 @@ defmodule Ircxd.Server.Connection do
   end
 
   defp handle_message(%Message{command: "CAP", params: ["LS" | _]}, state) do
-    caps = if(state.auth_required?, do: "sasl", else: "")
+    caps = Enum.join(state.capabilities, " ")
     send_message(state, "CAP", ["*", "LS", caps])
     {:noreply, state}
   end
 
   defp handle_message(%Message{command: "CAP", params: ["REQ", caps]}, state) do
-    if state.auth_required? and String.split(caps) == ["sasl"],
-      do: send_message(state, "CAP", ["*", "ACK", "sasl"])
+    requested = String.split(caps, " ", trim: true)
+
+    if requested != [] and Enum.all?(requested, &(&1 in state.capabilities)),
+      do: send_message(state, "CAP", ["*", "ACK", Enum.join(requested, " ")])
 
     {:noreply, state}
   end
@@ -113,7 +116,7 @@ defmodule Ircxd.Server.Connection do
   end
 
   defp handle_message(%Message{command: command} = message, state)
-       when command in ["JOIN", "NAMES", "PART", "PRIVMSG", "NOTICE", "TOPIC"] do
+       when command in ["JOIN", "NAMES", "PART", "PRIVMSG", "NOTICE", "TAGMSG", "TOPIC"] do
     Ircxd.Server.command(state.server, self(), message)
     {:noreply, state}
   end

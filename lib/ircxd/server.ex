@@ -35,6 +35,7 @@ defmodule Ircxd.Server do
   def init(opts) do
     port = Keyword.get(opts, :port, 6667)
     server_name = Keyword.get(opts, :server_name, @default_server_name)
+    authenticator = init_authenticator(Keyword.get(opts, :authenticator))
 
     with {:ok, listener} <- listen(port) do
       {:ok, {_address, actual_port}} = :inet.sockname(listener)
@@ -50,8 +51,9 @@ defmodule Ircxd.Server do
          connections: %{},
          channels: %{},
          topics: %{},
+         capabilities: capabilities(not is_nil(authenticator)),
          subscriber: init_subscriber(Keyword.get(opts, :subscriber)),
-         authenticator: init_authenticator(Keyword.get(opts, :authenticator))
+         authenticator: authenticator
        }}
     end
   end
@@ -116,7 +118,8 @@ defmodule Ircxd.Server do
            socket: socket,
            server: self(),
            server_name: state.server_name,
-           auth_required?: not is_nil(state.authenticator)
+           auth_required?: not is_nil(state.authenticator),
+           capabilities: state.capabilities
          ) do
       {:ok, connection} ->
         case :gen_tcp.controlling_process(socket, connection) do
@@ -178,6 +181,10 @@ defmodule Ircxd.Server do
   defp init_authenticator({module, arg}) do
     {:ok, authenticator_state} = module.init(arg)
     %{module: module, state: authenticator_state}
+  end
+
+  defp capabilities(auth_required?) do
+    if auth_required?, do: ["message-tags", "sasl"], else: ["message-tags"]
   end
 
   defp dispatch_to_subscriber(%{subscriber: nil} = state, _message, _metadata), do: state
@@ -354,6 +361,23 @@ defmodule Ircxd.Server do
         recipients = recipients_for(state, target)
         source = source_for(client, state.server_name)
         message = %Ircxd.Message{source: source, command: command, params: [target, body]}
+        broadcast(state, recipients, message, connection)
+
+      _ ->
+        state
+    end
+  end
+
+  defp handle_client_command(state, connection, %{
+         command: "TAGMSG",
+         params: [target],
+         tags: tags
+       }) do
+    case Map.fetch(state.connections, connection) do
+      {:ok, %{nick: nick} = client} when is_binary(nick) ->
+        recipients = recipients_for(state, target)
+        source = source_for(client, state.server_name)
+        message = %Ircxd.Message{tags: tags, source: source, command: "TAGMSG", params: [target]}
         broadcast(state, recipients, message, connection)
 
       _ ->
