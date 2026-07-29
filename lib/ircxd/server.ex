@@ -405,6 +405,7 @@ defmodule Ircxd.Server do
         "batch",
         "draft/chathistory",
         "draft/multiline",
+        "draft/message-redaction",
         "sasl"
       ],
       else: [
@@ -424,7 +425,8 @@ defmodule Ircxd.Server do
         "standard-replies",
         "batch",
         "draft/chathistory",
-        "draft/multiline"
+        "draft/multiline",
+        "draft/message-redaction"
       ]
   end
 
@@ -1436,6 +1438,25 @@ defmodule Ircxd.Server do
          params: [query, target, selector, limit | _rest]
        }) do
     serve_history(state, connection, query, target, selector, parse_history_limit(limit))
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "REDACT",
+         params: params
+       })
+       when length(params) < 2 do
+    error_reply(state, connection, "461", [
+      state.connections[connection].nick,
+      "REDACT",
+      "Not enough parameters"
+    ])
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "REDACT",
+         params: [target, msgid | reason]
+       }) do
+    redact_message(state, connection, target, msgid, List.first(reason))
   end
 
   defp handle_registered_command(state, connection, %{command: "CHATHISTORY"}) do
@@ -2573,6 +2594,62 @@ defmodule Ircxd.Server do
         &broadcast(&2, MapSet.new([connection]), &1, connection)
       )
     end
+  end
+
+  defp redact_message(state, connection, target, msgid, reason) do
+    requester = state.connections[connection]
+
+    cond do
+      not valid_channel?(target) or not Map.has_key?(state.channels, target) ->
+        redaction_error(state, connection, "INVALID_TARGET", target, msgid)
+
+      not MapSet.member?(Map.get(state.channels, target), connection) ->
+        redaction_error(state, connection, "INVALID_TARGET", target, msgid)
+
+      true ->
+        case Enum.find_index(state.history, fn
+               %{params: [^target, _body], tags: %{"msgid" => ^msgid}} -> true
+               _entry -> false
+             end) do
+          nil ->
+            redaction_error(state, connection, "UNKNOWN_MSGID", target, msgid)
+
+          index ->
+            entry = Enum.at(state.history, index)
+
+            authorized? =
+              entry.source == source_for(requester, state.server_name) or
+                channel_operator?(state, target, connection)
+
+            if authorized? do
+              history = List.delete_at(state.history, index)
+              state = %{state | history: history}
+              members = Map.get(state.channels, target, MapSet.new())
+              recipients = capability_recipients(members, state, "draft/message-redaction")
+              params = [target, msgid] ++ if(is_nil(reason), do: [], else: [reason])
+
+              message = %Ircxd.Message{
+                source: source_for(requester, state.server_name),
+                command: "REDACT",
+                params: params
+              }
+
+              broadcast(state, recipients, message, connection)
+            else
+              redaction_error(state, connection, "REDACT_FORBIDDEN", target, msgid)
+            end
+        end
+    end
+  end
+
+  defp redaction_error(state, connection, code, target, msgid) do
+    error_reply(state, connection, "FAIL", [
+      "REDACT",
+      code,
+      target,
+      msgid,
+      "Redaction request was not permitted"
+    ])
   end
 
   defp selector_value("timestamp=" <> timestamp), do: timestamp
