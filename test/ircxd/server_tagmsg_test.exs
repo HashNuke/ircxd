@@ -15,6 +15,7 @@ defmodule Ircxd.ServerTagmsgTest do
     end)
 
     wait_registered(2)
+    wait_for_capability_acks(2)
     assert :ok = Client.join(alice, "#tags")
     assert :ok = Client.join(bob, "#tags")
     wait_for_joins(2)
@@ -54,6 +55,17 @@ defmodule Ircxd.ServerTagmsgTest do
       _other -> wait_for_joins(remaining)
     after
       2_000 -> flunk("clients did not join")
+    end
+  end
+
+  defp wait_for_capability_acks(0), do: :ok
+
+  defp wait_for_capability_acks(remaining) do
+    receive do
+      {:ircxd, {:cap_ack, ["message-tags"]}} -> wait_for_capability_acks(remaining - 1)
+      _other -> wait_for_capability_acks(remaining)
+    after
+      2_000 -> flunk("clients did not activate message-tags")
     end
   end
 
