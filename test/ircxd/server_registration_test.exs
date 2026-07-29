@@ -56,6 +56,20 @@ defmodule Ircxd.ServerRegistrationTest do
     refute_receive {:ircxd, :registered}, 500
   end
 
+  test "rejects USER changes after registration" do
+    {:ok, server} = Server.start_link(port: 0, server_name: "ircxd.test")
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, client} = start_client(server, "registered-user")
+    on_exit(fn -> stop_if_alive(client) end)
+    wait_registered()
+
+    assert :ok = Client.raw(client, "USER", ["changed", "0", "*", "Changed identity"])
+
+    assert_receive {:ircxd, {:irc_error, %{code: "462", reason: "You may not reregister"}}},
+                   2_000
+  end
+
   test "closes a connection that does not complete registration before the timeout" do
     {:ok, server} = Server.start_link(port: 0, registration_timeout: 50)
     on_exit(fn -> stop_if_alive(server) end)

@@ -155,6 +155,11 @@ defmodule Ircxd.Server.Connection do
     end
   end
 
+  defp handle_message(%Message{command: "USER"}, %{registered?: true} = state) do
+    send_message(state, "462", [state.nick || "*", "You may not reregister"])
+    {:noreply, state}
+  end
+
   defp handle_message(
          %Message{command: "USER", params: [username, _mode, _unused, realname]},
          state
