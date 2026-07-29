@@ -23,6 +23,28 @@ defmodule Ircxd.ServerTopicTest do
     wait_for_topics(2)
   end
 
+  test "rejects topic changes from non-members" do
+    {:ok, server} = Server.start_link(port: 0)
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, alice} = start_client(server, "topic-owner")
+    {:ok, bob} = start_client(server, "topic-outsider")
+
+    on_exit(fn ->
+      stop_if_alive(alice)
+      stop_if_alive(bob)
+    end)
+
+    wait_registered(2)
+    assert :ok = Client.join(alice, "#topic-membership")
+    assert_receive {:ircxd, {:join, %{channel: "#topic-membership"}}}, 2_000
+
+    assert :ok = Client.topic(bob, "#topic-membership", "not allowed")
+
+    assert_receive {:ircxd, {:irc_error, %{code: "442", reason: "You're not on that channel"}}},
+                   2_000
+  end
+
   defp start_client(server, nick) do
     Client.start_link(
       host: "127.0.0.1",
@@ -70,5 +92,11 @@ defmodule Ircxd.ServerTopicTest do
     after
       2_000 -> flunk("topic was not published to all members")
     end
+  end
+
+  defp stop_if_alive(pid) do
+    GenServer.stop(pid)
+  catch
+    :exit, _reason -> :ok
   end
 end

@@ -813,7 +813,11 @@ defmodule Ircxd.Server do
         %{state | topics: Map.put(state.topics, channel, topic)}
       end
     else
-      state
+      error_reply(state, connection, "442", [
+        state.connections[connection].nick,
+        channel,
+        "You're not on that channel"
+      ])
     end
   end
 
