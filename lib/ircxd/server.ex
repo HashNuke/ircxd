@@ -100,6 +100,8 @@ defmodule Ircxd.Server do
          channel_limits: %{},
          channel_bans: %{},
          batches: %{},
+         history: [],
+         history_limit: normalize_history_limit(Keyword.get(opts, :history_limit, 1_000)),
          monitors: %{},
          connection_capabilities: %{},
          message_id: 0,
@@ -401,6 +403,7 @@ defmodule Ircxd.Server do
         "labeled-response",
         "standard-replies",
         "batch",
+        "draft/chathistory",
         "sasl"
       ],
       else: [
@@ -418,13 +421,28 @@ defmodule Ircxd.Server do
         "invite-notify",
         "labeled-response",
         "standard-replies",
-        "batch"
+        "batch",
+        "draft/chathistory"
       ]
   end
 
   defp normalize_motd(motd) when is_binary(motd), do: String.split(motd, "\n")
   defp normalize_motd(motd) when is_list(motd), do: Enum.map(motd, &to_string/1)
   defp normalize_motd(_motd), do: []
+
+  defp normalize_history_limit(limit) when is_integer(limit) and limit > 0,
+    do: min(limit, 10_000)
+
+  defp normalize_history_limit(_limit), do: 1_000
+
+  defp parse_history_limit(limit) when is_binary(limit) do
+    case Integer.parse(limit) do
+      {limit, ""} when limit > 0 -> min(limit, 100)
+      _ -> 50
+    end
+  end
+
+  defp parse_history_limit(_limit), do: 50
 
   defp normalize_info(nil), do: ["Ircxd.Server", "Embeddable IRC server for Elixir applications"]
   defp normalize_info(info) when is_binary(info), do: [info]
@@ -1333,6 +1351,7 @@ defmodule Ircxd.Server do
                 params: [target, body]
               }
 
+              {state, message} = record_history(state, message)
               state = maybe_start_batch(state, connection, tags, recipients)
               broadcast(state, recipients, message, connection)
 
@@ -1379,6 +1398,21 @@ defmodule Ircxd.Server do
       _ ->
         state
     end
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "CHATHISTORY",
+         params: ["LATEST", target, _selector, limit | _rest]
+       }) do
+    serve_latest_history(state, connection, target, parse_history_limit(limit))
+  end
+
+  defp handle_registered_command(state, connection, %{command: "CHATHISTORY"}) do
+    error_reply(state, connection, "421", [
+      state.connections[connection].nick,
+      "CHATHISTORY",
+      "Unsupported CHATHISTORY query"
+    ])
   end
 
   defp handle_registered_command(
@@ -2406,6 +2440,75 @@ defmodule Ircxd.Server do
         end
     end
   end
+
+  defp serve_latest_history(state, connection, target, limit) do
+    requester = state.connections[connection].nick
+
+    cond do
+      not Map.has_key?(state.channels, target) ->
+        error_reply(state, connection, "403", [requester, target, "No such channel"])
+
+      not MapSet.member?(Map.get(state.channels, target), connection) ->
+        error_reply(state, connection, "442", [requester, target, "You're not on that channel"])
+
+      true ->
+        entries =
+          state.history
+          |> Enum.filter(fn
+            %{params: [^target, _body]} -> true
+            _entry -> false
+          end)
+          |> Enum.take(limit)
+          |> Enum.reverse()
+
+        ref = "history-#{Integer.to_string(state.message_id + 1, 16)}"
+
+        start_message = %Ircxd.Message{
+          source: state.server_name,
+          command: "BATCH",
+          params: ["+#{ref}", "chathistory", target]
+        }
+
+        state = broadcast(state, MapSet.new([connection]), start_message, connection)
+
+        state =
+          Enum.reduce(entries, state, fn entry, state ->
+            message = %{entry | tags: Map.put(entry.tags, "batch", ref)}
+            broadcast(state, MapSet.new([connection]), message, nil)
+          end)
+
+        end_message = %Ircxd.Message{
+          source: state.server_name,
+          command: "BATCH",
+          params: ["-#{ref}"]
+        }
+
+        broadcast(state, MapSet.new([connection]), end_message, connection)
+    end
+  end
+
+  defp record_history(state, %Ircxd.Message{command: command, params: [target, _body]} = message)
+       when command in ["PRIVMSG", "NOTICE"] do
+    if valid_channel?(target) and Map.has_key?(state.channels, target) do
+      message_id = state.message_id + 1
+
+      tags =
+        message.tags
+        |> Map.put_new("msgid", Integer.to_string(message_id, 16) |> String.upcase())
+        |> Map.put_new("time", DateTime.utc_now() |> DateTime.to_iso8601())
+
+      history = [
+        %{message | tags: tags}
+        | Enum.take(state.history, max(state.history_limit - 1, 0))
+      ]
+
+      {%{state | history: history, message_id: message_id}, %{message | tags: tags}}
+    else
+      {state, message}
+    end
+  end
+
+  defp record_history(state, message), do: {state, message}
 
   defp finish_batch(state, connection, ref, message) do
     case Map.pop(state.batches, {connection, ref}) do
