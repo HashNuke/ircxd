@@ -134,6 +134,7 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated WHO identity handling with 45 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Added `WHOIS` identity replies with `311`/`312`/`318` | `test/ircxd/server_whois_test.exs` |
 | 2026-07-29 | Made message-tags tests order-independent when registration and CAP ACK events race | `test/ircxd/server_tagmsg_test.exs`, `test/ircxd/server_message_tags_test.exs` |
+| 2026-07-29 | Revalidated WHOIS and capability-test stability with 46 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Revalidated all-channel NAMES with 37 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Revalidated multi-target JOIN with 34 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Revalidated LIST support with 33 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
