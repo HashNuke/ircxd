@@ -168,7 +168,17 @@ defmodule Ircxd.Server.Connection do
   end
 
   defp handle_message(%Message{command: command} = message, state)
-       when command in ["JOIN", "NAMES", "PART", "PRIVMSG", "NOTICE", "TAGMSG", "TOPIC", "MODE"] do
+       when command in [
+              "JOIN",
+              "NAMES",
+              "PART",
+              "PRIVMSG",
+              "NOTICE",
+              "TAGMSG",
+              "TOPIC",
+              "MODE",
+              "LIST"
+            ] do
     Ircxd.Server.command(state.server, self(), message)
     {:noreply, state}
   end

@@ -297,6 +297,46 @@ defmodule Ircxd.Server do
   end
 
   defp handle_registered_command(state, connection, %{
+         command: "LIST",
+         params: params
+       }) do
+    nick = state.connections[connection].nick
+    channels = channels_for_list(state, params)
+
+    start_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "321",
+      params: [nick, "Channel", "Users Name"]
+    }
+
+    state = broadcast(state, MapSet.new([connection]), start_message, connection)
+
+    state =
+      Enum.reduce(channels, state, fn {channel, members}, state ->
+        entry = %Ircxd.Message{
+          source: state.server_name,
+          command: "322",
+          params: [
+            nick,
+            channel,
+            Integer.to_string(MapSet.size(members)),
+            Map.get(state.topics, channel, "")
+          ]
+        }
+
+        broadcast(state, MapSet.new([connection]), entry, connection)
+      end)
+
+    end_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "323",
+      params: [nick, "End of /LIST"]
+    }
+
+    broadcast(state, MapSet.new([connection]), end_message, connection)
+  end
+
+  defp handle_registered_command(state, connection, %{
          command: "PART",
          params: [channel | rest]
        }) do
@@ -495,6 +535,19 @@ defmodule Ircxd.Server do
   end
 
   defp valid_channel?(_channel), do: false
+
+  defp channels_for_list(state, []), do: Map.to_list(state.channels)
+
+  defp channels_for_list(state, [targets | _]) do
+    targets
+    |> String.split(",", trim: true)
+    |> Enum.flat_map(fn channel ->
+      case Map.fetch(state.channels, channel) do
+        {:ok, members} -> [{channel, members}]
+        :error -> []
+      end
+    end)
+  end
 
   defp error_reply(state, connection, command, params) do
     message = %Ircxd.Message{source: state.server_name, command: command, params: params}
