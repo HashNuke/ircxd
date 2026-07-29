@@ -19,7 +19,7 @@ Status values:
 | Registration (`CAP`, `NICK`, `USER`, welcome numerics) | partial | `server_registration_test.exs`; add validation and timeout cases |
 | Core connection commands (`PING`, `PONG`, `QUIT`) | planned | `server_connection_test.exs` |
 | Channels (`JOIN`, `PART`, `NAMES`, `TOPIC`) | planned | `server_channel_test.exs` |
-| Published messages (`PRIVMSG`, `NOTICE`, `TAGMSG`) | planned | `server_messaging_test.exs` |
+| Published messages (`PRIVMSG`, `NOTICE`, `TAGMSG`) | partial | `server_messaging_test.exs`; `PRIVMSG` channel fan-out exists, add NOTICE/TAGMSG and isolation |
 | Subscriber callback contract and failure isolation | partial | `server_subscriber_test.exs`; add explicit crash/slow-callback isolation tests |
 | Application-owned SASL authentication | partial | `server_authentication_test.exs`; PLAIN success/failure exist, add mechanisms and policy cases |
 | Capability negotiation and `CAP LS/REQ/END` | partial | `server_capabilities_test.exs`; SASL advertisement/ACK is covered by authentication tests |

@@ -25,6 +25,9 @@ defmodule Ircxd.Server do
   def authenticate(server, username, password, metadata),
     do: GenServer.call(server, {:authenticate, username, password, metadata})
 
+  def command(server, connection, message),
+    do: GenServer.cast(server, {:client_command, connection, message})
+
   @impl true
   def init(opts) do
     port = Keyword.get(opts, :port, 6667)
@@ -42,6 +45,7 @@ defmodule Ircxd.Server do
          port: actual_port,
          server_name: server_name,
          connections: %{},
+         channels: %{},
          subscriber: init_subscriber(Keyword.get(opts, :subscriber)),
          authenticator: init_authenticator(Keyword.get(opts, :authenticator))
        }}
@@ -79,6 +83,10 @@ defmodule Ircxd.Server do
     {:noreply, dispatch_to_subscriber(state, message, metadata)}
   end
 
+  def handle_cast({:client_command, connection, message}, state) do
+    {:noreply, handle_client_command(state, connection, message)}
+  end
+
   @impl true
   def handle_info({:accepted, socket}, state) do
     case Connection.start(
@@ -92,7 +100,7 @@ defmodule Ircxd.Server do
           :ok ->
             send(connection, :activate)
             ref = Process.monitor(connection)
-            connection_state = %{socket: socket, ref: ref}
+            connection_state = %{socket: socket, ref: ref, nick: nil, channels: MapSet.new()}
 
             {:noreply,
              %{state | connections: Map.put(state.connections, connection, connection_state)}}
@@ -152,6 +160,63 @@ defmodule Ircxd.Server do
   rescue
     _error -> state
   end
+
+  defp handle_client_command(state, connection, %{
+         command: "JOIN",
+         params: [channel]
+       }) do
+    case Map.fetch(state.connections, connection) do
+      {:ok, %{nick: nick} = client} when is_binary(nick) ->
+        source = source_for(client, state.server_name)
+        message = %Ircxd.Message{source: source, command: "JOIN", params: [channel]}
+        members = Map.get(state.channels, channel, MapSet.new())
+        recipients = MapSet.put(members, connection)
+        state = broadcast(state, recipients, message, connection)
+        channels = Map.put(state.channels, channel, recipients)
+        client_channels = MapSet.put(client.channels, channel)
+
+        connections =
+          Map.update!(state.connections, connection, &Map.put(&1, :channels, client_channels))
+
+        %{state | channels: channels, connections: connections}
+
+      _ ->
+        state
+    end
+  end
+
+  defp handle_client_command(state, connection, %{
+         command: command,
+         params: [target, body]
+       })
+       when command in ["PRIVMSG", "NOTICE"] do
+    case Map.fetch(state.connections, connection) do
+      {:ok, %{nick: nick} = client} when is_binary(nick) ->
+        recipients = Map.get(state.channels, target, MapSet.new())
+        source = source_for(client, state.server_name)
+        message = %Ircxd.Message{source: source, command: command, params: [target, body]}
+        broadcast(state, recipients, message, connection)
+
+      _ ->
+        state
+    end
+  end
+
+  defp handle_client_command(state, _connection, _message), do: state
+
+  defp broadcast(state, recipients, message, sender) do
+    metadata = %{
+      server: state.server_name,
+      connection: sender,
+      recipients: MapSet.to_list(recipients)
+    }
+
+    state = dispatch_to_subscriber(state, message, metadata)
+    Enum.each(recipients, &send(&1, {:server_send, message}))
+    state
+  end
+
+  defp source_for(%{nick: nick}, server_name), do: "#{nick}!user@#{server_name}"
 
   defp accept_loop(listener, owner) do
     case :gen_tcp.accept(listener) do

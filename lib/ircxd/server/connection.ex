@@ -32,6 +32,11 @@ defmodule Ircxd.Server.Connection do
     {:noreply, state}
   end
 
+  def handle_info({:server_send, %Message{} = message}, state) do
+    :ok = :gen_tcp.send(state.socket, Message.serialize(message))
+    {:noreply, state}
+  end
+
   def handle_info({:tcp, socket, line}, %{socket: socket} = state) do
     case Message.parse(line) do
       {:ok, message} -> handle_message(message, state)
@@ -104,6 +109,12 @@ defmodule Ircxd.Server.Connection do
 
   defp handle_message(%Message{command: "PING", params: params}, state) do
     send_message(state, "PONG", params)
+    {:noreply, state}
+  end
+
+  defp handle_message(%Message{command: command} = message, state)
+       when command in ["JOIN", "PRIVMSG", "NOTICE"] do
+    Ircxd.Server.command(state.server, self(), message)
     {:noreply, state}
   end
 
