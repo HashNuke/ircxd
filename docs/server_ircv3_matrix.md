@@ -17,9 +17,9 @@ Status values:
 | Supervision-tree lifecycle and ephemeral listeners | implemented | `Ircxd.Server`, `server_lifecycle_test.exs` |
 | Multiple server-instance isolation | implemented | `server_lifecycle_test.exs` |
 | Registration (`CAP`, `NICK`, `USER`, welcome numerics) | partial | `server_registration_test.exs`; add validation and timeout cases |
-| Core connection commands (`PING`, `PONG`, `QUIT`) | planned | `server_connection_test.exs` |
+| Core connection commands (`PING`, `PONG`, `QUIT`) | partial | `server_connection_test.exs`; PING/PONG exists, add QUIT and cleanup |
 | Channels (`JOIN`, `PART`, `NAMES`, `TOPIC`) | planned | `server_channel_test.exs` |
-| Published messages (`PRIVMSG`, `NOTICE`, `TAGMSG`) | partial | `server_messaging_test.exs`; `PRIVMSG` channel fan-out exists, add NOTICE/TAGMSG and isolation |
+| Published messages (`PRIVMSG`, `NOTICE`, `TAGMSG`) | partial | `server_messaging_test.exs`, `server_isolation_test.exs`; PRIVMSG/NOTICE fan-out exists, add TAGMSG and direct targets |
 | Subscriber callback contract and failure isolation | partial | `server_subscriber_test.exs`; add explicit crash/slow-callback isolation tests |
 | Application-owned SASL authentication | partial | `server_authentication_test.exs`; PLAIN success/failure exist, add mechanisms and policy cases |
 | Capability negotiation and `CAP LS/REQ/END` | partial | `server_capabilities_test.exs`; SASL advertisement/ACK is covered by authentication tests |
@@ -30,7 +30,7 @@ Status values:
 | Standard replies and labeled responses | planned | focused feature test files |
 | TLS listener and STS policy | planned | `server_tls_test.exs`; host certificate configuration remains host-owned |
 | Persistence, moderation policy, and application side effects | host | subscriber/callback contract |
-| irssi interoperability | planned | opt-in manual/integration runner |
+| irssi interoperability | partial | irssi is installed; run an opt-in manual/integration check after core commands stabilize |
 
 ## Subscriber contract
 
