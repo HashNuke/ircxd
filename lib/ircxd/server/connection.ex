@@ -44,8 +44,15 @@ defmodule Ircxd.Server.Connection do
 
   def handle_info({:tcp, socket, line}, %{socket: socket} = state) do
     case Message.parse(line) do
-      {:ok, message} -> handle_message(message, state)
-      {:error, _reason} -> {:noreply, state}
+      {:ok, message} ->
+        handle_message(message, state)
+
+      {:error, reason} when reason in [:line_too_long, :tag_section_too_long] ->
+        send_message(state, "417", [state.nick || "*", "Input line too long"])
+        {:noreply, state}
+
+      {:error, _reason} ->
+        {:noreply, state}
     end
   end
 

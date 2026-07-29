@@ -49,7 +49,8 @@ to listen on different (or independently configured) endpoints.
 9. [ ] Add protocol limits and malformed-input tests, including line size,
    registration timeouts, unknown commands, and nick/channel validation.
    Registration timeouts, nickname validation, unknown commands, and the
-   pre-registration command gate are now covered.
+   pre-registration command gate are now covered. Oversized wire lines now
+   return `417` and are covered with a focused transport test.
 10. [x] Run the full ExUnit suite, then run an irssi manual/integration check;
    document supported behavior and known boundaries.
 11. [ ] Commit each coherent TDD slice with a detailed rationale and push every
@@ -88,3 +89,4 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated protocol errors with 27 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Added read-only `MODE` query replies (`221` user modes and `324` channel modes) | `test/ircxd/server_mode_test.exs` |
 | 2026-07-29 | Revalidated MODE interoperability with 28 server tests, the full suite, and irssi; stabilized asynchronous TAGMSG capability setup | `mix test`, `mix run` irssi check, `test/ircxd/server_tagmsg_test.exs` |
+| 2026-07-29 | Added `417` handling for oversized IRC wire lines | `test/ircxd/server_limits_test.exs` |
