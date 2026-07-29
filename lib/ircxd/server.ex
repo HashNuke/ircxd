@@ -28,6 +28,9 @@ defmodule Ircxd.Server do
   def command(server, connection, message),
     do: GenServer.cast(server, {:client_command, connection, message})
 
+  def register(server, connection, nick),
+    do: GenServer.call(server, {:register, connection, nick})
+
   @impl true
   def init(opts) do
     port = Keyword.get(opts, :port, 6667)
@@ -55,6 +58,25 @@ defmodule Ircxd.Server do
 
   @impl true
   def handle_call(:port, _from, state), do: {:reply, state.port, state}
+
+  def handle_call({:register, connection, nick}, _from, state) do
+    nick_in_use? =
+      Enum.any?(state.connections, fn
+        {pid, %{nick: ^nick}} when pid != connection -> true
+        _ -> false
+      end)
+
+    if nick_in_use? do
+      {:reply, {:error, :nick_in_use}, state}
+    else
+      connections =
+        Map.update!(state.connections, connection, fn client ->
+          %{client | nick: nick, registered?: true}
+        end)
+
+      {:reply, :ok, %{state | connections: connections}}
+    end
+  end
 
   def handle_call({:authenticate, username, password, metadata}, _from, state) do
     case state.authenticator do
@@ -101,7 +123,14 @@ defmodule Ircxd.Server do
           :ok ->
             send(connection, :activate)
             ref = Process.monitor(connection)
-            connection_state = %{socket: socket, ref: ref, nick: nil, channels: MapSet.new()}
+
+            connection_state = %{
+              socket: socket,
+              ref: ref,
+              nick: nil,
+              registered?: false,
+              channels: MapSet.new()
+            }
 
             {:noreply,
              %{state | connections: Map.put(state.connections, connection, connection_state)}}

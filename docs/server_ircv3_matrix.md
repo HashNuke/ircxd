@@ -16,7 +16,7 @@ Status values:
 |---|---|---|
 | Supervision-tree lifecycle and ephemeral listeners | implemented | `Ircxd.Server`, `server_lifecycle_test.exs` |
 | Multiple server-instance isolation | implemented | `server_lifecycle_test.exs` |
-| Registration (`CAP`, `NICK`, `USER`, welcome numerics) | partial | `server_registration_test.exs`; add validation and timeout cases |
+| Registration (`CAP`, `NICK`, `USER`, welcome numerics) | partial | `server_registration_test.exs`; duplicate nick rejection exists, add PASS/validation/timeout cases |
 | Core connection commands (`PING`, `PONG`, `QUIT`) | partial | `server_connection_test.exs`, `server_quit_test.exs`; explicit QUIT exists, add malformed/disconnect cases |
 | Channels (`JOIN`, `PART`, `NAMES`, `TOPIC`) | partial | `server_channels_test.exs`, `server_topic_test.exs`; core state exists, add validation and modes |
 | Published messages (`PRIVMSG`, `NOTICE`, `TAGMSG`) | partial | `server_messaging_test.exs`, `server_isolation_test.exs`; PRIVMSG/NOTICE fan-out exists, add TAGMSG and direct targets |

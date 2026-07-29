@@ -26,7 +26,8 @@ to listen on different (or independently configured) endpoints.
 2. [x] Add a TCP listener/acceptor boundary with tests using an ephemeral port,
    clean shutdown, and port-bind failure behavior.
 3. [ ] Implement per-connection registration (`NICK`, `USER`, `PASS`, `CAP`)
-   and test the complete handshake through `Ircxd.Client`.
+   and test the complete handshake through `Ircxd.Client`. Basic handshake,
+   SASL gating, and duplicate-nick rejection are covered; add PASS/policy cases.
 4. [ ] Implement identity and channel state with tests for `JOIN`, `PART`,
    `PRIVMSG`, `NOTICE`, `TOPIC`, `NAMES`, `PING`, and `QUIT`. JOIN/PART/NAMES,
    PRIVMSG/NOTICE/TOPIC, PING/PONG, and explicit QUIT cleanup slices are covered.
@@ -61,3 +62,4 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Added NAMES replies and PART fan-out with preserved reasons | `test/ircxd/server_channels_test.exs` |
 | 2026-07-29 | Added channel topic publication and topic state | `test/ircxd/server_topic_test.exs` |
 | 2026-07-29 | Added QUIT fan-out and removal from channel membership/NAMES state | `test/ircxd/server_quit_test.exs` |
+| 2026-07-29 | Added nickname ownership and `433` retry behavior | `test/ircxd/server_registration_test.exs` |

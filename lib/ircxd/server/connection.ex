@@ -132,10 +132,16 @@ defmodule Ircxd.Server.Connection do
 
   defp maybe_register(%{nick: nick, username: username} = state)
        when is_binary(nick) and is_binary(username) do
-    send_message(state, "001", [nick, "Welcome to Ircxd"])
-    send_message(state, "002", [nick, "Your host is #{state.server_name}"])
-    send(state.server, {:server_client_registered, self(), nick})
-    {:noreply, %{state | registered?: true}}
+    case Ircxd.Server.register(state.server, self(), nick) do
+      :ok ->
+        send_message(state, "001", [nick, "Welcome to Ircxd"])
+        send_message(state, "002", [nick, "Your host is #{state.server_name}"])
+        {:noreply, %{state | registered?: true}}
+
+      {:error, :nick_in_use} ->
+        send_message(state, "433", [nick, nick, "Nickname is already in use"])
+        {:noreply, state}
+    end
   end
 
   defp maybe_register(state), do: {:noreply, state}
