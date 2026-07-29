@@ -153,6 +153,12 @@ defmodule Ircxd.Server do
           {:ok, account, authenticator_state} ->
             state = %{state | authenticator: %{authenticator | state: authenticator_state}}
 
+            registered? =
+              case Map.fetch(state.connections, metadata.connection) do
+                {:ok, client} -> client.registered?
+                :error -> false
+              end
+
             connections =
               case Map.fetch(state.connections, metadata.connection) do
                 {:ok, client} ->
@@ -163,6 +169,12 @@ defmodule Ircxd.Server do
               end
 
             state = %{state | connections: connections}
+
+            state =
+              if registered?,
+                do: notify_account(state, metadata.connection, account),
+                else: state
+
             {:reply, {:ok, account}, state}
 
           {:error, reason, authenticator_state} ->
