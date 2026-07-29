@@ -501,6 +501,49 @@ defmodule Ircxd.Server do
   end
 
   defp handle_registered_command(state, connection, %{
+         command: "WHOIS",
+         params: [target | _rest]
+       }) do
+    requester = state.connections[connection].nick
+
+    case Enum.find_value(state.connections, fn
+           {_pid, %{nick: ^target} = client} -> client
+           _other -> nil
+         end) do
+      nil ->
+        error_reply(state, connection, "401", [requester, target, "No such nick/channel"])
+
+      client ->
+        username = client.username || client.nick
+        realname = client.realname || client.nick
+
+        user_message = %Ircxd.Message{
+          source: state.server_name,
+          command: "311",
+          params: [requester, client.nick, username, "user", "*", realname]
+        }
+
+        state = broadcast(state, MapSet.new([connection]), user_message, connection)
+
+        server_message = %Ircxd.Message{
+          source: state.server_name,
+          command: "312",
+          params: [requester, client.nick, state.server_name, "Ircxd server"]
+        }
+
+        state = broadcast(state, MapSet.new([connection]), server_message, connection)
+
+        end_message = %Ircxd.Message{
+          source: state.server_name,
+          command: "318",
+          params: [requester, client.nick, "End of /WHOIS list"]
+        }
+
+        broadcast(state, MapSet.new([connection]), end_message, connection)
+    end
+  end
+
+  defp handle_registered_command(state, connection, %{
          command: "PART",
          params: [channel | rest]
        }) do
