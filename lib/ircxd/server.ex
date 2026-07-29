@@ -321,28 +321,9 @@ defmodule Ircxd.Server do
          command: "PART",
          params: [channel | rest]
        }) do
-    case Map.fetch(state.connections, connection) do
-      {:ok, %{nick: nick} = client} when is_binary(nick) ->
-        members = Map.get(state.channels, channel, MapSet.new())
-
-        if MapSet.member?(members, connection) do
-          source = source_for(client, state.server_name)
-          message = %Ircxd.Message{source: source, command: "PART", params: [channel | rest]}
-          state = broadcast(state, members, message, connection)
-          channels = Map.put(state.channels, channel, MapSet.delete(members, connection))
-          client_channels = MapSet.delete(client.channels, channel)
-
-          connections =
-            Map.update!(state.connections, connection, &Map.put(&1, :channels, client_channels))
-
-          %{state | channels: channels, connections: connections}
-        else
-          state
-        end
-
-      _ ->
-        state
-    end
+    channel
+    |> String.split(",", trim: true)
+    |> Enum.reduce(state, fn channel, state -> part_channel(state, connection, channel, rest) end)
   end
 
   defp handle_registered_command(state, connection, %{
@@ -515,6 +496,31 @@ defmodule Ircxd.Server do
           %{state | channels: channels, connections: connections}
         else
           error_reply(state, connection, "403", [nick, channel, "No such channel"])
+        end
+
+      _ ->
+        state
+    end
+  end
+
+  defp part_channel(state, connection, channel, rest) do
+    case Map.fetch(state.connections, connection) do
+      {:ok, %{nick: nick} = client} when is_binary(nick) ->
+        members = Map.get(state.channels, channel, MapSet.new())
+
+        if MapSet.member?(members, connection) do
+          source = source_for(client, state.server_name)
+          message = %Ircxd.Message{source: source, command: "PART", params: [channel | rest]}
+          state = broadcast(state, members, message, connection)
+          channels = Map.put(state.channels, channel, MapSet.delete(members, connection))
+          client_channels = MapSet.delete(client.channels, channel)
+
+          connections =
+            Map.update!(state.connections, connection, &Map.put(&1, :channels, client_channels))
+
+          %{state | channels: channels, connections: connections}
+        else
+          state
         end
 
       _ ->
