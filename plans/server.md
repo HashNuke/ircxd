@@ -115,6 +115,7 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Added live `LUSERS` counts with `251`–`255` replies | `test/ircxd/server_lusers_test.exs` |
 | 2026-07-29 | Revalidated LUSERS with 38 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Added `VERSION` support with the standard `351` reply | `test/ircxd/server_version_test.exs` |
+| 2026-07-29 | Revalidated VERSION with 39 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Revalidated all-channel NAMES with 37 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Revalidated multi-target JOIN with 34 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Revalidated LIST support with 33 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
