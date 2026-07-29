@@ -57,6 +57,7 @@ defmodule Ircxd.MixProject do
         "docs/stable_spec_matrix.md",
         "docs/ircv3_index_audit.md",
         "docs/modern_irc_audit.md",
+        "docs/security.md",
         "docs/conformance_workflow.md",
         "docs/host_boundaries.md",
         "docs/embedding_events.md",
@@ -73,6 +74,7 @@ defmodule Ircxd.MixProject do
           "docs/stable_spec_matrix.md",
           "docs/ircv3_index_audit.md",
           "docs/modern_irc_audit.md",
+          "docs/security.md",
           "docs/conformance_workflow.md"
         ],
         "Embedding Guides": [

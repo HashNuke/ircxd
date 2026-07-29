@@ -87,6 +87,11 @@ end
 :ok = Ircxd.Client.privmsg(client, "#elixir", "hello from ircxd")
 ```
 
+TLS clients verify the server certificate chain and hostname by default using
+the operating-system CA store. A custom trust root can be supplied with
+`tls_options: [cacertfile: "/path/to/ca.pem"]`. Disabling verification with
+`verify: :verify_none` should be limited to isolated development fixtures.
+
 ## Embedded IRC Server
 
 Applications can start one or more independent IRC servers in their own
@@ -139,6 +144,10 @@ Server information can be configured with `motd: ["Welcome"]`,
 `info: ["Ircxd.Server"]`, and `isupport: ["CHANTYPES=#&", "NICKLEN=30"]`.
 Help text uses `help: %{"JOIN" => ["JOIN <channel>"]}`. Administrative
 details use `admin: %{location: ["Operations"], email: "admin@example.test"}`.
+Network protection defaults to 1,024 simultaneous connections, 100 commands
+per connection per second, 128 concurrent TLS handshakes, and a five-second TLS
+handshake timeout. These can be changed with `max_connections`,
+`command_rate_limit`, `max_handshakes`, and `handshake_timeout`.
 
 For an implicit TLS listener, set `tls: true` and provide standard Erlang SSL
 options such as `certfile` and `keyfile` through `tls_options`:
@@ -150,6 +159,27 @@ options such as `certfile` and `keyfile` through `tls_options`:
  tls: true,
  tls_options: [certfile: "/path/to/server.crt", keyfile: "/path/to/server.key"]}
 ```
+
+SASL EXTERNAL is disabled by default. Enabling it requires a TLS listener that
+verifies client certificates:
+
+```elixir
+{Ircxd.Server,
+ port: 6697,
+ tls: true,
+ external_auth: true,
+ authenticator: {MyApp.IrcAuthenticator, MyApp.Repo},
+ tls_options: [
+   certfile: "/path/to/server.crt",
+   keyfile: "/path/to/server.key",
+   verify: :verify_peer,
+   cacertfile: "/path/to/client-ca.crt"
+ ]}
+```
+
+The authenticator metadata includes `:mechanism`, `:peer`, `:transport`,
+`:peer_certificate`, and `:peer_certificate_sha256`. Applications must map or
+authorize the submitted EXTERNAL identity against that verified certificate.
 
 Use `Ircxd.Handler` when you want callback-style event handling:
 
@@ -244,6 +274,7 @@ scripts/run_irssi_server_check.sh
 - `docs/stable_spec_matrix.md`: stable Modern IRC and IRCv3 coverage matrix.
 - `docs/ircv3_index_audit.md`: stable versus draft/WIP IRCv3 classification.
 - `docs/modern_irc_audit.md`: Modern IRC source audit.
+- `docs/security.md`: security review, findings, and remediation priorities.
 - `docs/conformance_workflow.md`: workflow for changing spec coverage.
 - `docs/completion_audit.md`: requirement-to-artifact checklist and gates.
 - `docs/specs.md`: source specification links.

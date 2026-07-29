@@ -1,7 +1,13 @@
-alias Ircxd.{Formatting, ISupport, Message}
+alias Ircxd.{Casemapping, Formatting, ISupport, Message}
 
 samples = 7
 iterations = 100_000
+
+nick_index =
+  for index <- 1..1_000, into: %{} do
+    nick = "User#{String.pad_leading(Integer.to_string(index), 4, "0")}"
+    {Casemapping.normalize(nick, :ascii), index}
+  end
 
 workloads = [
   {"message parse: tagged PRIVMSG", fn ->
@@ -19,6 +25,9 @@ workloads = [
   {"formatting parse: styled text", fn -> Formatting.parse("plain \x02bold\x02 \x0304red\x03") end},
   {"ISUPPORT parse: 005 token set", fn ->
     ISupport.parse_params(["nick", "PREFIX=(ov)@+", "CHANTYPES=#&", "CHANLIMIT=#&:50", "are supported by this server"])
+   end},
+  {"casemapped nickname index lookup", fn ->
+     Map.get(nick_index, Casemapping.normalize("uSER0500", :ascii))
    end}
 ]
 
