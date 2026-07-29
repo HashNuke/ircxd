@@ -34,7 +34,8 @@ to listen on different (or independently configured) endpoints.
 4. [ ] Implement identity and channel state with tests for `JOIN`, `PART`,
    `PRIVMSG`, `NOTICE`, `TOPIC`, `NAMES`, `PING`, and `QUIT`. JOIN/PART/NAMES,
    PRIVMSG/NOTICE/TOPIC, PING/PONG, and explicit QUIT cleanup slices are covered.
-   Read-only user and channel MODE queries are now covered as an interoperability slice.
+   Read-only user and channel MODE queries and unexpected-disconnect QUIT
+   cleanup are now covered as interoperability slices.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -91,3 +92,4 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated MODE interoperability with 28 server tests, the full suite, and irssi; stabilized asynchronous TAGMSG capability setup | `mix test`, `mix run` irssi check, `test/ircxd/server_tagmsg_test.exs` |
 | 2026-07-29 | Added `417` handling for oversized IRC wire lines | `test/ircxd/server_limits_test.exs` |
 | 2026-07-29 | Revalidated input limits with 29 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Broadcast synthetic QUIT messages for unexpected disconnects and prevent duplicate explicit QUIT cleanup | `test/ircxd/server_quit_test.exs` |

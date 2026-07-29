@@ -29,6 +29,27 @@ defmodule Ircxd.ServerQuitTest do
     assert Enum.any?(names, &(&1.nick == "quit-bob"))
   end
 
+  test "broadcasts a QUIT when a client disconnects unexpectedly" do
+    {:ok, server} = Server.start_link(port: 0, server_name: "ircxd.test")
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, alice} = start_client(server, "drop-alice")
+    {:ok, bob} = start_client(server, "drop-bob")
+
+    on_exit(fn ->
+      stop_if_alive(alice)
+      stop_if_alive(bob)
+    end)
+
+    wait_registered(2)
+    assert :ok = Client.join(alice, "#drop")
+    assert :ok = Client.join(bob, "#drop")
+    wait_for_joins(2)
+
+    :ok = GenServer.stop(alice)
+    assert_receive {:ircxd, {:quit, %{nick: "drop-alice", reason: "Connection closed"}}}, 2_000
+  end
+
   defp start_client(server, nick) do
     Client.start_link(
       host: "127.0.0.1",
@@ -60,5 +81,11 @@ defmodule Ircxd.ServerQuitTest do
     after
       2_000 -> flunk("clients did not join")
     end
+  end
+
+  defp stop_if_alive(pid) do
+    GenServer.stop(pid)
+  catch
+    :exit, _reason -> :ok
   end
 end

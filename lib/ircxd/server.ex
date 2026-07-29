@@ -185,6 +185,7 @@ defmodule Ircxd.Server do
   end
 
   def handle_info({:DOWN, _ref, :process, connection, _reason}, state) do
+    state = broadcast_disconnect(state, connection)
     {:noreply, remove_connection(state, connection)}
   end
 
@@ -340,7 +341,8 @@ defmodule Ircxd.Server do
           params: params
         }
 
-        broadcast(state, recipients, message, connection)
+        state = broadcast(state, recipients, message, connection)
+        remove_connection(state, connection)
 
       _ ->
         state
@@ -527,6 +529,29 @@ defmodule Ircxd.Server do
           end)
 
         %{state | connections: connections, channels: channels}
+    end
+  end
+
+  defp broadcast_disconnect(state, connection) do
+    case Map.fetch(state.connections, connection) do
+      {:ok, %{nick: nick, channels: channels}} when is_binary(nick) ->
+        recipients =
+          channels
+          |> Enum.reduce(MapSet.new(), fn channel, recipients ->
+            MapSet.union(recipients, Map.get(state.channels, channel, MapSet.new()))
+          end)
+          |> MapSet.delete(connection)
+
+        message = %Ircxd.Message{
+          source: source_for(%{nick: nick}, state.server_name),
+          command: "QUIT",
+          params: ["Connection closed"]
+        }
+
+        broadcast(state, recipients, message, connection)
+
+      _ ->
+        state
     end
   end
 
