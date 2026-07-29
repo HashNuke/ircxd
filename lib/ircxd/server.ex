@@ -401,7 +401,9 @@ defmodule Ircxd.Server do
   end
 
   defp handle_registered_command(state, connection, %{command: "NAMES", params: []}) do
-    Enum.reduce(state.channels, state, fn {channel, _members}, state ->
+    state.channels
+    |> Enum.filter(&channel_visible_to_names?(state, connection, &1))
+    |> Enum.reduce(state, fn {channel, _members}, state ->
       names_channel(state, connection, channel)
     end)
   end
@@ -1152,6 +1154,11 @@ defmodule Ircxd.Server do
     else
       names_channel_visible(state, connection, channel)
     end
+  end
+
+  defp channel_visible_to_names?(state, connection, {channel, members}) do
+    not MapSet.member?(Map.get(state.channel_modes, channel, MapSet.new()), "s") or
+      MapSet.member?(members, connection)
   end
 
   defp names_channel_visible(state, connection, channel) do
