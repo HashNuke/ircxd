@@ -617,6 +617,13 @@ defmodule Ircxd.Server do
 
   defp handle_registered_command(state, connection, %{
          command: "WHO",
+         params: []
+       }) do
+    handle_registered_command(state, connection, %{command: "WHO", params: ["*"]})
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "WHO",
          params: [mask | _rest]
        }) do
     requester = state.connections[connection].nick
@@ -635,11 +642,18 @@ defmodule Ircxd.Server do
 
         :error ->
           members =
-            state.connections
-            |> Enum.find_value(MapSet.new(), fn
-              {member, %{nick: ^mask}} -> MapSet.new([member])
-              _other -> nil
-            end)
+            if mask == "*" do
+              state.connections
+              |> Enum.filter(fn {_member, client} -> client.registered? end)
+              |> Enum.map(&elem(&1, 0))
+              |> MapSet.new()
+            else
+              state.connections
+              |> Enum.find_value(MapSet.new(), fn
+                {member, %{nick: ^mask}} -> MapSet.new([member])
+                _other -> nil
+              end)
+            end
 
           {members, "*"}
       end
