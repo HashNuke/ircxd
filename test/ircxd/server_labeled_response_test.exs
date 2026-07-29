@@ -25,6 +25,21 @@ defmodule Ircxd.ServerLabeledResponseTest do
                    2_000
   end
 
+  test "preserves a label on PING responses for labeled-response clients" do
+    {:ok, server} = Server.start_link(port: 0)
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, client} = start_client(server, "labeled-ping", ["labeled-response"])
+    on_exit(fn -> stop_if_alive(client) end)
+    wait_registered_and_capabilities(1, 1)
+
+    assert :ok = Client.labeled_raw(client, "ping-1", "PING", ["token-1"])
+
+    assert_receive {:ircxd,
+                    {:labeled_response, %{label: "ping-1", event: {:pong, %{token: "token-1"}}}}},
+                   2_000
+  end
+
   defp start_client(server, nick, caps) do
     Client.start_link(
       host: "127.0.0.1",

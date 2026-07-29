@@ -274,8 +274,9 @@ defmodule Ircxd.Server.Connection do
     {:noreply, state}
   end
 
-  defp handle_message(%Message{command: "PING", params: params}, state) do
-    send_message(state, "PONG", params)
+  defp handle_message(%Message{command: "PING", params: params, tags: tags}, state) do
+    response = %Message{tags: Map.take(tags, ["label"]), command: "PONG", params: params}
+    send_message(state, response)
     {:noreply, state}
   end
 
@@ -363,8 +364,11 @@ defmodule Ircxd.Server.Connection do
   defp cancel_registration_timer(%{registration_timer: nil}), do: :ok
   defp cancel_registration_timer(%{registration_timer: timer}), do: Process.cancel_timer(timer)
 
-  defp send_message(state, command, params) do
-    message = outbound_message(state, %Message{command: command, params: params})
+  defp send_message(state, command, params),
+    do: send_message(state, %Message{command: command, params: params})
+
+  defp send_message(state, %Message{} = message) do
+    message = outbound_message(state, message)
     metadata = %{server: state.server_name, connection: self(), nick: state.nick}
     Ircxd.Server.publish(state.server, message, metadata)
     send_data(state.transport, state.socket, Message.serialize(message))
