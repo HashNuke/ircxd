@@ -124,6 +124,8 @@ to listen on different (or independently configured) endpoints.
    supplied `tls_options`; TLS connections share the normal protocol state.
    `labeled-response` is advertised and labeled WHOIS replies preserve the
    request label through the client’s labeled-response lifecycle.
+   `standard-replies` is advertised and negotiated clients receive a typed
+   `FAIL ... UNKNOWN_COMMAND` alongside the compatibility `421` numeric.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -325,3 +327,5 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | A repository-wide `mix test` attempt remained environment-gated by the existing InspIRCd integration test timing out during CAP LS on `127.0.0.1:6667`; the local/non-external suite passed independently | `test/ircxd/client_integration_test.exs` |
 | 2026-07-29 | Added private channel mode `+p` with mutual exclusion against `+s`, non-member LIST privacy, no-target NAMES privacy, and the standard `*` NAMES symbol | `test/ircxd/server_private_mode_test.exs` |
 | 2026-07-29 | Revalidated private mode with 98 focused server tests, 354 non-external tests, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 640.67 ms median per 100k iterations (156,087 ops/s, p95 720.49 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added negotiated `standard-replies` support for unknown commands, emitting `FAIL <command> UNKNOWN_COMMAND` without removing the established `421` response | `test/ircxd/server_standard_reply_test.exs` |
+| 2026-07-29 | Revalidated standard replies with 99 focused server tests, 355 non-external tests, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 623.99 ms median per 100k iterations (160,260 ops/s, p95 699.98 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |

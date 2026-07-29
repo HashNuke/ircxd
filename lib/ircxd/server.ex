@@ -390,6 +390,7 @@ defmodule Ircxd.Server do
         "echo-message",
         "invite-notify",
         "labeled-response",
+        "standard-replies",
         "sasl"
       ],
       else: [
@@ -405,7 +406,8 @@ defmodule Ircxd.Server do
         "setname",
         "echo-message",
         "invite-notify",
-        "labeled-response"
+        "labeled-response",
+        "standard-replies"
       ]
   end
 
@@ -1204,12 +1206,26 @@ defmodule Ircxd.Server do
     handle_monitor_command(state, connection, subcommand, rest)
   end
 
-  defp handle_registered_command(state, connection, %{command: command}) do
-    error_reply(state, connection, "421", [
-      state.connections[connection].nick,
-      command,
-      "Unknown command"
-    ])
+  defp handle_registered_command(state, connection, %{command: command, tags: tags}) do
+    state =
+      error_reply(state, connection, "421", [
+        state.connections[connection].nick,
+        command,
+        "Unknown command"
+      ])
+
+    if capability_enabled?(state, connection, "standard-replies") do
+      standard = %Ircxd.Message{
+        tags: Map.take(tags, ["label"]),
+        source: state.server_name,
+        command: "FAIL",
+        params: [command, "UNKNOWN_COMMAND", "Unknown command"]
+      }
+
+      broadcast(state, MapSet.new([connection]), standard, connection)
+    else
+      state
+    end
   end
 
   defp handle_monitor_command(state, connection, "+", [targets]) do
