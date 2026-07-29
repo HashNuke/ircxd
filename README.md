@@ -134,6 +134,23 @@ Run the default automated suite:
 mix test
 ```
 
+Run the suite with the project coverage floor:
+
+```bash
+mix cover
+```
+
+Run repeatable microbenchmarks for the protocol hot paths:
+
+```bash
+mix bench
+```
+
+The benchmark command uses only the Erlang/Elixir runtime and reports median
+and p95 sample time plus operations per second. Compare results on the same
+machine and runtime; it is intended for detecting relative regressions rather
+than publishing cross-machine absolute numbers.
+
 Run the full standard verification gate:
 
 ```bash

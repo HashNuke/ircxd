@@ -122,4 +122,28 @@ defmodule Ircxd.MessageTest do
     assert {:ok, %Message{tags: %{"time" => "final"}}} =
              Message.parse("@time=old;time=final PRIVMSG #chan :hello")
   end
+
+  test "round trips empty, colon-prefixed, and escaped trailing parameters" do
+    messages = [
+      %Message{command: "NOTICE", params: ["nick", ""]},
+      %Message{command: "PRIVMSG", params: ["#elixir", ":starts with colon"]},
+      %Message{tags: %{"example" => "a;b c\\d"}, command: "TAGMSG", params: ["#elixir"]}
+    ]
+
+    Enum.each(messages, fn message ->
+      assert {:ok, parsed} = Message.parse(Message.serialize(message))
+      assert parsed == %{message | command: String.upcase(message.command)}
+    end)
+  end
+
+  test "rejects empty input and malformed tag-only input" do
+    assert Message.parse("") == {:error, :empty}
+    assert Message.parse("   ") == {:error, :empty}
+    assert Message.parse("@flag") == {:error, :empty}
+  end
+
+  test "accepts CRLF-terminated input at the exact wire boundary" do
+    assert {:ok, _} = Message.parse(String.duplicate("a", 508) <> "\r\n")
+    assert Message.parse(String.duplicate("a", 511) <> "\r\n") == {:error, :line_too_long}
+  end
 end

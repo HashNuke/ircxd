@@ -8,6 +8,8 @@ defmodule Ircxd.MixProject do
       elixir: "~> 1.19",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
+      aliases: aliases(),
+      test_coverage: [summary: [threshold: 85]],
       deps: deps(),
       description: description(),
       docs: docs(),
@@ -23,10 +25,21 @@ defmodule Ircxd.MixProject do
     ]
   end
 
+  def cli do
+    [preferred_envs: [cover: :test]]
+  end
+
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
       {:ex_doc, "~> 0.38", only: :dev, runtime: false}
+    ]
+  end
+
+  defp aliases do
+    [
+      cover: "test --cover",
+      bench: "run bench/ircxd.exs"
     ]
   end
 
@@ -75,7 +88,15 @@ defmodule Ircxd.MixProject do
 
   defp package do
     [
-      files: ["lib", "docs", "scripts", "mix.exs", "README.md", "LICENSE", ".formatter.exs"],
+      files: [
+        "lib",
+        "docs",
+        "scripts",
+        "mix.exs",
+        "README.md",
+        "LICENSE",
+        ".formatter.exs"
+      ],
       licenses: ["Apache-2.0"],
       links: %{
         "Repository" => "https://github.com/HashNuke/ircxd",
