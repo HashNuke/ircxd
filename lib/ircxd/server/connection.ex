@@ -25,7 +25,14 @@ defmodule Ircxd.Server.Connection do
        password: Keyword.get(opts, :password),
        password_authenticated?: is_nil(Keyword.get(opts, :password)),
        registration_timer: registration_timer(registration_timeout),
+       command_rate_limit: Keyword.get(opts, :command_rate_limit, 100),
+       command_window_started: System.monotonic_time(:millisecond),
+       command_count: 0,
        auth_required?: Keyword.get(opts, :auth_required?, false),
+       external_auth?: Keyword.get(opts, :external_auth?, false),
+       peer: nil,
+       peer_certificate: nil,
+       peer_certificate_sha256: nil,
        sasl_mechanism: nil,
        authenticated?: false,
        account: nil,
@@ -38,8 +45,8 @@ defmodule Ircxd.Server.Connection do
 
   @impl true
   def handle_info(:activate, state) do
-    :ok = setopts(state.transport, state.socket, active: true)
-    {:noreply, state}
+    :ok = setopts(state.transport, state.socket, active: :once)
+    {:noreply, put_connection_security(state)}
   end
 
   def handle_info({:server_send, %Message{} = message}, state) do
@@ -52,31 +59,11 @@ defmodule Ircxd.Server.Connection do
   end
 
   def handle_info({:tcp, socket, line}, %{socket: socket} = state) do
-    case Message.parse(line) do
-      {:ok, message} ->
-        handle_message(message, state)
-
-      {:error, reason} when reason in [:line_too_long, :tag_section_too_long] ->
-        send_message(state, "417", [state.nick || "*", "Input line too long"])
-        {:noreply, state}
-
-      {:error, _reason} ->
-        {:noreply, state}
-    end
+    handle_active_line(line, state)
   end
 
   def handle_info({:ssl, socket, line}, %{socket: socket} = state) do
-    case Message.parse(line) do
-      {:ok, message} ->
-        handle_message(message, state)
-
-      {:error, reason} when reason in [:line_too_long, :tag_section_too_long] ->
-        send_message(state, "417", [state.nick || "*", "Input line too long"])
-        {:noreply, state}
-
-      {:error, _reason} ->
-        {:noreply, state}
-    end
+    handle_active_line(line, state)
   end
 
   def handle_info({:tcp_closed, _socket}, state), do: {:stop, :normal, state}
@@ -90,6 +77,57 @@ defmodule Ircxd.Server.Connection do
   end
 
   def handle_info(:registration_timeout, state), do: {:noreply, state}
+
+  defp handle_active_line(line, state) do
+    case consume_command_quota(state) do
+      {:ok, state} ->
+        case Message.parse(line) do
+          {:ok, message} ->
+            message
+            |> handle_message(state)
+            |> reactivate_socket()
+
+          {:error, reason} when reason in [:line_too_long, :tag_section_too_long] ->
+            send_message(state, "417", [state.nick || "*", "Input line too long"])
+            reactivate_socket({:noreply, state})
+
+          {:error, _reason} ->
+            reactivate_socket({:noreply, state})
+        end
+
+      {:error, :rate_limited, state} ->
+        send_message(state, "ERROR", ["Excess flood"])
+        {:stop, :normal, state}
+    end
+  end
+
+  defp reactivate_socket({:noreply, state}) do
+    case setopts(state.transport, state.socket, active: :once) do
+      :ok -> {:noreply, state}
+      {:error, reason} -> {:stop, reason, state}
+    end
+  end
+
+  defp reactivate_socket(other), do: other
+
+  defp consume_command_quota(%{command_rate_limit: :infinity} = state), do: {:ok, state}
+
+  defp consume_command_quota(state) do
+    now = System.monotonic_time(:millisecond)
+
+    state =
+      if now - state.command_window_started >= 1_000 do
+        %{state | command_window_started: now, command_count: 0}
+      else
+        state
+      end
+
+    if state.command_count < state.command_rate_limit do
+      {:ok, %{state | command_count: state.command_count + 1}}
+    else
+      {:error, :rate_limited, state}
+    end
+  end
 
   @impl true
   def terminate(_reason, state) do
@@ -159,9 +197,20 @@ defmodule Ircxd.Server.Connection do
   end
 
   defp handle_message(%Message{command: "AUTHENTICATE", params: ["EXTERNAL"]}, state)
-       when state.auth_required? do
+       when state.auth_required? and state.external_auth? and state.transport == :ssl and
+              not is_nil(state.peer_certificate) do
     send_message(state, "AUTHENTICATE", ["+"])
     {:noreply, %{state | sasl_mechanism: :external}}
+  end
+
+  defp handle_message(%Message{command: "AUTHENTICATE", params: ["EXTERNAL"]}, state)
+       when state.auth_required? do
+    send_message(state, "904", [
+      state.nick || "*",
+      "SASL EXTERNAL requires a verified TLS client certificate"
+    ])
+
+    {:noreply, %{state | sasl_mechanism: nil}}
   end
 
   defp handle_message(%Message{command: "AUTHENTICATE", params: ["*"]}, state)
@@ -185,7 +234,7 @@ defmodule Ircxd.Server.Connection do
   defp handle_message(%Message{command: "AUTHENTICATE", params: [payload]}, state)
        when state.auth_required? and state.sasl_mechanism == :external do
     case decode_external(payload) do
-      {:ok, authzid} -> authenticate_credentials(state, authzid, "")
+      {:ok, authzid} -> authenticate_credentials(state, authzid, "", :external)
       :error -> send_message(state, "904", [state.nick, "Invalid SASL credentials"])
     end
   end
@@ -194,7 +243,7 @@ defmodule Ircxd.Server.Connection do
        when state.auth_required? do
     case decode_plain(payload) do
       {:ok, username, password} ->
-        authenticate_credentials(state, username, password)
+        authenticate_credentials(state, username, password, :plain)
 
       :error ->
         send_message(state, "904", [state.nick, "Invalid SASL credentials"])
@@ -467,8 +516,18 @@ defmodule Ircxd.Server.Connection do
     end
   end
 
-  defp authenticate_credentials(state, username, password) do
-    metadata = %{server: state.server_name, connection: self(), nick: state.nick}
+  defp authenticate_credentials(state, username, password, mechanism) do
+    metadata = %{
+      server: state.server_name,
+      connection: self(),
+      nick: state.nick,
+      mechanism: mechanism,
+      transport: state.transport,
+      tls?: state.transport == :ssl,
+      peer: state.peer,
+      peer_certificate: state.peer_certificate,
+      peer_certificate_sha256: state.peer_certificate_sha256
+    }
 
     case Ircxd.Server.authenticate(state.server, username, password, metadata) do
       {:ok, account} ->
@@ -491,4 +550,36 @@ defmodule Ircxd.Server.Connection do
 
   defp format_account(account) when is_binary(account), do: account
   defp format_account(account), do: to_string(account)
+
+  defp put_connection_security(state) do
+    peer =
+      case peername(state.transport, state.socket) do
+        {:ok, peer} -> peer
+        {:error, _reason} -> nil
+      end
+
+    certificate =
+      case state.transport do
+        :ssl ->
+          case :ssl.peercert(state.socket) do
+            {:ok, certificate} -> certificate
+            {:error, _reason} -> nil
+          end
+
+        :gen_tcp ->
+          nil
+      end
+
+    fingerprint =
+      if is_binary(certificate) do
+        certificate
+        |> then(&:crypto.hash(:sha256, &1))
+        |> Base.encode16(case: :lower)
+      end
+
+    %{state | peer: peer, peer_certificate: certificate, peer_certificate_sha256: fingerprint}
+  end
+
+  defp peername(:gen_tcp, socket), do: :inet.peername(socket)
+  defp peername(:ssl, socket), do: :ssl.peername(socket)
 end

@@ -3,6 +3,12 @@ defmodule Ircxd.ServerAuthenticationTest do
 
   alias Ircxd.{Client, Server}
 
+  @cacertfile Path.expand("../support/tls/ca.crt", __DIR__)
+  @server_certfile Path.expand("../support/tls/server.crt", __DIR__)
+  @server_keyfile Path.expand("../support/tls/server.key", __DIR__)
+  @client_certfile Path.expand("../support/tls/client.crt", __DIR__)
+  @client_keyfile Path.expand("../support/tls/client.key", __DIR__)
+
   defmodule Authenticator do
     @behaviour Ircxd.Server.Authenticator
 
@@ -25,16 +31,23 @@ defmodule Ircxd.ServerAuthenticationTest do
     @behaviour Ircxd.Server.Authenticator
 
     @impl true
-    def init(test_pid), do: {:ok, test_pid}
+    def init({test_pid, expected_fingerprint}),
+      do: {:ok, %{test_pid: test_pid, expected_fingerprint: expected_fingerprint}}
 
     @impl true
-    def authenticate(username, password, metadata, test_pid) do
-      send(test_pid, {:external_authentication_attempt, username, password, metadata})
+    def authenticate(username, password, metadata, state) do
+      send(
+        state.test_pid,
+        {:external_authentication_attempt, username, password, metadata}
+      )
 
-      if username == "certificate-user" and password == "" do
-        {:ok, "external-account", test_pid}
+      if username == "certificate-user" and password == "" and
+           metadata.mechanism == :external and metadata.tls? and
+           is_binary(metadata.peer_certificate) and
+           metadata.peer_certificate_sha256 == state.expected_fingerprint do
+        {:ok, "external-account", state}
       else
-        {:error, :invalid_external_identity, test_pid}
+        {:error, :invalid_external_identity, state}
       end
     end
   end
@@ -85,7 +98,15 @@ defmodule Ircxd.ServerAuthenticationTest do
 
     on_exit(fn -> if Process.alive?(client), do: GenServer.stop(client) end)
 
-    assert_receive {:authentication_attempt, "db-user", "secret", %{server: "ircxd.test"}},
+    assert_receive {:authentication_attempt, "db-user", "secret",
+                    %{
+                      server: "ircxd.test",
+                      mechanism: :plain,
+                      transport: :gen_tcp,
+                      tls?: false,
+                      peer: {{127, 0, 0, 1}, _port},
+                      peer_certificate: nil
+                    }},
                    2_000
 
     assert_receive {:ircxd, {:logged_in, %{account: "account-123"}}}, 2_000
@@ -153,19 +174,36 @@ defmodule Ircxd.ServerAuthenticationTest do
   end
 
   test "delegates SASL EXTERNAL identity validation to the application authenticator" do
+    expected_fingerprint = certificate_fingerprint(@client_certfile)
+
     {:ok, server} =
       Server.start_link(
         port: 0,
         server_name: "ircxd.test",
-        authenticator: {ExternalAuthenticator, self()}
+        tls: true,
+        tls_options: [
+          certfile: @server_certfile,
+          keyfile: @server_keyfile,
+          verify: :verify_peer,
+          fail_if_no_peer_cert: true,
+          cacertfile: @cacertfile
+        ],
+        external_auth: true,
+        authenticator: {ExternalAuthenticator, {self(), expected_fingerprint}}
       )
 
     on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
 
     {:ok, client} =
       Client.start_link(
-        host: "127.0.0.1",
+        host: "localhost",
         port: Server.port(server),
+        tls: true,
+        tls_options: [
+          cacertfile: @cacertfile,
+          certfile: @client_certfile,
+          keyfile: @client_keyfile
+        ],
         nick: "external-auth",
         username: "certificate-user",
         realname: "Ircxd external auth client",
@@ -175,11 +213,65 @@ defmodule Ircxd.ServerAuthenticationTest do
 
     on_exit(fn -> if Process.alive?(client), do: GenServer.stop(client) end)
 
-    assert_receive {:external_authentication_attempt, "certificate-user", "", _metadata},
+    assert_receive {:external_authentication_attempt, "certificate-user", "",
+                    %{
+                      mechanism: :external,
+                      transport: :ssl,
+                      tls?: true,
+                      peer_certificate: certificate,
+                      peer_certificate_sha256: fingerprint
+                    }},
                    2_000
 
+    assert is_binary(certificate)
+    assert fingerprint == expected_fingerprint
     assert_receive {:ircxd, {:logged_in, %{account: "external-account"}}}, 2_000
     assert_receive {:ircxd, :registered}, 2_000
+  end
+
+  test "rejects SASL EXTERNAL when certificate authentication is not configured" do
+    {:ok, server} =
+      Server.start_link(
+        port: 0,
+        authenticator: {ExternalAuthenticator, {self(), "unused"}}
+      )
+
+    on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
+
+    {:ok, client} =
+      Client.start_link(
+        host: "127.0.0.1",
+        port: Server.port(server),
+        nick: "unsafe-external",
+        username: "certificate-user",
+        realname: "Unsafe external auth",
+        sasl: {:external, "certificate-user"},
+        notify: self()
+      )
+
+    on_exit(fn -> if Process.alive?(client), do: GenServer.stop(client) end)
+
+    assert_receive {:ircxd, {:sasl_failure, %{code: "904"}}}, 2_000
+    refute_receive {:external_authentication_attempt, _, _, _}, 250
+    refute_receive {:ircxd, :registered}, 250
+  end
+
+  test "rejects unsafe server-side EXTERNAL configuration at startup" do
+    assert {:error, :external_auth_requires_tls} =
+             Server.start_link(
+               port: 0,
+               external_auth: true,
+               authenticator: {ExternalAuthenticator, {self(), "unused"}}
+             )
+
+    assert {:error, :external_auth_requires_verified_client_certificates} =
+             Server.start_link(
+               port: 0,
+               tls: true,
+               tls_options: [certfile: @server_certfile, keyfile: @server_keyfile],
+               external_auth: true,
+               authenticator: {ExternalAuthenticator, {self(), "unused"}}
+             )
   end
 
   test "contains authenticator exceptions and keeps the server available" do
@@ -277,5 +369,15 @@ defmodule Ircxd.ServerAuthenticationTest do
                        message: %Ircxd.Message{params: [_, "Unsupported SASL mechanism"]}
                      }}},
                    2_000
+  end
+
+  defp certificate_fingerprint(path) do
+    path
+    |> File.read!()
+    |> :public_key.pem_decode()
+    |> hd()
+    |> elem(1)
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
   end
 end

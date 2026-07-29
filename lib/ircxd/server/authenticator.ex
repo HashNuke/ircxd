@@ -4,6 +4,11 @@ defmodule Ircxd.Server.Authenticator do
 
   Implementations may query a database or another identity provider. The
   server only manages the SASL exchange and registration state.
+
+  Authentication metadata includes `:mechanism`, `:transport`, `:tls?`,
+  `:peer`, and, for certificate-bound SASL EXTERNAL,
+  `:peer_certificate` plus its lowercase SHA-256 fingerprint in
+  `:peer_certificate_sha256`.
   """
 
   @callback init(term()) :: {:ok, term()}

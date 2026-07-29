@@ -9,6 +9,8 @@ defmodule Ircxd.Server do
 
   use GenServer
 
+  alias Ircxd.Casemapping
+  alias Ircxd.ISupport
   alias Ircxd.Server.Connection
   alias Ircxd.Server.SubscriberWorker
 
@@ -36,8 +38,12 @@ defmodule Ircxd.Server do
   def authenticate(server, username, password, metadata),
     do: GenServer.call(server, {:authenticate, username, password, metadata})
 
-  def command(server, connection, message),
-    do: GenServer.cast(server, {:client_command, connection, message})
+  def command(server, connection, message) do
+    GenServer.call(server, {:client_command, connection, message})
+  catch
+    :exit, {reason, _call} when reason in [:noproc, :normal, :shutdown] ->
+      {:error, :server_stopped}
+  end
 
   def capabilities(server, connection, capabilities),
     do: GenServer.cast(server, {:client_capabilities, connection, capabilities})
@@ -61,25 +67,47 @@ defmodule Ircxd.Server do
     password = Keyword.get(opts, :password)
     tls? = Keyword.get(opts, :tls, false)
     tls_options = Keyword.get(opts, :tls_options, [])
+    external_auth? = Keyword.get(opts, :external_auth, false)
     motd = normalize_motd(Keyword.get(opts, :motd, []))
     info = normalize_info(Keyword.get(opts, :info))
     help = normalize_help(Keyword.get(opts, :help))
     isupport = normalize_isupport(Keyword.get(opts, :isupport))
+    casemapping = casemapping_from_isupport(isupport)
     admin = normalize_admin(Keyword.get(opts, :admin))
 
-    with {:ok, authenticator} <- init_authenticator(Keyword.get(opts, :authenticator)),
+    with :ok <- validate_external_auth(external_auth?, tls?, tls_options),
+         {:ok, authenticator} <- init_authenticator(Keyword.get(opts, :authenticator)),
          {:ok, {transport, listener}} <- listen(port, tls?, tls_options),
          {:ok, {_address, actual_port}} <- socket_name(transport, listener) do
       case init_subscriber(Keyword.get(opts, :subscriber)) do
         {:ok, subscriber} ->
+          {:ok, handshake_supervisor} =
+            Task.Supervisor.start_link(
+              max_children: normalize_max_handshakes(Keyword.get(opts, :max_handshakes, 128))
+            )
+
           owner = self()
-          {:ok, acceptor} = Task.start(fn -> accept_loop(transport, listener, owner) end)
+
+          handshake_timeout =
+            normalize_handshake_timeout(Keyword.get(opts, :handshake_timeout, 5_000))
+
+          {:ok, acceptor} =
+            Task.start(fn ->
+              accept_loop(
+                transport,
+                listener,
+                owner,
+                handshake_supervisor,
+                handshake_timeout
+              )
+            end)
 
           {:ok,
            %{
              listener: listener,
              transport: transport,
              acceptor: acceptor,
+             handshake_supervisor: handshake_supervisor,
              port: actual_port,
              server_name: server_name,
              password: password,
@@ -88,10 +116,17 @@ defmodule Ircxd.Server do
              help: help,
              started_at: System.monotonic_time(:second),
              isupport: isupport,
+             casemapping: casemapping,
              admin: admin,
              registration_timeout: Keyword.get(opts, :registration_timeout, 60_000),
+             max_connections:
+               normalize_max_connections(Keyword.get(opts, :max_connections, 1_024)),
+             command_rate_limit:
+               normalize_command_rate_limit(Keyword.get(opts, :command_rate_limit, 100)),
              connections: %{},
+             nick_index: %{},
              channels: %{},
+             channel_index: %{},
              whowas: %{},
              channel_operators: %{},
              channel_voices: %{},
@@ -108,6 +143,7 @@ defmodule Ircxd.Server do
              connection_capabilities: %{},
              message_id: 0,
              capabilities: capabilities(not is_nil(authenticator)),
+             external_auth?: external_auth?,
              subscriber: subscriber,
              authenticator: authenticator
            }}
@@ -123,11 +159,14 @@ defmodule Ircxd.Server do
   def handle_call(:port, _from, state), do: {:reply, state.port, state}
 
   def handle_call({:register, connection, nick}, _from, state) do
+    nick_key = fold_name(state, nick)
+
     nick_in_use? =
-      Enum.any?(state.connections, fn
-        {pid, %{nick: ^nick}} when pid != connection -> true
-        _ -> false
-      end)
+      case Map.get(state.nick_index, nick_key) do
+        nil -> false
+        ^connection -> false
+        _other -> true
+      end
 
     if nick_in_use? do
       {:reply, {:error, :nick_in_use}, state}
@@ -137,7 +176,12 @@ defmodule Ircxd.Server do
           %{client | nick: nick, registered?: true}
         end)
 
-      state = %{state | connections: connections}
+      state = %{
+        state
+        | connections: connections,
+          nick_index: Map.put(state.nick_index, nick_key, connection)
+      }
+
       state = notify_monitors(state, nick, :online)
 
       state =
@@ -153,11 +197,14 @@ defmodule Ircxd.Server do
   def handle_call({:change_nick, connection, nick}, _from, state) do
     case Map.fetch(state.connections, connection) do
       {:ok, %{channels: channels} = client} ->
+        nick_key = fold_name(state, nick)
+
         nick_in_use? =
-          Enum.any?(state.connections, fn
-            {pid, %{nick: ^nick}} when pid != connection -> true
-            _ -> false
-          end)
+          case Map.get(state.nick_index, nick_key) do
+            nil -> false
+            ^connection -> false
+            _other -> true
+          end
 
         if nick_in_use? do
           {:reply, {:error, :nick_in_use}, state}
@@ -171,13 +218,18 @@ defmodule Ircxd.Server do
 
           connections = Map.put(state.connections, connection, %{client | nick: nick})
 
+          nick_index =
+            state.nick_index
+            |> Map.delete(fold_name(state, client.nick))
+            |> Map.put(nick_key, connection)
+
           message = %Ircxd.Message{
             source: source_for(client, state.server_name),
             command: "NICK",
             params: [nick]
           }
 
-          state = %{state | connections: connections}
+          state = %{state | connections: connections, nick_index: nick_index}
           {:reply, :ok, broadcast(state, recipients, message, connection)}
         end
 
@@ -238,6 +290,10 @@ defmodule Ircxd.Server do
     end
   end
 
+  def handle_call({:client_command, connection, message}, _from, state) do
+    {:reply, :ok, handle_client_command(state, connection, message)}
+  end
+
   @impl true
   def handle_cast({:publish, message, metadata}, state) do
     {:noreply, dispatch_to_subscriber(state, message, metadata)}
@@ -260,10 +316,6 @@ defmodule Ircxd.Server do
     end
   end
 
-  def handle_cast({:client_command, connection, message}, state) do
-    {:noreply, handle_client_command(state, connection, message)}
-  end
-
   def handle_cast({:client_capabilities, connection, capabilities}, state) do
     {:noreply,
      %{
@@ -273,6 +325,15 @@ defmodule Ircxd.Server do
   end
 
   @impl true
+  def handle_info(
+        {:accepted, transport, socket},
+        %{connections: connections, max_connections: max_connections} = state
+      )
+      when map_size(connections) >= max_connections do
+    close_socket(transport, socket)
+    {:noreply, state}
+  end
+
   def handle_info({:accepted, transport, socket}, state) do
     case Connection.start(
            socket: socket,
@@ -282,7 +343,9 @@ defmodule Ircxd.Server do
            isupport: state.isupport,
            password: state.password,
            registration_timeout: state.registration_timeout,
+           command_rate_limit: state.command_rate_limit,
            auth_required?: not is_nil(state.authenticator),
+           external_auth?: state.external_auth?,
            capabilities: state.capabilities
          ) do
       {:ok, connection} ->
@@ -332,6 +395,9 @@ defmodule Ircxd.Server do
     {:noreply, remove_connection(state, connection)}
   end
 
+  def handle_info({:tls_handshake_error, _reason}, state), do: {:noreply, state}
+  def handle_info({:accept_error, reason}, state), do: {:stop, {:accept_error, reason}, state}
+
   @impl true
   def terminate(_reason, state) do
     if Process.alive?(state.acceptor), do: Process.exit(state.acceptor, :shutdown)
@@ -339,10 +405,20 @@ defmodule Ircxd.Server do
     Enum.each(Map.keys(state.connections), &Process.exit(&1, :shutdown))
 
     if state.subscriber, do: GenServer.stop(state.subscriber.pid, :shutdown)
+    if Process.alive?(state.handshake_supervisor), do: Supervisor.stop(state.handshake_supervisor)
   end
 
   defp listen(port, false, _tls_options) do
-    case :gen_tcp.listen(port, [:binary, packet: :line, active: false, reuseaddr: true]) do
+    case :gen_tcp.listen(
+           port,
+           [
+             :binary,
+             packet: :line,
+             packet_size: Ircxd.Message.max_received_wire_bytes(),
+             active: false,
+             reuseaddr: true
+           ]
+         ) do
       {:ok, listener} -> {:ok, {:gen_tcp, listener}}
       error -> error
     end
@@ -352,7 +428,12 @@ defmodule Ircxd.Server do
     :ssl.start()
 
     options =
-      [packet: :line, active: false, reuseaddr: true]
+      [
+        packet: :line,
+        packet_size: Ircxd.Message.max_received_wire_bytes(),
+        active: false,
+        reuseaddr: true
+      ]
       |> Keyword.merge(tls_options)
       |> then(&[:binary | &1])
 
@@ -477,6 +558,37 @@ defmodule Ircxd.Server do
 
   defp normalize_history_limit(_limit), do: 1_000
 
+  defp normalize_handshake_timeout(timeout) when is_integer(timeout) and timeout > 0, do: timeout
+  defp normalize_handshake_timeout(_timeout), do: 5_000
+
+  defp normalize_max_handshakes(limit) when is_integer(limit) and limit > 0, do: limit
+  defp normalize_max_handshakes(_limit), do: 128
+
+  defp normalize_max_connections(limit) when is_integer(limit) and limit > 0, do: limit
+  defp normalize_max_connections(_limit), do: 1_024
+
+  defp normalize_command_rate_limit(:infinity), do: :infinity
+
+  defp normalize_command_rate_limit(limit) when is_integer(limit) and limit > 0,
+    do: limit
+
+  defp normalize_command_rate_limit(_limit), do: 100
+
+  defp validate_external_auth(false, _tls?, _tls_options), do: :ok
+
+  defp validate_external_auth(true, true, tls_options) do
+    trust_configured? = Enum.any?([:cacerts, :cacertfile], &Keyword.has_key?(tls_options, &1))
+
+    if Keyword.get(tls_options, :verify) == :verify_peer and trust_configured? do
+      :ok
+    else
+      {:error, :external_auth_requires_verified_client_certificates}
+    end
+  end
+
+  defp validate_external_auth(true, false, _tls_options),
+    do: {:error, :external_auth_requires_tls}
+
   defp parse_history_limit(limit) when is_binary(limit) do
     case Integer.parse(limit) do
       {limit, ""} when limit > 0 -> min(limit, 100)
@@ -521,10 +633,33 @@ defmodule Ircxd.Server do
     ]
 
   defp normalize_isupport(tokens) when is_binary(tokens),
-    do: String.split(tokens, " ", trim: true)
+    do: tokens |> String.split(" ", trim: true) |> normalize_casemapping_token()
 
-  defp normalize_isupport(tokens) when is_list(tokens), do: Enum.map(tokens, &to_string/1)
+  defp normalize_isupport(tokens) when is_list(tokens),
+    do: tokens |> Enum.map(&to_string/1) |> normalize_casemapping_token()
+
   defp normalize_isupport(_tokens), do: normalize_isupport(nil)
+
+  defp normalize_casemapping_token(tokens) do
+    Enum.map(tokens, fn
+      "CASEMAPPING=" <> mapping
+      when mapping in ["ascii", "rfc1459", "strict-rfc1459"] ->
+        "CASEMAPPING=" <> mapping
+
+      "CASEMAPPING" <> _invalid ->
+        "CASEMAPPING=rfc1459"
+
+      token ->
+        token
+    end)
+  end
+
+  defp casemapping_from_isupport(tokens) do
+    tokens
+    |> Enum.map(&ISupport.parse_token/1)
+    |> Map.new()
+    |> ISupport.casemap()
+  end
 
   defp normalize_admin(nil), do: %{location: [], email: nil}
 
@@ -544,7 +679,11 @@ defmodule Ircxd.Server do
   defp handle_client_command(state, connection, message) do
     case Map.fetch(state.connections, connection) do
       {:ok, %{registered?: true}} ->
-        handle_registered_command(state, connection, message)
+        handle_registered_command(
+          state,
+          connection,
+          resolve_command_targets(state, message)
+        )
 
       {:ok, %{nick: nick}} ->
         error_reply(state, connection, "451", [nick || "*", "You have not registered"])
@@ -553,6 +692,125 @@ defmodule Ircxd.Server do
         state
     end
   end
+
+  defp resolve_command_targets(state, %{command: command, params: [targets | rest]} = message)
+       when command in ["JOIN", "PART", "PRIVMSG", "NOTICE"] do
+    %{message | params: [resolve_csv_targets(state, targets) | rest]}
+  end
+
+  defp resolve_command_targets(state, %{command: "TAGMSG", params: [target | rest]} = message),
+    do: %{message | params: [resolve_named_target(state, target) | rest]}
+
+  defp resolve_command_targets(state, %{command: command, params: [target | rest]} = message)
+       when command in ["NAMES", "TOPIC", "WHO"] do
+    %{message | params: [resolve_named_target(state, target) | rest]}
+  end
+
+  defp resolve_command_targets(
+         state,
+         %{command: "MODE", params: [target, modes | mode_params]} = message
+       ) do
+    target = resolve_named_target(state, target)
+
+    mode_params =
+      if valid_channel?(target) and modes in ["+o", "-o", "+v", "-v"] do
+        Enum.map(mode_params, &resolve_existing_nick(state, &1))
+      else
+        mode_params
+      end
+
+    %{message | params: [target, modes | mode_params]}
+  end
+
+  defp resolve_command_targets(state, %{command: "MODE", params: [target]} = message),
+    do: %{message | params: [resolve_named_target(state, target)]}
+
+  defp resolve_command_targets(
+         state,
+         %{command: "INVITE", params: [nick, channel | rest]} = message
+       ) do
+    %{
+      message
+      | params: [
+          resolve_existing_nick(state, nick),
+          resolve_existing_channel(state, channel) | rest
+        ]
+    }
+  end
+
+  defp resolve_command_targets(
+         state,
+         %{command: "KICK", params: [channel, nick | rest]} = message
+       ) do
+    %{
+      message
+      | params: [
+          resolve_existing_channel(state, channel),
+          resolve_existing_nick(state, nick) | rest
+        ]
+    }
+  end
+
+  defp resolve_command_targets(state, %{command: command, params: params} = message)
+       when command in ["ISON", "USERHOST"] do
+    %{message | params: Enum.map(params, &resolve_existing_nick(state, &1))}
+  end
+
+  defp resolve_command_targets(state, %{command: "WHOIS", params: [target | rest]} = message),
+    do: %{message | params: [resolve_existing_nick(state, target) | rest]}
+
+  defp resolve_command_targets(
+         _state,
+         %{command: "CHATHISTORY", params: ["TARGETS" | _rest]} = message
+       ),
+       do: message
+
+  defp resolve_command_targets(
+         state,
+         %{command: "CHATHISTORY", params: [query, target | rest]} = message
+       ),
+       do: %{message | params: [query, resolve_existing_channel(state, target) | rest]}
+
+  defp resolve_command_targets(state, %{command: "REDACT", params: [target | rest]} = message),
+    do: %{message | params: [resolve_existing_channel(state, target) | rest]}
+
+  defp resolve_command_targets(_state, message), do: message
+
+  defp resolve_csv_targets(state, targets) do
+    targets
+    |> String.split(",", trim: true)
+    |> Enum.map(&resolve_named_target(state, &1))
+    |> Enum.join(",")
+  end
+
+  defp resolve_named_target(state, target) do
+    if valid_channel?(target),
+      do: resolve_existing_channel(state, target),
+      else: resolve_existing_nick(state, target)
+  end
+
+  defp resolve_existing_channel(state, channel) do
+    Map.get(state.channel_index, fold_name(state, channel), channel)
+  end
+
+  defp resolve_existing_nick(state, nick) do
+    case Map.get(state.nick_index, fold_name(state, nick)) do
+      nil -> nick
+      connection -> state.connections[connection].nick
+    end
+  end
+
+  defp find_connection_by_nick(state, nick) do
+    case Map.get(state.nick_index, fold_name(state, nick)) do
+      nil -> nil
+      connection -> {connection, state.connections[connection]}
+    end
+  end
+
+  defp nick_online?(state, nick), do: not is_nil(find_connection_by_nick(state, nick))
+
+  defp fold_name(state, value) when is_binary(value),
+    do: Casemapping.normalize(value, state.casemapping)
 
   defp handle_registered_command(state, connection, %{
          command: "JOIN",
@@ -616,7 +874,7 @@ defmodule Ircxd.Server do
     online_nicks =
       targets
       |> Enum.flat_map(fn target ->
-        if Enum.any?(state.connections, fn {_pid, client} -> client.nick == target end),
+        if nick_online?(state, target),
           do: [target],
           else: []
       end)
@@ -639,7 +897,7 @@ defmodule Ircxd.Server do
     replies =
       targets
       |> Enum.flat_map(fn target ->
-        case Enum.find(state.connections, fn {_pid, client} -> client.nick == target end) do
+        case find_connection_by_nick(state, target) do
           {_pid, client} ->
             away = if is_nil(client.away), do: "+", else: "-"
             username = client.username || client.nick
@@ -877,7 +1135,8 @@ defmodule Ircxd.Server do
       end
 
     state =
-      if remote in [nil, "*", state.server_name] and wildcard_match?(mask, state.server_name) do
+      if remote in [nil, "*", state.server_name] and
+           casemapped_wildcard_match?(state, mask, state.server_name) do
         message = %Ircxd.Message{
           source: state.server_name,
           command: "364",
@@ -968,11 +1227,10 @@ defmodule Ircxd.Server do
               |> Enum.map(&elem(&1, 0))
               |> MapSet.new()
             else
-              state.connections
-              |> Enum.find_value(MapSet.new(), fn
-                {member, %{nick: ^mask}} -> MapSet.new([member])
-                _other -> nil
-              end)
+              case find_connection_by_nick(state, mask) do
+                {member, _client} -> MapSet.new([member])
+                nil -> MapSet.new()
+              end
             end
 
           {members, "*"}
@@ -1027,14 +1285,11 @@ defmodule Ircxd.Server do
     requester = state.connections[connection].nick
     response_tags = Map.take(tags, ["label"])
 
-    case Enum.find_value(state.connections, fn
-           {_pid, %{nick: ^target} = client} -> client
-           _other -> nil
-         end) do
+    case find_connection_by_nick(state, target) do
       nil ->
         error_reply(state, connection, "401", [requester, target, "No such nick/channel"])
 
-      client ->
+      {_pid, client} ->
         username = client.username || client.nick
         realname = client.realname || client.nick
 
@@ -1112,7 +1367,11 @@ defmodule Ircxd.Server do
          params: [target | rest]
        }) do
     requester = state.connections[connection].nick
-    entries = state.whowas |> Map.get(target, []) |> Enum.take(whowas_count(rest))
+
+    entries =
+      state.whowas
+      |> Map.get(fold_name(state, target), [])
+      |> Enum.take(whowas_count(rest))
 
     if entries == [] do
       error_reply(state, connection, "406", [requester, target, "There was no such nickname"])
@@ -1615,16 +1874,18 @@ defmodule Ircxd.Server do
   end
 
   defp handle_monitor_command(state, connection, "+", [targets]) do
-    targets = String.split(targets, ",", trim: true)
+    targets =
+      targets
+      |> String.split(",", trim: true)
+      |> Enum.map(&fold_name(state, &1))
+
     monitored = Map.get(state.monitors, connection, MapSet.new())
     monitored = Enum.reduce(targets, monitored, &MapSet.put(&2, &1))
     state = %{state | monitors: Map.put(state.monitors, connection, monitored)}
     nick = state.connections[connection].nick
 
     {online, offline} =
-      Enum.split_with(targets, fn target ->
-        Enum.any?(state.connections, fn {_pid, client} -> client.nick == target end)
-      end)
+      Enum.split_with(targets, &nick_online?(state, &1))
 
     state =
       if online == [],
@@ -1638,7 +1899,11 @@ defmodule Ircxd.Server do
   end
 
   defp handle_monitor_command(state, connection, "-", [targets]) do
-    targets = String.split(targets, ",", trim: true)
+    targets =
+      targets
+      |> String.split(",", trim: true)
+      |> Enum.map(&fold_name(state, &1))
+
     monitored = Map.get(state.monitors, connection, MapSet.new())
 
     monitored = Enum.reduce(targets, monitored, &MapSet.delete(&2, &1))
@@ -1664,8 +1929,7 @@ defmodule Ircxd.Server do
   defp monitor_online_targets(state, targets) do
     targets
     |> Enum.map(fn target ->
-      {_pid, client} =
-        Enum.find(state.connections, fn {_pid, client} -> client.nick == target end)
+      {_pid, client} = find_connection_by_nick(state, target)
 
       source_for(client, state.server_name)
     end)
@@ -1680,16 +1944,16 @@ defmodule Ircxd.Server do
   defp notify_monitors(state, nil, _status), do: state
 
   defp notify_monitors(state, nick, status) do
+    nick_key = fold_name(state, nick)
+
     Enum.reduce(state.monitors, state, fn {watcher, targets}, state ->
-      if MapSet.member?(targets, nick) and Map.has_key?(state.connections, watcher) do
+      if MapSet.member?(targets, nick_key) and Map.has_key?(state.connections, watcher) do
         watcher_nick = state.connections[watcher].nick
 
         case status do
           :online ->
-            target =
-              Enum.find_value(state.connections, fn {_pid, client} ->
-                if client.nick == nick, do: source_for(client, state.server_name)
-              end)
+            {_pid, client} = find_connection_by_nick(state, nick)
+            target = source_for(client, state.server_name)
 
             monitor_reply(state, watcher, "730", [watcher_nick, target])
 
@@ -1828,7 +2092,7 @@ defmodule Ircxd.Server do
         end
 
       :error ->
-        case Enum.find(state.connections, fn {_pid, client} -> client.nick == target end) do
+        case find_connection_by_nick(state, target) do
           {recipient, _client} ->
             {:ok, MapSet.new([recipient])}
 
@@ -1934,6 +2198,8 @@ defmodule Ircxd.Server do
                 state = %{
                   state
                   | channels: channels,
+                    channel_index:
+                      Map.put(state.channel_index, fold_name(state, channel), channel),
                     connections: connections,
                     channel_operators: channel_operators,
                     channel_modes: Map.put_new(state.channel_modes, channel, MapSet.new(["n"])),
@@ -2005,12 +2271,11 @@ defmodule Ircxd.Server do
       not channel_operator?(state, channel, connection) ->
         error_reply(state, connection, "482", [requester, "You're not channel operator"])
 
-      not Enum.any?(state.connections, fn {_pid, client} -> client.nick == target end) ->
+      not nick_online?(state, target) ->
         error_reply(state, connection, "401", [requester, target, "No such nick/channel"])
 
       true ->
-        {target_connection, target_client} =
-          Enum.find(state.connections, fn {_pid, client} -> client.nick == target end)
+        {target_connection, target_client} = find_connection_by_nick(state, target)
 
         if MapSet.member?(members, target_connection) do
           client = state.connections[connection]
@@ -2059,7 +2324,7 @@ defmodule Ircxd.Server do
         error_reply(state, connection, "482", [requester, "You're not channel operator"])
 
       true ->
-        case Enum.find(state.connections, fn {_pid, client} -> client.nick == target end) do
+        case find_connection_by_nick(state, target) do
           nil ->
             error_reply(state, connection, "401", [requester, target, "No such nick/channel"])
 
@@ -2188,7 +2453,7 @@ defmodule Ircxd.Server do
         error_reply(state, connection, "461", [nick, "MODE", "Not enough parameters"])
 
       target ->
-        case Enum.find(state.connections, fn {_pid, client} -> client.nick == target end) do
+        case find_connection_by_nick(state, target) do
           nil ->
             error_reply(state, connection, "401", [nick, target, "No such nick/channel"])
 
@@ -2226,7 +2491,7 @@ defmodule Ircxd.Server do
         error_reply(state, connection, "461", [nick, "MODE", "Not enough parameters"])
 
       target ->
-        case Enum.find(state.connections, fn {_pid, client} -> client.nick == target end) do
+        case find_connection_by_nick(state, target) do
           nil ->
             error_reply(state, connection, "401", [nick, target, "No such nick/channel"])
 
@@ -2394,7 +2659,7 @@ defmodule Ircxd.Server do
     masks = [client.nick, source_for(client, state.server_name)]
 
     Enum.any?(Map.get(state.channel_bans, channel, MapSet.new()), fn mask ->
-      Enum.any?(masks, &wildcard_match?(mask, &1))
+      Enum.any?(masks, &casemapped_wildcard_match?(state, mask, &1))
     end)
   end
 
@@ -2417,8 +2682,9 @@ defmodule Ircxd.Server do
       realname: client.realname || nick
     }
 
-    history = [entry | Map.get(state.whowas, nick, [])] |> Enum.take(10)
-    %{state | whowas: Map.put(state.whowas, nick, history)}
+    nick_key = fold_name(state, nick)
+    history = [entry | Map.get(state.whowas, nick_key, [])] |> Enum.take(10)
+    %{state | whowas: Map.put(state.whowas, nick_key, history)}
   end
 
   defp wildcard_match?(mask, value) when is_binary(mask) and is_binary(value) do
@@ -2436,6 +2702,10 @@ defmodule Ircxd.Server do
   defp wildcard_match?(["?" | rest], [_character | value]), do: wildcard_match?(rest, value)
   defp wildcard_match?([character | rest], [character | value]), do: wildcard_match?(rest, value)
   defp wildcard_match?(_mask, _value), do: false
+
+  defp casemapped_wildcard_match?(state, mask, value) do
+    wildcard_match?(fold_name(state, mask), fold_name(state, value))
+  end
 
   defp remove_channel_voice(state, channel, connection) do
     voices = MapSet.delete(Map.get(state.channel_voices, channel, MapSet.new()), connection)
@@ -2463,6 +2733,7 @@ defmodule Ircxd.Server do
       %{
         state
         | channels: Map.delete(state.channels, channel),
+          channel_index: Map.delete(state.channel_index, fold_name(state, channel)),
           channel_operators: Map.delete(state.channel_operators, channel),
           channel_voices: Map.delete(state.channel_voices, channel),
           channel_modes: Map.delete(state.channel_modes, channel),
@@ -2841,7 +3112,7 @@ defmodule Ircxd.Server do
     |> Enum.flat_map(fn mask ->
       state.channels
       |> Enum.filter(fn {channel, members} ->
-        wildcard_match?(mask, channel) and
+        casemapped_wildcard_match?(state, mask, channel) and
           channel_visible_in_list?(state, connection, {channel, members})
       end)
     end)
@@ -2896,6 +3167,11 @@ defmodule Ircxd.Server do
         state = %{
           state
           | connections: connections,
+            nick_index:
+              if(is_binary(nick),
+                do: Map.delete(state.nick_index, fold_name(state, nick)),
+                else: state.nick_index
+              ),
             channels: channels,
             batches:
               state.batches
@@ -2943,12 +3219,12 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp accept_loop(:gen_tcp, listener, owner) do
+  defp accept_loop(:gen_tcp, listener, owner, handshake_supervisor, handshake_timeout) do
     case :gen_tcp.accept(listener) do
       {:ok, socket} ->
         :ok = :gen_tcp.controlling_process(socket, owner)
         send(owner, {:accepted, :gen_tcp, socket})
-        accept_loop(:gen_tcp, listener, owner)
+        accept_loop(:gen_tcp, listener, owner, handshake_supervisor, handshake_timeout)
 
       {:error, :closed} ->
         :ok
@@ -2958,23 +3234,21 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp accept_loop(:ssl, listener, owner) do
+  defp accept_loop(:ssl, listener, owner, handshake_supervisor, handshake_timeout) do
     case :ssl.transport_accept(listener) do
       {:ok, socket} ->
-        case :ssl.handshake(socket) do
+        case start_tls_handshake(
+               handshake_supervisor,
+               socket,
+               owner,
+               handshake_timeout
+             ) do
           :ok ->
-            :ok = :ssl.controlling_process(socket, owner)
-            send(owner, {:accepted, :ssl, socket})
-            accept_loop(:ssl, listener, owner)
+            accept_loop(:ssl, listener, owner, handshake_supervisor, handshake_timeout)
 
-          {:ok, socket} ->
-            :ok = :ssl.controlling_process(socket, owner)
-            send(owner, {:accepted, :ssl, socket})
-            accept_loop(:ssl, listener, owner)
-
-          {:error, reason} ->
+          {:error, _reason} ->
             :ssl.close(socket)
-            send(owner, {:accept_error, reason})
+            accept_loop(:ssl, listener, owner, handshake_supervisor, handshake_timeout)
         end
 
       {:error, :closed} ->
@@ -2982,6 +3256,53 @@ defmodule Ircxd.Server do
 
       {:error, reason} ->
         send(owner, {:accept_error, reason})
+    end
+  end
+
+  defp start_tls_handshake(supervisor, socket, owner, timeout) do
+    case Task.Supervisor.start_child(supervisor, fn ->
+           receive do
+             :start_handshake -> complete_tls_handshake(socket, owner, timeout)
+           end
+         end) do
+      {:ok, worker} ->
+        case :ssl.controlling_process(socket, worker) do
+          :ok ->
+            send(worker, :start_handshake)
+            :ok
+
+          {:error, reason} ->
+            Process.exit(worker, :shutdown)
+            {:error, reason}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp complete_tls_handshake(socket, owner, timeout) do
+    case :ssl.handshake(socket, timeout) do
+      :ok ->
+        hand_off_tls_socket(socket, owner)
+
+      {:ok, established_socket} ->
+        hand_off_tls_socket(established_socket, owner)
+
+      {:error, reason} ->
+        :ssl.close(socket)
+        send(owner, {:tls_handshake_error, reason})
+    end
+  end
+
+  defp hand_off_tls_socket(socket, owner) do
+    case :ssl.controlling_process(socket, owner) do
+      :ok ->
+        send(owner, {:accepted, :ssl, socket})
+
+      {:error, reason} ->
+        :ssl.close(socket)
+        send(owner, {:tls_handshake_error, reason})
     end
   end
 end
