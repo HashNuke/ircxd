@@ -32,7 +32,7 @@ defmodule Ircxd.ServerMessageTagsTest do
       nick: nick,
       username: nick,
       realname: "Ircxd tagged message client",
-      caps: ["message-tags"],
+      caps: ["message-tags", "echo-message"],
       notify: self()
     )
   end
@@ -44,8 +44,10 @@ defmodule Ircxd.ServerMessageTagsTest do
       {:ircxd, :registered} ->
         wait_for_registration_and_capabilities(registered - 1, capabilities)
 
-      {:ircxd, {:cap_ack, ["message-tags"]}} ->
-        wait_for_registration_and_capabilities(registered, capabilities - 1)
+      {:ircxd, {:cap_ack, acked}} ->
+        if "message-tags" in acked,
+          do: wait_for_registration_and_capabilities(registered, capabilities - 1),
+          else: wait_for_registration_and_capabilities(registered, capabilities)
 
       _other ->
         wait_for_registration_and_capabilities(registered, capabilities)

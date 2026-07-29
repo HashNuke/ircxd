@@ -65,6 +65,7 @@ defmodule Ircxd.ServerMessagingTest do
       nick: nick,
       username: nick,
       realname: "#{nick} test client",
+      caps: ["echo-message"],
       notify: self()
     )
   end

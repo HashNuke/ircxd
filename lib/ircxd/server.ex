@@ -312,9 +312,17 @@ defmodule Ircxd.Server do
         "extended-join",
         "away-notify",
         "account-notify",
+        "echo-message",
         "sasl"
       ],
-      else: ["message-tags", "server-time", "extended-join", "away-notify", "account-notify"]
+      else: [
+        "message-tags",
+        "server-time",
+        "extended-join",
+        "away-notify",
+        "account-notify",
+        "echo-message"
+      ]
   end
 
   defp normalize_motd(motd) when is_binary(motd), do: String.split(motd, "\n")
@@ -889,6 +897,7 @@ defmodule Ircxd.Server do
       {:ok, %{nick: nick} = client} when is_binary(nick) ->
         case message_recipients(state, connection, target) do
           {:ok, recipients} ->
+            recipients = echo_recipients(state, connection, recipients)
             source = source_for(client, state.server_name)
 
             message = %Ircxd.Message{
@@ -920,6 +929,8 @@ defmodule Ircxd.Server do
     case Map.fetch(state.connections, connection) do
       {:ok, %{nick: nick} = client} when is_binary(nick) ->
         recipients = recipients_for(state, target)
+        recipients = echo_recipients(state, connection, recipients)
+
         source = source_for(client, state.server_name)
         message = %Ircxd.Message{tags: tags, source: source, command: "TAGMSG", params: [target]}
         broadcast(state, recipients, message, connection)
@@ -1154,6 +1165,14 @@ defmodule Ircxd.Server do
             end
         end
     end
+  end
+
+  defp echo_recipients(state, connection, recipients) do
+    active = Map.get(state.connection_capabilities, connection, MapSet.new())
+
+    if MapSet.member?(active, "echo-message"),
+      do: recipients,
+      else: MapSet.delete(recipients, connection)
   end
 
   defp join_channel(state, connection, channel, key) do

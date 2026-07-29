@@ -39,6 +39,7 @@ defmodule Ircxd.ServerModeratedModeTest do
       nick: nick,
       username: nick,
       realname: "Ircxd #{nick} client",
+      caps: ["echo-message"],
       notify: self()
     )
   end

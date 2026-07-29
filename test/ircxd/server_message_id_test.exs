@@ -34,7 +34,7 @@ defmodule Ircxd.ServerMessageIdTest do
       nick: nick,
       username: nick,
       realname: "Ircxd #{nick} client",
-      caps: ["message-tags"],
+      caps: ["message-tags", "echo-message"],
       notify: self()
     )
   end
