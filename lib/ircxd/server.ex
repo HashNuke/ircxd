@@ -1718,12 +1718,28 @@ defmodule Ircxd.Server do
   end
 
   defp channel_banned?(state, channel, client) do
-    client_mask = source_for(client, state.server_name)
+    masks = [client.nick, source_for(client, state.server_name)]
 
     Enum.any?(Map.get(state.channel_bans, channel, MapSet.new()), fn mask ->
-      mask == client.nick or mask == client_mask
+      Enum.any?(masks, &wildcard_match?(mask, &1))
     end)
   end
+
+  defp wildcard_match?(mask, value) when is_binary(mask) and is_binary(value) do
+    wildcard_match?(String.graphemes(mask), String.graphemes(value))
+  end
+
+  defp wildcard_match?([], []), do: true
+  defp wildcard_match?([], _value), do: false
+  defp wildcard_match?(["*" | rest], []), do: wildcard_match?(rest, [])
+
+  defp wildcard_match?(["*" | rest], [_character | value]) do
+    wildcard_match?(rest, value) or wildcard_match?(["*" | rest], value)
+  end
+
+  defp wildcard_match?(["?" | rest], [_character | value]), do: wildcard_match?(rest, value)
+  defp wildcard_match?([character | rest], [character | value]), do: wildcard_match?(rest, value)
+  defp wildcard_match?(_mask, _value), do: false
 
   defp remove_channel_voice(state, channel, connection) do
     voices = MapSet.delete(Map.get(state.channel_voices, channel, MapSet.new()), connection)

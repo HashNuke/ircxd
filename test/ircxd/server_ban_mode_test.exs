@@ -41,6 +41,28 @@ defmodule Ircxd.ServerBanModeTest do
     assert_receive {:ircxd, {:join, %{channel: "#banned", nick: "ban-bob"}}}, 2_000
   end
 
+  test "wildcard nick masks reject matching users" do
+    {:ok, server} = Server.start_link(port: 0)
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, alice} = start_client(server, "wild-alice")
+    {:ok, bob} = start_client(server, "wild-bob")
+
+    on_exit(fn ->
+      stop_if_alive(alice)
+      stop_if_alive(bob)
+    end)
+
+    wait_registered(2)
+    assert :ok = Client.join(alice, "#wild-bans")
+    assert_receive {:ircxd, {:join, %{channel: "#wild-bans"}}}, 2_000
+    assert :ok = Client.mode(alice, "#wild-bans", "+b", ["wild-*"])
+    assert_receive {:ircxd, {:mode, %{target: "#wild-bans", modes: "+b"}}}, 2_000
+
+    assert :ok = Client.join(bob, "#wild-bans")
+    assert_receive {:ircxd, {:irc_error, %{code: "474", target: "#wild-bans"}}}, 2_000
+  end
+
   defp start_client(server, nick) do
     Client.start_link(
       host: "127.0.0.1",
