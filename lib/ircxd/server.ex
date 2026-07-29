@@ -84,6 +84,7 @@ defmodule Ircxd.Server do
          motd: motd,
          info: info,
          help: help,
+         started_at: System.monotonic_time(:second),
          isupport: isupport,
          admin: admin,
          registration_timeout: Keyword.get(opts, :registration_timeout, 60_000),
@@ -436,6 +437,14 @@ defmodule Ircxd.Server do
   end
 
   defp normalize_help(_help), do: normalize_help(nil)
+
+  defp format_uptime(seconds) do
+    days = div(seconds, 86_400)
+    hours = div(rem(seconds, 86_400), 3_600)
+    minutes = div(rem(seconds, 3_600), 60)
+    seconds = rem(seconds, 60)
+    "Server up #{days} days, #{hours} hours, #{minutes} minutes, #{seconds} seconds"
+  end
 
   defp normalize_isupport(nil),
     do: [
@@ -819,6 +828,43 @@ defmodule Ircxd.Server do
       source: state.server_name,
       command: "365",
       params: [nick, mask, "End of LINKS list"]
+    }
+
+    broadcast(state, MapSet.new([connection]), end_message, connection)
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "STATS",
+         params: ["u" | _rest]
+       }) do
+    nick = state.connections[connection].nick
+    elapsed = max(System.monotonic_time(:second) - state.started_at, 0)
+
+    uptime = %Ircxd.Message{
+      source: state.server_name,
+      command: "242",
+      params: [nick, format_uptime(elapsed)]
+    }
+
+    state = broadcast(state, MapSet.new([connection]), uptime, connection)
+
+    end_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "219",
+      params: [nick, "u", "End of STATS report"]
+    }
+
+    broadcast(state, MapSet.new([connection]), end_message, connection)
+  end
+
+  defp handle_registered_command(state, connection, %{command: "STATS", params: params}) do
+    nick = state.connections[connection].nick
+    query = List.first(params) || "*"
+
+    end_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "219",
+      params: [nick, query, "End of STATS report"]
     }
 
     broadcast(state, MapSet.new([connection]), end_message, connection)

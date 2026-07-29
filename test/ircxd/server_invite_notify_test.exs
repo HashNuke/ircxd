@@ -36,6 +36,7 @@ defmodule Ircxd.ServerInviteNotifyTest do
     end)
 
     wait_registered(4)
+    wait_for_capability(:capable, "invite-notify")
     assert :ok = Client.join(inviter, "#invite-notify")
     assert :ok = Client.join(capable, "#invite-notify")
     assert :ok = Client.join(legacy, "#invite-notify")
@@ -91,6 +92,18 @@ defmodule Ircxd.ServerInviteNotifyTest do
       _other -> wait_registered(remaining)
     after
       2_000 -> flunk("clients did not register")
+    end
+  end
+
+  defp wait_for_capability(label, capability) do
+    receive do
+      {^label, {:ircxd, {:cap_ack, caps}}} ->
+        if capability in caps, do: :ok, else: wait_for_capability(label, capability)
+
+      _other ->
+        wait_for_capability(label, capability)
+    after
+      2_000 -> flunk("#{label} client did not negotiate #{capability}")
     end
   end
 
