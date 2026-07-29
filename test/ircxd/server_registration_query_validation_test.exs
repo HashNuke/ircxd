@@ -25,6 +25,21 @@ defmodule Ircxd.ServerRegistrationQueryValidationTest do
 
     assert :ok = Client.raw(client, "WHOIS", [])
     assert_receive {:ircxd, {:irc_error, %{code: "461", target: "WHOIS"}}}, 2_000
+
+    assert :ok = Client.raw(client, "PING", [])
+    assert_receive {:ircxd, {:irc_error, %{code: "461", target: "PING"}}}, 2_000
+  end
+
+  test "returns 461 for incomplete USER during registration" do
+    {:ok, server} = Server.start_link(port: 0)
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, client} = start_client(server, "bad*nick")
+    on_exit(fn -> stop_if_alive(client) end)
+    assert_receive {:ircxd, {:irc_error, %{code: "432"}}}, 2_000
+
+    assert :ok = Client.raw(client, "USER", [])
+    assert_receive {:ircxd, {:irc_error, %{code: "461", target: "USER"}}}, 2_000
   end
 
   defp start_client(server, nick) do

@@ -235,6 +235,12 @@ defmodule Ircxd.Server.Connection do
     {:noreply, state}
   end
 
+  defp handle_message(%Message{command: "USER", params: params}, state)
+       when length(params) < 4 do
+    send_message(state, "461", [state.nick || "*", "USER", "Not enough parameters"])
+    {:noreply, state}
+  end
+
   defp handle_message(
          %Message{command: "USER", params: [username, _mode, _unused, realname]},
          state
@@ -242,6 +248,11 @@ defmodule Ircxd.Server.Connection do
     state = %{state | username: username, realname: realname}
     Ircxd.Server.identity(state.server, self(), username, realname)
     maybe_register(state)
+  end
+
+  defp handle_message(%Message{command: "PING", params: []}, state) do
+    send_message(state, "461", [state.nick || "*", "PING", "Not enough parameters"])
+    {:noreply, state}
   end
 
   defp handle_message(%Message{command: "PING", params: params}, state) do
