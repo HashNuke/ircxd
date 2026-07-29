@@ -473,7 +473,9 @@ defmodule Ircxd.Server do
       "NICKLEN=30",
       "CASEMAPPING=ascii",
       "PREFIX=(ov)@+",
-      "CHANMODES=b,k,l,imnpst"
+      "CHANMODES=b,k,l,imnpst",
+      "CHATHISTORY=100",
+      "MSGREFTYPES=msgid,timestamp"
     ]
 
   defp normalize_isupport(tokens) when is_binary(tokens),
@@ -1398,6 +1400,19 @@ defmodule Ircxd.Server do
       _ ->
         state
     end
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "CHATHISTORY",
+         params: ["TARGETS", first_selector, second_selector, limit | _rest]
+       }) do
+    serve_history_targets(
+      state,
+      connection,
+      first_selector,
+      second_selector,
+      parse_history_limit(limit)
+    )
   end
 
   defp handle_registered_command(state, connection, %{
@@ -2494,6 +2509,73 @@ defmodule Ircxd.Server do
         broadcast(state, MapSet.new([connection]), end_message, connection)
     end
   end
+
+  defp serve_history_targets(state, connection, first_selector, second_selector, limit) do
+    visible_channels =
+      state.channels
+      |> Enum.filter(fn {_channel, members} -> MapSet.member?(members, connection) end)
+      |> Enum.map(&elem(&1, 0))
+      |> MapSet.new()
+
+    targets =
+      state.history
+      |> Enum.filter(fn %{params: [channel, _body]} -> channel in visible_channels end)
+      |> Enum.reduce(%{}, fn %{params: [channel, _body], tags: tags}, latest ->
+        Map.put_new(latest, channel, Map.get(tags, "time"))
+      end)
+      |> Enum.filter(fn {_channel, timestamp} ->
+        timestamp >= selector_value(first_selector) and
+          timestamp <= selector_value(second_selector)
+      end)
+      |> Enum.sort_by(&elem(&1, 1), :desc)
+      |> Enum.take(limit)
+
+    target_messages =
+      Enum.map(targets, fn {channel, timestamp} ->
+        %Ircxd.Message{
+          source: state.server_name,
+          command: "CHATHISTORY",
+          params: ["TARGETS", channel, timestamp]
+        }
+      end)
+
+    if capability_enabled?(state, connection, "batch") do
+      ref = "targets-#{Integer.to_string(state.message_id + 1, 16)}"
+
+      start_message = %Ircxd.Message{
+        source: state.server_name,
+        command: "BATCH",
+        params: ["+#{ref}", "draft/chathistory-targets"]
+      }
+
+      state = broadcast(state, MapSet.new([connection]), start_message, connection)
+
+      state =
+        Enum.reduce(
+          target_messages,
+          state,
+          &broadcast(&2, MapSet.new([connection]), &1, connection)
+        )
+
+      end_message = %Ircxd.Message{
+        source: state.server_name,
+        command: "BATCH",
+        params: ["-#{ref}"]
+      }
+
+      broadcast(state, MapSet.new([connection]), end_message, connection)
+    else
+      Enum.reduce(
+        target_messages,
+        state,
+        &broadcast(&2, MapSet.new([connection]), &1, connection)
+      )
+    end
+  end
+
+  defp selector_value("timestamp=" <> timestamp), do: timestamp
+  defp selector_value("msgid=" <> msgid), do: msgid
+  defp selector_value(_selector), do: ""
 
   defp select_history(history, "LATEST", target, selector, limit) do
     select_latest_history(channel_history(history, target), selector, limit)

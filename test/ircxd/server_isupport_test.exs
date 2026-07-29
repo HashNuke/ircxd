@@ -49,6 +49,8 @@ defmodule Ircxd.ServerIsupportTest do
     assert_receive {:ircxd, {:isupport, tokens}}, 2_000
     assert tokens["PREFIX"] == "(ov)@+"
     assert tokens["CHANMODES"] == "b,k,l,imnpst"
+    assert tokens["CHATHISTORY"] == "100"
+    assert tokens["MSGREFTYPES"] == "msgid,timestamp"
   end
 
   defp stop_if_alive(pid) do
