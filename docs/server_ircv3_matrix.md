@@ -34,6 +34,10 @@ Status values:
 | Persistence, moderation policy, and application side effects | host | subscriber/callback contract |
 | irssi interoperability | partial | `scripts/run_irssi_server_check.sh`; irssi connects to a disposable `Ircxd.Server` in a named tmux session and receives a message sent by `Ircxd.Client`, while the existing `scripts/run_irssi_manual_check.sh` covers the external InspIRCd gate |
 
+Private channel mode `+p` is covered by `server_private_mode_test.exs`: it
+uses the private `*` NAMES symbol and hides non-member LIST results while
+remaining distinguishable from secret mode `+s`.
+
 ## Subscriber contract
 
 The server accepts a subscriber module and initialization argument in its

@@ -1340,12 +1340,15 @@ defmodule Ircxd.Server do
   end
 
   defp channel_visible_to_names?(state, connection, {channel, members}) do
-    not MapSet.member?(Map.get(state.channel_modes, channel, MapSet.new()), "s") or
+    channel_modes = Map.get(state.channel_modes, channel, MapSet.new())
+
+    not (MapSet.member?(channel_modes, "s") or MapSet.member?(channel_modes, "p")) or
       MapSet.member?(members, connection)
   end
 
   defp names_channel_visible(state, connection, channel) do
     members = Map.get(state.channels, channel, MapSet.new())
+    channel_modes = Map.get(state.channel_modes, channel, MapSet.new())
 
     multi_prefix? =
       "multi-prefix" in Map.get(state.connection_capabilities, connection, MapSet.new())
@@ -1389,7 +1392,7 @@ defmodule Ircxd.Server do
     names_message = %Ircxd.Message{
       source: state.server_name,
       command: "353",
-      params: [state.connections[connection].nick, "=", channel, names]
+      params: [state.connections[connection].nick, names_symbol(channel_modes), channel, names]
     }
 
     end_message = %Ircxd.Message{
@@ -1867,8 +1870,15 @@ defmodule Ircxd.Server do
                                                               {:ok, current, current_key,
                                                                current_limit} ->
       cond do
-        mode in ["i", "m", "n", "s", "t"] ->
-          next = if sign == "+", do: MapSet.put(current, mode), else: MapSet.delete(current, mode)
+        mode in ["i", "m", "n", "p", "s", "t"] ->
+          next =
+            if sign == "+" do
+              current = MapSet.delete(current, if(mode == "p", do: "s", else: "p"))
+              MapSet.put(current, mode)
+            else
+              MapSet.delete(current, mode)
+            end
+
           {:cont, {:ok, next, current_key, current_limit}}
 
         mode == "k" and sign == "+" and is_binary(List.first(params)) ->
@@ -1907,6 +1917,14 @@ defmodule Ircxd.Server do
     case channel_modes |> MapSet.to_list() |> Enum.sort() |> Enum.join() do
       "" -> "+"
       modes -> "+" <> modes
+    end
+  end
+
+  defp names_symbol(channel_modes) do
+    cond do
+      MapSet.member?(channel_modes, "s") -> "@"
+      MapSet.member?(channel_modes, "p") -> "*"
+      true -> "="
     end
   end
 
@@ -2059,7 +2077,9 @@ defmodule Ircxd.Server do
   end
 
   defp channel_visible_in_list?(state, connection, {channel, members}) do
-    not MapSet.member?(Map.get(state.channel_modes, channel, MapSet.new()), "s") or
+    channel_modes = Map.get(state.channel_modes, channel, MapSet.new())
+
+    not (MapSet.member?(channel_modes, "s") or MapSet.member?(channel_modes, "p")) or
       MapSet.member?(members, connection)
   end
 

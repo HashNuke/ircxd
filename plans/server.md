@@ -78,6 +78,8 @@ to listen on different (or independently configured) endpoints.
    Channel modes `+v`/`-v` now grant and revoke moderated-channel speaking rights; voiced users appear as `+` in NAMES.
    Channel mode `+s` now hides secret channels from non-members in `LIST` and
    `NAMES`/`WHO` while preserving visibility for members.
+   Channel mode `+p` now hides private channels from non-member `LIST` and
+   no-target `NAMES` enumeration and uses the private `*` NAMES symbol.
    Channel mode `+b` now tracks nick masks with `*`/`?` wildcards, rejects
    matching JOINs with `474`, supports `-b`, and returns `367`/`368` ban-list
    numerics.
@@ -321,3 +323,5 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Added `labeled-response` capability support for WHOIS reply sequences, preserving request labels through `311`/`301`/`330`/`312`/`318` responses | `test/ircxd/server_labeled_response_test.exs` |
 | 2026-07-29 | Revalidated labeled WHOIS responses with 97 focused server tests, 353 non-external tests, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 665.15 ms median per 100k iterations (150,342 ops/s, p95 738.42 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
 | 2026-07-29 | A repository-wide `mix test` attempt remained environment-gated by the existing InspIRCd integration test timing out during CAP LS on `127.0.0.1:6667`; the local/non-external suite passed independently | `test/ircxd/client_integration_test.exs` |
+| 2026-07-29 | Added private channel mode `+p` with mutual exclusion against `+s`, non-member LIST privacy, no-target NAMES privacy, and the standard `*` NAMES symbol | `test/ircxd/server_private_mode_test.exs` |
+| 2026-07-29 | Revalidated private mode with 98 focused server tests, 354 non-external tests, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 640.67 ms median per 100k iterations (156,087 ops/s, p95 720.49 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
