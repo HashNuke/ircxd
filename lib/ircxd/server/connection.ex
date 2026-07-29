@@ -160,6 +160,7 @@ defmodule Ircxd.Server.Connection do
          state
        ) do
     state = %{state | username: username, realname: realname}
+    Ircxd.Server.identity(state.server, self(), username, realname)
     maybe_register(state)
   end
 
@@ -183,7 +184,8 @@ defmodule Ircxd.Server.Connection do
               "LUSERS",
               "VERSION",
               "TIME",
-              "ADMIN"
+              "ADMIN",
+              "WHO"
             ] do
     Ircxd.Server.command(state.server, self(), message)
     {:noreply, state}

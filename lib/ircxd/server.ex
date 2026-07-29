@@ -39,6 +39,9 @@ defmodule Ircxd.Server do
   def command(server, connection, message),
     do: GenServer.cast(server, {:client_command, connection, message})
 
+  def identity(server, connection, username, realname),
+    do: GenServer.cast(server, {:client_identity, connection, username, realname})
+
   def register(server, connection, nick),
     do: GenServer.call(server, {:register, connection, nick})
 
@@ -142,6 +145,23 @@ defmodule Ircxd.Server do
     {:noreply, dispatch_to_subscriber(state, message, metadata)}
   end
 
+  def handle_cast({:client_identity, connection, username, realname}, state) do
+    case Map.fetch(state.connections, connection) do
+      {:ok, client} ->
+        connections =
+          Map.put(state.connections, connection, %{
+            client
+            | username: username,
+              realname: realname
+          })
+
+        {:noreply, %{state | connections: connections}}
+
+      :error ->
+        {:noreply, state}
+    end
+  end
+
   def handle_cast({:client_command, connection, message}, state) do
     {:noreply, handle_client_command(state, connection, message)}
   end
@@ -168,6 +188,8 @@ defmodule Ircxd.Server do
               socket: socket,
               ref: ref,
               nick: nil,
+              username: nil,
+              realname: nil,
               registered?: false,
               channels: MapSet.new()
             }
@@ -431,6 +453,51 @@ defmodule Ircxd.Server do
       _ ->
         state
     end
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "WHO",
+         params: [mask | _rest]
+       }) do
+    requester = state.connections[connection].nick
+
+    members =
+      case Map.fetch(state.channels, mask) do
+        {:ok, members} -> members
+        :error -> MapSet.new()
+      end
+
+    state =
+      Enum.reduce(members, state, fn member, state ->
+        client = state.connections[member]
+        username = client.username || client.nick
+        realname = client.realname || client.nick
+
+        message = %Ircxd.Message{
+          source: state.server_name,
+          command: "352",
+          params: [
+            requester,
+            mask,
+            username,
+            "user",
+            state.server_name,
+            client.nick,
+            "H",
+            "0 #{realname}"
+          ]
+        }
+
+        broadcast(state, MapSet.new([connection]), message, connection)
+      end)
+
+    end_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "315",
+      params: [requester, mask, "End of /WHO list"]
+    }
+
+    broadcast(state, MapSet.new([connection]), end_message, connection)
   end
 
   defp handle_registered_command(state, connection, %{
