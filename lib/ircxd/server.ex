@@ -314,6 +314,7 @@ defmodule Ircxd.Server do
         "account-notify",
         "account-tag",
         "multi-prefix",
+        "userhost-in-names",
         "echo-message",
         "sasl"
       ],
@@ -325,6 +326,7 @@ defmodule Ircxd.Server do
         "account-notify",
         "account-tag",
         "multi-prefix",
+        "userhost-in-names",
         "echo-message"
       ]
   end
@@ -1110,6 +1112,9 @@ defmodule Ircxd.Server do
     multi_prefix? =
       "multi-prefix" in Map.get(state.connection_capabilities, connection, MapSet.new())
 
+    userhost_in_names? =
+      "userhost-in-names" in Map.get(state.connection_capabilities, connection, MapSet.new())
+
     names =
       members
       |> Enum.map(fn member ->
@@ -1130,7 +1135,15 @@ defmodule Ircxd.Server do
             end
           end
 
-        name_prefixes <> nick
+        name =
+          if userhost_in_names? do
+            client = state.connections[member]
+            "#{nick}!#{client.username}@#{state.server_name}"
+          else
+            nick
+          end
+
+        name_prefixes <> name
       end)
       |> Enum.reject(&is_nil/1)
       |> Enum.join(" ")
