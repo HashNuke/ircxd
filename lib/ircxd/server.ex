@@ -623,8 +623,13 @@ defmodule Ircxd.Server do
 
     members =
       case Map.fetch(state.channels, mask) do
-        {:ok, members} -> members
-        :error -> MapSet.new()
+        {:ok, members} ->
+          secret? = MapSet.member?(Map.get(state.channel_modes, mask, MapSet.new()), "s")
+
+          if secret? and not MapSet.member?(members, connection), do: MapSet.new(), else: members
+
+        :error ->
+          MapSet.new()
       end
 
     state =
