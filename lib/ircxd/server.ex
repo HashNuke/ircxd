@@ -404,6 +404,7 @@ defmodule Ircxd.Server do
         "standard-replies",
         "batch",
         "draft/chathistory",
+        "draft/multiline",
         "sasl"
       ],
       else: [
@@ -422,7 +423,8 @@ defmodule Ircxd.Server do
         "labeled-response",
         "standard-replies",
         "batch",
-        "draft/chathistory"
+        "draft/chathistory",
+        "draft/multiline"
       ]
   end
 
