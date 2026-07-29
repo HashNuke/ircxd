@@ -41,6 +41,7 @@ to listen on different (or independently configured) endpoints.
    Comma-separated JOIN targets are now processed independently.
    Comma-separated PART targets now share the supplied part reason.
    Configured MOTD delivery is now covered with standard numerics.
+   NAMES without a target now enumerates all known channels.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -108,5 +109,6 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated multi-target PART with 35 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Added configurable MOTD delivery with `375`/`372`/`376` numerics | `test/ircxd/server_motd_test.exs` |
 | 2026-07-29 | Revalidated MOTD support with 36 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added no-target `NAMES` enumeration for all known channels | `test/ircxd/server_names_all_test.exs` |
 | 2026-07-29 | Revalidated multi-target JOIN with 34 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Revalidated LIST support with 33 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |

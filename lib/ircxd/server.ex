@@ -259,28 +259,13 @@ defmodule Ircxd.Server do
          command: "NAMES",
          params: [channel]
        }) do
-    members = Map.get(state.channels, channel, MapSet.new())
+    names_channel(state, connection, channel)
+  end
 
-    names =
-      members
-      |> Enum.map(&state.connections[&1].nick)
-      |> Enum.reject(&is_nil/1)
-      |> Enum.join(" ")
-
-    names_message = %Ircxd.Message{
-      source: state.server_name,
-      command: "353",
-      params: [state.connections[connection].nick, "=", channel, names]
-    }
-
-    end_message = %Ircxd.Message{
-      source: state.server_name,
-      command: "366",
-      params: [state.connections[connection].nick, channel, "End of NAMES list"]
-    }
-
-    state = broadcast(state, MapSet.new([connection]), names_message, connection)
-    broadcast(state, MapSet.new([connection]), end_message, connection)
+  defp handle_registered_command(state, connection, %{command: "NAMES", params: []}) do
+    Enum.reduce(state.channels, state, fn {channel, _members}, state ->
+      names_channel(state, connection, channel)
+    end)
   end
 
   defp handle_registered_command(state, connection, %{
@@ -508,6 +493,31 @@ defmodule Ircxd.Server do
       command,
       "Unknown command"
     ])
+  end
+
+  defp names_channel(state, connection, channel) do
+    members = Map.get(state.channels, channel, MapSet.new())
+
+    names =
+      members
+      |> Enum.map(&state.connections[&1].nick)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(" ")
+
+    names_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "353",
+      params: [state.connections[connection].nick, "=", channel, names]
+    }
+
+    end_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "366",
+      params: [state.connections[connection].nick, channel, "End of NAMES list"]
+    }
+
+    state = broadcast(state, MapSet.new([connection]), names_message, connection)
+    broadcast(state, MapSet.new([connection]), end_message, connection)
   end
 
   defp join_channel(state, connection, channel) do
