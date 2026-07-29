@@ -14,8 +14,7 @@ defmodule Ircxd.ServerTagmsgTest do
       for client <- [alice, bob], Process.alive?(client), do: GenServer.stop(client)
     end)
 
-    wait_registered(2)
-    wait_for_capability_acks(2)
+    wait_for_registration_and_capabilities(2, 2)
     assert :ok = Client.join(alice, "#tags")
     assert :ok = Client.join(bob, "#tags")
     wait_for_joins(2)
@@ -36,17 +35,6 @@ defmodule Ircxd.ServerTagmsgTest do
     )
   end
 
-  defp wait_registered(0), do: :ok
-
-  defp wait_registered(remaining) do
-    receive do
-      {:ircxd, :registered} -> wait_registered(remaining - 1)
-      _other -> wait_registered(remaining)
-    after
-      2_000 -> flunk("clients did not register")
-    end
-  end
-
   defp wait_for_joins(0), do: :ok
 
   defp wait_for_joins(remaining) do
@@ -58,14 +46,20 @@ defmodule Ircxd.ServerTagmsgTest do
     end
   end
 
-  defp wait_for_capability_acks(0), do: :ok
+  defp wait_for_registration_and_capabilities(0, 0), do: :ok
 
-  defp wait_for_capability_acks(remaining) do
+  defp wait_for_registration_and_capabilities(registered, capabilities) do
     receive do
-      {:ircxd, {:cap_ack, ["message-tags"]}} -> wait_for_capability_acks(remaining - 1)
-      _other -> wait_for_capability_acks(remaining)
+      {:ircxd, :registered} ->
+        wait_for_registration_and_capabilities(registered - 1, capabilities)
+
+      {:ircxd, {:cap_ack, ["message-tags"]}} ->
+        wait_for_registration_and_capabilities(registered, capabilities - 1)
+
+      _other ->
+        wait_for_registration_and_capabilities(registered, capabilities)
     after
-      2_000 -> flunk("clients did not activate message-tags")
+      2_000 -> flunk("clients did not complete registration and capability negotiation")
     end
   end
 
