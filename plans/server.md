@@ -142,6 +142,7 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated registration identity protection with 50 server tests, formatting checks, and the full ExUnit suite | `mix format --check-formatted`, `mix test test/ircxd/server_*_test.exs`, `mix test` |
 | 2026-07-29 | Propagated successful authenticator account values into server identity state and WHOIS `330` replies | `test/ircxd/server_authentication_test.exs` |
 | 2026-07-29 | Added `900 RPL_LOGGEDIN` for successful application-owned SASL authentication | `test/ircxd/server_authentication_test.exs` |
+| 2026-07-29 | Revalidated SASL login metadata with 62 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Revalidated authenticated-account propagation with formatting checks, 50 server tests, and the full ExUnit suite | `mix format --check-formatted`, `mix test test/ircxd/server_*_test.exs`, `mix test` |
 | 2026-07-29 | Revalidated registration hardening with 23 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Added `CAP NAK` responses for unsupported capability requests | `test/ircxd/server_capability_test.exs` |
