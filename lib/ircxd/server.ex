@@ -2366,17 +2366,14 @@ defmodule Ircxd.Server do
   defp channels_for_list(state, connection, [targets | _]) do
     targets
     |> String.split(",", trim: true)
-    |> Enum.flat_map(fn channel ->
-      case Map.fetch(state.channels, channel) do
-        {:ok, members} ->
-          if channel_visible_in_list?(state, connection, {channel, members}),
-            do: [{channel, members}],
-            else: []
-
-        :error ->
-          []
-      end
+    |> Enum.flat_map(fn mask ->
+      state.channels
+      |> Enum.filter(fn {channel, members} ->
+        wildcard_match?(mask, channel) and
+          channel_visible_in_list?(state, connection, {channel, members})
+      end)
     end)
+    |> Enum.uniq_by(&elem(&1, 0))
   end
 
   defp channel_visible_in_list?(state, connection, {channel, members}) do

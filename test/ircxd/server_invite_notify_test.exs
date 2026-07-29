@@ -89,7 +89,6 @@ defmodule Ircxd.ServerInviteNotifyTest do
       {:ircxd, :registered} -> wait_registered(remaining - 1)
       {:capable, {:ircxd, :registered}} -> wait_registered(remaining - 1)
       {:legacy, {:ircxd, :registered}} -> wait_registered(remaining - 1)
-      _other -> wait_registered(remaining)
     after
       2_000 -> flunk("clients did not register")
     end
