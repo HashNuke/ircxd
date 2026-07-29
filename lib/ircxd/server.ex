@@ -801,15 +801,20 @@ defmodule Ircxd.Server do
           source = source_for(client, state.server_name)
           message = %Ircxd.Message{source: source, command: "JOIN", params: [channel]}
           members = Map.get(state.channels, channel, MapSet.new())
-          recipients = MapSet.put(members, connection)
-          state = broadcast(state, recipients, message, connection)
-          channels = Map.put(state.channels, channel, recipients)
-          client_channels = MapSet.put(client.channels, channel)
 
-          connections =
-            Map.update!(state.connections, connection, &Map.put(&1, :channels, client_channels))
+          if MapSet.member?(members, connection) do
+            state
+          else
+            recipients = MapSet.put(members, connection)
+            state = broadcast(state, recipients, message, connection)
+            channels = Map.put(state.channels, channel, recipients)
+            client_channels = MapSet.put(client.channels, channel)
 
-          %{state | channels: channels, connections: connections}
+            connections =
+              Map.update!(state.connections, connection, &Map.put(&1, :channels, client_channels))
+
+            %{state | channels: channels, connections: connections}
+          end
         else
           error_reply(state, connection, "403", [nick, channel, "No such channel"])
         end
