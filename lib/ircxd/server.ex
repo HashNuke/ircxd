@@ -1402,16 +1402,23 @@ defmodule Ircxd.Server do
 
   defp handle_registered_command(state, connection, %{
          command: "CHATHISTORY",
-         params: [query, target, selector, limit | _rest]
+         params: ["BETWEEN", target, first_selector, second_selector, limit | _rest]
        }) do
     serve_history(
       state,
       connection,
-      query,
+      "BETWEEN",
       target,
-      selector,
+      {first_selector, second_selector},
       parse_history_limit(limit)
     )
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "CHATHISTORY",
+         params: [query, target, selector, limit | _rest]
+       }) do
+    serve_history(state, connection, query, target, selector, parse_history_limit(limit))
   end
 
   defp handle_registered_command(state, connection, %{command: "CHATHISTORY"}) do
@@ -2449,7 +2456,7 @@ defmodule Ircxd.Server do
   end
 
   defp serve_history(state, connection, query, target, selector, limit)
-       when query in ["LATEST", "BEFORE", "AFTER"] do
+       when query in ["LATEST", "BEFORE", "AFTER", "AROUND", "BETWEEN"] do
     requester = state.connections[connection].nick
 
     cond do
@@ -2488,11 +2495,8 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp select_history(history, "LATEST", target, _selector, limit) do
-    history
-    |> channel_history(target)
-    |> Enum.take(limit)
-    |> Enum.reverse()
+  defp select_history(history, "LATEST", target, selector, limit) do
+    select_latest_history(channel_history(history, target), selector, limit)
   end
 
   defp select_history(history, query, target, selector, limit)
@@ -2502,6 +2506,45 @@ defmodule Ircxd.Server do
     case Enum.find_index(entries, &history_selector_match?(&1, selector)) do
       nil -> []
       index when query == "BEFORE" -> entries |> Enum.take(index) |> Enum.take(-limit)
+      index -> entries |> Enum.drop(index + 1) |> Enum.take(limit)
+    end
+  end
+
+  defp select_history(history, "AROUND", target, selector, limit) do
+    entries = history |> channel_history(target) |> Enum.reverse()
+
+    case Enum.find_index(entries, &history_selector_match?(&1, selector)) do
+      nil ->
+        []
+
+      index ->
+        before = div(max(limit - 1, 0), 2)
+        Enum.slice(entries, max(index - before, 0), limit)
+    end
+  end
+
+  defp select_history(history, "BETWEEN", target, {first_selector, second_selector}, limit) do
+    entries = history |> channel_history(target) |> Enum.reverse()
+
+    with first when is_integer(first) <-
+           Enum.find_index(entries, &history_selector_match?(&1, first_selector)),
+         second when is_integer(second) <-
+           Enum.find_index(entries, &history_selector_match?(&1, second_selector)) do
+      {start, finish} = Enum.min_max([first, second])
+      entries |> Enum.slice(start + 1, max(finish - start - 1, 0)) |> Enum.take(limit)
+    else
+      _ -> []
+    end
+  end
+
+  defp select_latest_history(entries, "*", limit),
+    do: entries |> Enum.take(limit) |> Enum.reverse()
+
+  defp select_latest_history(entries, selector, limit) do
+    entries = Enum.reverse(entries)
+
+    case Enum.find_index(entries, &history_selector_match?(&1, selector)) do
+      nil -> []
       index -> entries |> Enum.drop(index + 1) |> Enum.take(limit)
     end
   end

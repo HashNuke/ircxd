@@ -148,8 +148,8 @@ to listen on different (or independently configured) endpoints.
    `batch` is advertised; client-originated batch frames are tracked and
    relayed around their tagged messages to the actual recipients.
    `draft/chathistory` now serves bounded in-memory `CHATHISTORY LATEST`,
-   `BEFORE`, and `AFTER` results to channel members in `chathistory` batches;
-   durable history stays application-owned.
+   `BEFORE`, `AFTER`, `AROUND`, and `BETWEEN` results to channel members in
+   `chathistory` batches; durable history stays application-owned.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -378,4 +378,6 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Added bounded in-memory `CHATHISTORY LATEST` responses with member privacy and `msgid`/`time` metadata | `test/ircxd/server_chat_history_test.exs` |
 | 2026-07-29 | Extended bounded chat history with message-ID based `BEFORE` and `AFTER` selectors | `test/ircxd/server_chat_history_test.exs` |
 | 2026-07-29 | Revalidated selector-aware chat history with 111 focused server tests, 367 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 616.12 ms median per 100k iterations (162,305 ops/s, p95 695.78 ms), serialization 264.61 ms (377,922 ops/s), tag escaping 170.89 ms (585,168 ops/s), styled-text parsing 204.02 ms (490,153 ops/s), and ISUPPORT parsing 589.25 ms (169,708 ops/s) | `test/ircxd/server_chat_history_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added `AROUND` and `BETWEEN` history selectors with message-ID boundary semantics; both selectors exclude their boundary message(s) as specified | `test/ircxd/server_chat_history_test.exs` |
+| 2026-07-29 | Revalidated complete bounded history selectors with 111 focused server tests, 367 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 661.14 ms median per 100k iterations (151,255 ops/s, p95 729.67 ms), serialization 248.52 ms (402,379 ops/s), tag escaping 171.97 ms (581,497 ops/s), styled-text parsing 194.39 ms (514,427 ops/s), and ISUPPORT parsing 607.18 ms (164,695 ops/s) | `test/ircxd/server_chat_history_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Revalidated chat history with 111 focused server tests, 367 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 624.48 ms median per 100k iterations (160,133 ops/s, p95 680.88 ms), serialization 254.72 ms (392,583 ops/s), tag escaping 172.62 ms (579,324 ops/s), styled-text parsing 193.14 ms (517,754 ops/s), and ISUPPORT parsing 553.09 ms (180,804 ops/s) | `test/ircxd/server_chat_history_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |

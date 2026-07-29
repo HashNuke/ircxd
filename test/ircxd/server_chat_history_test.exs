@@ -53,6 +53,25 @@ defmodule Ircxd.ServerChatHistoryTest do
     assert_receive {:ircxd, {:batch_start, %{ref: after_ref, type: "chathistory"}}}, 2_000
     assert_receive {:ircxd, {:privmsg, %{body: "newer message", batch: ^after_ref}}}, 2_000
     assert_receive {:ircxd, {:batch_end, %{ref: ^after_ref}}}, 2_000
+
+    assert :ok = Client.chathistory_around(reader, "#history", {:msgid, first_msgid}, 10)
+    assert_receive {:ircxd, {:batch_start, %{ref: around_ref, type: "chathistory"}}}, 2_000
+    assert_receive {:ircxd, {:privmsg, %{body: "saved message", batch: ^around_ref}}}, 2_000
+    assert_receive {:ircxd, {:privmsg, %{body: "newer message", batch: ^around_ref}}}, 2_000
+    assert_receive {:ircxd, {:batch_end, %{ref: ^around_ref}}}, 2_000
+
+    assert :ok =
+             Client.chathistory_between(
+               reader,
+               "#history",
+               {:msgid, first_msgid},
+               {:msgid, second_msgid},
+               10
+             )
+
+    assert_receive {:ircxd, {:batch_start, %{ref: between_ref, type: "chathistory"}}}, 2_000
+    refute_receive {:ircxd, {:privmsg, %{batch: ^between_ref}}}, 250
+    assert_receive {:ircxd, {:batch_end, %{ref: ^between_ref}}}, 2_000
   end
 
   defp start_client(server, nick, caps) do
