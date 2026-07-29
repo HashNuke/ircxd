@@ -628,16 +628,25 @@ defmodule Ircxd.Server do
     members = Map.get(state.channels, channel, MapSet.new())
 
     if MapSet.member?(members, connection) do
-      client = state.connections[connection]
+      topic_locked? = MapSet.member?(Map.get(state.channel_modes, channel, MapSet.new()), "t")
 
-      message = %Ircxd.Message{
-        source: source_for(client, state.server_name),
-        command: "TOPIC",
-        params: [channel, topic]
-      }
+      if topic_locked? and not channel_operator?(state, channel, connection) do
+        error_reply(state, connection, "482", [
+          state.connections[connection].nick,
+          "You're not channel operator"
+        ])
+      else
+        client = state.connections[connection]
 
-      state = broadcast(state, members, message, connection)
-      %{state | topics: Map.put(state.topics, channel, topic)}
+        message = %Ircxd.Message{
+          source: source_for(client, state.server_name),
+          command: "TOPIC",
+          params: [channel, topic]
+        }
+
+        state = broadcast(state, members, message, connection)
+        %{state | topics: Map.put(state.topics, channel, topic)}
+      end
     else
       state
     end
@@ -1073,7 +1082,7 @@ defmodule Ircxd.Server do
     modes
     |> String.graphemes()
     |> Enum.reduce_while({:ok, channel_modes}, fn mode, {:ok, current} ->
-      if mode == "i" do
+      if mode in ["i", "t"] do
         next = if sign == "+", do: MapSet.put(current, mode), else: MapSet.delete(current, mode)
         {:cont, {:ok, next}}
       else
