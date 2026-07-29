@@ -67,6 +67,7 @@ to listen on different (or independently configured) endpoints.
    return `417` and are covered with a focused transport test.
    Malformed `PRIVMSG` now returns `411`/`412`; malformed `NOTICE` remains silent.
    PART membership validation now returns `442` for non-members.
+   PRIVMSG target validation now returns `401`, `403`, or `404` as appropriate.
 10. [x] Run the full ExUnit suite, then run an irssi manual/integration check;
    document supported behavior and known boundaries.
 11. [ ] Commit each coherent TDD slice with a detailed rationale and push every
@@ -128,6 +129,7 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated message validation with 42 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Added `442 ERR_NOTONCHANNEL` for PART membership validation | `test/ircxd/server_validation_test.exs` |
 | 2026-07-29 | Revalidated channel membership validation with 47 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added target-aware `PRIVMSG` errors for missing nicks/channels and non-members | `test/ircxd/server_message_target_test.exs` |
 | 2026-07-29 | Revalidated ISUPPORT registration with 40 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Added `TIME` support with standard `391` replies | `test/ircxd/server_time_test.exs` |
 | 2026-07-29 | Revalidated TIME with 43 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |

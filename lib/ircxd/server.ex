@@ -666,17 +666,25 @@ defmodule Ircxd.Server do
        when command in ["PRIVMSG", "NOTICE"] do
     case Map.fetch(state.connections, connection) do
       {:ok, %{nick: nick} = client} when is_binary(nick) ->
-        recipients = recipients_for(state, target)
-        source = source_for(client, state.server_name)
+        case message_recipients(state, connection, target) do
+          {:ok, recipients} ->
+            source = source_for(client, state.server_name)
 
-        message = %Ircxd.Message{
-          tags: tags,
-          source: source,
-          command: command,
-          params: [target, body]
-        }
+            message = %Ircxd.Message{
+              tags: tags,
+              source: source,
+              command: command,
+              params: [target, body]
+            }
 
-        broadcast(state, recipients, message, connection)
+            broadcast(state, recipients, message, connection)
+
+          {:error, error_command, params} when command == "PRIVMSG" ->
+            error_reply(state, connection, error_command, params)
+
+          {:error, _error_command, _params} ->
+            state
+        end
 
       _ ->
         state
@@ -759,6 +767,31 @@ defmodule Ircxd.Server do
 
     state = broadcast(state, MapSet.new([connection]), names_message, connection)
     broadcast(state, MapSet.new([connection]), end_message, connection)
+  end
+
+  defp message_recipients(state, connection, target) do
+    case Map.fetch(state.channels, target) do
+      {:ok, members} ->
+        if MapSet.member?(members, connection) do
+          {:ok, members}
+        else
+          {:error, "404", [state.connections[connection].nick, target, "Cannot send to channel"]}
+        end
+
+      :error ->
+        case Enum.find(state.connections, fn {_pid, client} -> client.nick == target end) do
+          {recipient, _client} ->
+            {:ok, MapSet.new([recipient])}
+
+          nil ->
+            if valid_channel?(target) do
+              {:error, "403", [state.connections[connection].nick, target, "No such channel"]}
+            else
+              {:error, "401",
+               [state.connections[connection].nick, target, "No such nick/channel"]}
+            end
+        end
+    end
   end
 
   defp join_channel(state, connection, channel) do
