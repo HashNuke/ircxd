@@ -580,6 +580,13 @@ defmodule Ircxd.Server do
   end
 
   defp handle_registered_command(state, connection, %{
+         command: "KICK",
+         params: [channel, target | rest]
+       }) do
+    kick_member(state, connection, channel, target, rest)
+  end
+
+  defp handle_registered_command(state, connection, %{
          command: "QUIT",
          params: params
        }) do
@@ -873,6 +880,47 @@ defmodule Ircxd.Server do
 
       _ ->
         state
+    end
+  end
+
+  defp kick_member(state, connection, channel, target, rest) do
+    requester = state.connections[connection].nick
+    members = Map.get(state.channels, channel, MapSet.new())
+
+    cond do
+      not MapSet.member?(members, connection) ->
+        error_reply(state, connection, "442", [requester, channel, "You're not on that channel"])
+
+      not Enum.any?(state.connections, fn {_pid, client} -> client.nick == target end) ->
+        error_reply(state, connection, "401", [requester, target, "No such nick/channel"])
+
+      true ->
+        {target_connection, target_client} =
+          Enum.find(state.connections, fn {_pid, client} -> client.nick == target end)
+
+        if MapSet.member?(members, target_connection) do
+          client = state.connections[connection]
+
+          message = %Ircxd.Message{
+            source: source_for(client, state.server_name),
+            command: "KICK",
+            params: [channel, target | rest]
+          }
+
+          state = broadcast(state, members, message, connection)
+          channels = Map.put(state.channels, channel, MapSet.delete(members, target_connection))
+
+          connections =
+            Map.put(
+              state.connections,
+              target_connection,
+              %{target_client | channels: MapSet.delete(target_client.channels, channel)}
+            )
+
+          %{state | channels: channels, connections: connections}
+        else
+          error_reply(state, connection, "441", [requester, target, "They aren't on that channel"])
+        end
     end
   end
 
