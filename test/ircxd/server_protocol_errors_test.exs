@@ -16,6 +16,18 @@ defmodule Ircxd.ServerProtocolErrorsTest do
     assert_receive {:ircxd, {:irc_error, %{code: "421", reason: "Unknown command"}}}, 2_000
   end
 
+  test "returns 461 when PART has no channel parameter" do
+    {:ok, server} = Server.start_link(port: 0)
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, client} = start_client(server, "part-parameters")
+    on_exit(fn -> stop_if_alive(client) end)
+    assert_receive {:ircxd, :registered}, 2_000
+
+    assert :ok = Client.raw(client, "PART", [])
+    assert_receive {:ircxd, {:irc_error, %{code: "461", target: "PART"}}}, 2_000
+  end
+
   test "returns 451 when an unregistered client sends a command" do
     {:ok, server} = Server.start_link(port: 0)
     on_exit(fn -> stop_if_alive(server) end)

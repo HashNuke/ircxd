@@ -130,6 +130,7 @@ to listen on different (or independently configured) endpoints.
    return `417` and are covered with a focused transport test.
    Malformed `PRIVMSG` now returns `411`/`412`; malformed `NOTICE` remains silent.
    PART membership validation now returns `442` for non-members.
+   Malformed `PART` without a channel now returns `461`.
    PRIVMSG target validation now returns `401`, `403`, or `404` as appropriate.
 10. [x] Run the full ExUnit suite, then run an irssi manual/integration check;
    document supported behavior and known boundaries.
@@ -222,6 +223,8 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated WHO channel and nickname queries with 89 focused server tests, the full ExUnit suite, and formatting/whitespace checks | `mix test`, `mix format --check-formatted` |
 | 2026-07-29 | Added no-mask WHO enumeration with client-driven `352`/`315` coverage | `test/ircxd/server_who_test.exs` |
 | 2026-07-29 | Revalidated WHO channel, nickname, and no-mask enumeration with 90 focused server tests, the full ExUnit suite, and formatting/whitespace checks | `mix test`, `mix format --check-formatted` |
+| 2026-07-29 | Added malformed `PART` parameter validation with client-driven `461` coverage | `test/ircxd/server_protocol_errors_test.exs` |
+| 2026-07-29 | Revalidated malformed-command handling with 91 focused server tests, the full ExUnit suite, and formatting/whitespace checks | `mix test`, `mix format --check-formatted` |
 | 2026-07-29 | Revalidated invite policy with 85 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the existing direct named-tmux irssi interoperability gate | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
 | 2026-07-29 | Added per-recipient IRCv3 `account-tag` routing for authenticated messages with tagged and untagged client coverage | `test/ircxd/server_account_tag_test.exs` |
 | 2026-07-29 | Revalidated `account-tag` with 72 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 authenticating, joining, and sending a live message through the disposable server | `mix test`, `mix format --check-formatted`, named tmux irssi check |

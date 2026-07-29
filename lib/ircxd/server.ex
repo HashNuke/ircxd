@@ -766,6 +766,17 @@ defmodule Ircxd.Server do
 
   defp handle_registered_command(state, connection, %{
          command: "PART",
+         params: []
+       }) do
+    error_reply(state, connection, "461", [
+      state.connections[connection].nick,
+      "PART",
+      "Not enough parameters"
+    ])
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "PART",
          params: [channel | rest]
        }) do
     channel
