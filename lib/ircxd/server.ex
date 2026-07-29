@@ -1156,26 +1156,30 @@ defmodule Ircxd.Server do
        when command in ["PRIVMSG", "NOTICE"] do
     case Map.fetch(state.connections, connection) do
       {:ok, %{nick: nick} = client} when is_binary(nick) ->
-        case message_recipients(state, connection, target) do
-          {:ok, recipients} ->
-            recipients = echo_recipients(state, connection, recipients)
-            source = source_for(client, state.server_name)
+        targets = message_targets(target)
 
-            message = %Ircxd.Message{
-              tags: tags,
-              source: source,
-              command: command,
-              params: [target, body]
-            }
+        Enum.reduce(targets, state, fn target, state ->
+          case message_recipients(state, connection, target) do
+            {:ok, recipients} ->
+              recipients = echo_recipients(state, connection, recipients)
+              source = source_for(client, state.server_name)
 
-            broadcast(state, recipients, message, connection)
+              message = %Ircxd.Message{
+                tags: tags,
+                source: source,
+                command: command,
+                params: [target, body]
+              }
 
-          {:error, error_command, params} when command == "PRIVMSG" ->
-            error_reply(state, connection, error_command, params)
+              broadcast(state, recipients, message, connection)
 
-          {:error, _error_command, _params} ->
-            state
-        end
+            {:error, error_command, params} when command == "PRIVMSG" ->
+              error_reply(state, connection, error_command, params)
+
+            {:error, _error_command, _params} ->
+              state
+          end
+        end)
 
       _ ->
         state
@@ -1503,6 +1507,13 @@ defmodule Ircxd.Server do
                [state.connections[connection].nick, target, "No such nick/channel"]}
             end
         end
+    end
+  end
+
+  defp message_targets(target) do
+    case String.split(target, ",", trim: true) do
+      [] -> [target]
+      targets -> targets
     end
   end
 

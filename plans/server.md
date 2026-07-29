@@ -114,6 +114,8 @@ to listen on different (or independently configured) endpoints.
    their own `PRIVMSG`, `NOTICE`, or `TAGMSG` when they request it.
    `account-tag` now adds authenticated account metadata to relayed messages
    for opted-in recipients and removes it for recipients without the feature.
+   Comma-separated `PRIVMSG` and `NOTICE` targets are split and routed
+   independently, with each target retaining its own policy validation.
    `TAGMSG` now applies the same channel membership, moderation, and `+n`
    policy as text messages before relaying tags.
    `multi-prefix` now exposes simultaneous operator and voice prefixes in
@@ -346,3 +348,5 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated SASL abort behavior with 102 focused server tests, 358 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 630.55 ms median per 100k iterations (158,592 ops/s, p95 714.29 ms) and serialization measured 250.0 ms (400,006 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Added bounded in-memory `WHOWAS` history for nickname changes and disconnects with `314`/`369` replies and client-driven query coverage | `test/ircxd/server_whowas_test.exs` |
 | 2026-07-29 | Stabilized capability and membership assertions in the server regression suite, then revalidated WHOWAS with 103 focused server tests, 359 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 621.29 ms median per 100k iterations (160,955 ops/s, p95 700.81 ms) and serialization measured 238.25 ms (419,736 ops/s) | `test/ircxd/server_tagmsg_policy_test.exs`, `test/ircxd/server_kick_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added comma-separated `PRIVMSG` and `NOTICE` target routing with independent per-target policy checks and client-driven coverage | `test/ircxd/server_multi_target_message_test.exs` |
+| 2026-07-29 | Revalidated multi-target messaging with 104 focused server tests, 360 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 635.64 ms median per 100k iterations (157,322 ops/s, p95 704.65 ms) and serialization measured 279.49 ms (357,796 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
