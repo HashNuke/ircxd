@@ -23,7 +23,7 @@ to listen on different (or independently configured) endpoints.
 
 1. [x] Define the public server lifecycle API and child spec with tests for
    starting/stopping one server and two isolated server instances.
-2. [ ] Add a TCP listener/acceptor boundary with tests using an ephemeral port,
+2. [x] Add a TCP listener/acceptor boundary with tests using an ephemeral port,
    clean shutdown, and port-bind failure behavior.
 3. [ ] Implement per-connection registration (`NICK`, `USER`, `PASS`, `CAP`)
    and test the complete handshake through `Ircxd.Client`.
@@ -40,9 +40,12 @@ to listen on different (or independently configured) endpoints.
 9. [ ] Commit each coherent TDD slice with a detailed rationale and push every
    commit to the configured remote.
 
+The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
+
 ## Progress log
 
 | Date | Change | Evidence |
 |---|---|---|
 | 2026-07-29 | Plan created on `server`; implementation not started | `plans/server.md` |
-| 2026-07-29 | Added `Ircxd.Server` listener, connection registration, and two lifecycle tests | `lib/ircxd/server.ex`, `lib/ircxd/server/connection.ex`, `test/ircxd/server_test.exs` |
+| 2026-07-29 | Added `Ircxd.Server` listener, connection registration, and split lifecycle/registration tests | `lib/ircxd/server.ex`, `lib/ircxd/server/connection.ex`, `test/ircxd/server_*_test.exs` |
+| 2026-07-29 | Added IRCv3 server tracking matrix and subscriber-contract boundary | `docs/server_ircv3_matrix.md` |

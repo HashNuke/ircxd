@@ -1,0 +1,42 @@
+# IRC server implementation matrix
+
+This matrix tracks the server-side work separately from the existing client
+coverage. The ordering follows the [official IRCv3 specification index](https://ircv3.net/irc/),
+which identifies Modern IRC as the core protocol and capability negotiation and
+message tags as foundations for the extensions built on top of it.
+
+Status values:
+
+- `implemented`: behavior exists and has focused automated tests.
+- `partial`: a narrow slice exists, with more protocol behavior required.
+- `planned`: not implemented yet.
+- `host`: intentionally delegated to the embedding application.
+
+| Area | Status | Planned evidence |
+|---|---|---|
+| Supervision-tree lifecycle and ephemeral listeners | implemented | `Ircxd.Server`, `server_lifecycle_test.exs` |
+| Multiple server-instance isolation | implemented | `server_lifecycle_test.exs` |
+| Registration (`CAP`, `NICK`, `USER`, welcome numerics) | partial | `server_registration_test.exs`; add validation and timeout cases |
+| Core connection commands (`PING`, `PONG`, `QUIT`) | planned | `server_connection_test.exs` |
+| Channels (`JOIN`, `PART`, `NAMES`, `TOPIC`) | planned | `server_channel_test.exs` |
+| Published messages (`PRIVMSG`, `NOTICE`, `TAGMSG`) | planned | `server_messaging_test.exs` |
+| Subscriber callback contract and failure isolation | planned | `server_subscriber_test.exs` |
+| Capability negotiation and `CAP LS/REQ/END` | partial | `server_capabilities_test.exs` |
+| Message tags, server-time, and message IDs | planned | `server_message_tags_test.exs` |
+| SASL authentication | planned | `server_sasl_test.exs` |
+| Account, away, monitor, and user-property tracking | planned | focused feature test files |
+| Batches, multiline, history, and redaction | planned | focused feature test files |
+| Standard replies and labeled responses | planned | focused feature test files |
+| TLS listener and STS policy | planned | `server_tls_test.exs`; host certificate configuration remains host-owned |
+| Persistence, moderation policy, and application side effects | host | subscriber/callback contract |
+| irssi interoperability | planned | opt-in manual/integration runner |
+
+## Subscriber contract
+
+The server will accept a subscriber module and initialization argument in its
+options. The subscriber receives every message the server publishes to clients,
+along with server/channel metadata, so an embedding application can persist
+messages or trigger other effects without the server owning a database.
+
+The callback must be isolated from connection processes: a subscriber failure
+must be observable and must not take down the listener or unrelated clients.
