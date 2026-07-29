@@ -141,9 +141,6 @@ defmodule Ircxd.Server.Connection do
     end
   end
 
-  defp capability_request("-" <> capability), do: {:disable, capability}
-  defp capability_request(capability), do: {:enable, capability}
-
   defp handle_message(%Message{command: "AUTHENTICATE", params: ["PLAIN"]}, state) do
     send_message(state, "AUTHENTICATE", ["+"])
     {:noreply, %{state | sasl_mechanism: :plain}}
@@ -270,6 +267,9 @@ defmodule Ircxd.Server.Connection do
     Ircxd.Server.command(state.server, self(), message)
     {:noreply, state}
   end
+
+  defp capability_request("-" <> capability), do: {:disable, capability}
+  defp capability_request(capability), do: {:enable, capability}
 
   defp maybe_register(%{registered?: true} = state), do: {:noreply, state}
 
