@@ -174,8 +174,19 @@ defmodule Ircxd.Server.Connection do
   defp handle_message(%Message{command: "NICK", params: [nick]}, state) do
     cond do
       state.registered? ->
-        send_message(state, "462", [state.nick || "*", "You may not reregister"])
-        {:noreply, state}
+        if valid_nick?(nick) do
+          case Ircxd.Server.change_nick(state.server, self(), nick) do
+            :ok ->
+              {:noreply, %{state | nick: nick}}
+
+            {:error, :nick_in_use} ->
+              send_message(state, "433", [state.nick, nick, "Nickname is already in use"])
+              {:noreply, state}
+          end
+        else
+          send_message(state, "432", [state.nick || "*", nick, "Erroneous nickname"])
+          {:noreply, state}
+        end
 
       valid_nick?(nick) ->
         maybe_register(%{state | nick: nick})

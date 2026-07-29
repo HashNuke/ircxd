@@ -890,6 +890,7 @@ defmodule Ircxd.Client do
         handle_batch(message, state)
 
       {:ok, %Message{} = message} ->
+        state = update_current_nick(state, message)
         state = emit_event(state, event_for(message), message)
         state = emit(state, {:message, message})
         {:noreply, state}
@@ -899,6 +900,18 @@ defmodule Ircxd.Client do
         {:noreply, state}
     end
   end
+
+  defp update_current_nick(
+         %{current_nick: current_nick} = state,
+         %Message{command: "NICK", source: source, params: [new_nick]}
+       ) do
+    case Source.parse(source) do
+      %Source{nick: ^current_nick} -> %{state | current_nick: new_nick}
+      _ -> state
+    end
+  end
+
+  defp update_current_nick(state, _message), do: state
 
   defp collect_caps(state, caps) do
     %{state | available_caps: Map.merge(state.available_caps, parse_caps(caps))}

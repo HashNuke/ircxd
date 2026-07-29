@@ -54,6 +54,10 @@ to listen on different (or independently configured) endpoints.
    ADMIN now returns configurable location and email information.
    WHO now reports tracked username and realname identity for channel members.
    WHO now also resolves online nicknames with `*` as the channel field.
+   Registered clients can change nicknames; the server broadcasts `NICK` to
+   channel peers and preserves direct nickname routing, while rejecting
+   collisions with `433`. The client also synchronizes its current nickname
+   from the self-originated `NICK` event.
    WHO without a mask now enumerates registered users and terminates with `315 *`.
    WHOIS now returns tracked user and server identity details.
    Successful SASL authentication now tracks the application account and exposes it through WHOIS `330`.
@@ -301,3 +305,5 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated LIST support with 33 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Added `461 ERR_NEEDMOREPARAMS` validation for parameterless `JOIN`, incomplete `INVITE`, and incomplete `KICK` commands | `test/ircxd/server_protocol_errors_test.exs` |
 | 2026-07-29 | Revalidated malformed channel-command handling with 92 focused server tests, the full suite, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 638.97 ms median per 100k iterations (156,503 ops/s, p95 742.37 ms) | `mix test`, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added registered nickname changes with channel-wide `NICK` fan-out, direct routing after rename, `433` collision coverage, and client current-nickname synchronization | `lib/ircxd/client.ex`, `test/ircxd/server_nick_change_test.exs` |
+| 2026-07-29 | Revalidated nickname changes with 94 focused server tests, the full suite, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 610.2 ms median per 100k iterations (163,881 ops/s, p95 678.46 ms) | `mix test`, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |

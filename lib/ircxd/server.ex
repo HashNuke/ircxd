@@ -48,6 +48,9 @@ defmodule Ircxd.Server do
   def register(server, connection, nick),
     do: GenServer.call(server, {:register, connection, nick})
 
+  def change_nick(server, connection, nick),
+    do: GenServer.call(server, {:change_nick, connection, nick})
+
   def verify_password(server, password),
     do: GenServer.call(server, {:verify_password, password})
 
@@ -125,6 +128,40 @@ defmodule Ircxd.Server do
         end
 
       {:reply, :ok, state}
+    end
+  end
+
+  def handle_call({:change_nick, connection, nick}, _from, state) do
+    case Map.fetch(state.connections, connection) do
+      {:ok, %{channels: channels} = client} ->
+        nick_in_use? =
+          Enum.any?(state.connections, fn
+            {pid, %{nick: ^nick}} when pid != connection -> true
+            _ -> false
+          end)
+
+        if nick_in_use? do
+          {:reply, {:error, :nick_in_use}, state}
+        else
+          recipients =
+            Enum.reduce(channels, MapSet.new([connection]), fn channel, recipients ->
+              MapSet.union(recipients, Map.get(state.channels, channel, MapSet.new()))
+            end)
+
+          connections = Map.put(state.connections, connection, %{client | nick: nick})
+
+          message = %Ircxd.Message{
+            source: source_for(client, state.server_name),
+            command: "NICK",
+            params: [nick]
+          }
+
+          state = %{state | connections: connections}
+          {:reply, :ok, broadcast(state, recipients, message, connection)}
+        end
+
+      :error ->
+        {:reply, {:error, :not_found}, state}
     end
   end
 
