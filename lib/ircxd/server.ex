@@ -313,6 +313,7 @@ defmodule Ircxd.Server do
         "away-notify",
         "account-notify",
         "account-tag",
+        "multi-prefix",
         "echo-message",
         "sasl"
       ],
@@ -323,6 +324,7 @@ defmodule Ircxd.Server do
         "away-notify",
         "account-notify",
         "account-tag",
+        "multi-prefix",
         "echo-message"
       ]
   end
@@ -1105,16 +1107,30 @@ defmodule Ircxd.Server do
   defp names_channel(state, connection, channel) do
     members = Map.get(state.channels, channel, MapSet.new())
 
+    multi_prefix? =
+      "multi-prefix" in Map.get(state.connection_capabilities, connection, MapSet.new())
+
     names =
       members
       |> Enum.map(fn member ->
         nick = state.connections[member].nick
 
-        cond do
-          channel_operator?(state, channel, member) -> "@" <> nick
-          channel_voiced?(state, channel, member) -> "+" <> nick
-          true -> nick
-        end
+        name_prefixes =
+          if multi_prefix? do
+            Enum.join(
+              if(channel_operator?(state, channel, member), do: ["@"], else: []) ++
+                if(channel_voiced?(state, channel, member), do: ["+"], else: []),
+              ""
+            )
+          else
+            cond do
+              channel_operator?(state, channel, member) -> "@"
+              channel_voiced?(state, channel, member) -> "+"
+              true -> ""
+            end
+          end
+
+        name_prefixes <> nick
       end)
       |> Enum.reject(&is_nil/1)
       |> Enum.join(" ")
