@@ -21,6 +21,24 @@ defmodule Ircxd.ServerAuthenticationTest do
     end
   end
 
+  defmodule ExternalAuthenticator do
+    @behaviour Ircxd.Server.Authenticator
+
+    @impl true
+    def init(test_pid), do: {:ok, test_pid}
+
+    @impl true
+    def authenticate(username, password, metadata, test_pid) do
+      send(test_pid, {:external_authentication_attempt, username, password, metadata})
+
+      if username == "certificate-user" and password == "" do
+        {:ok, "external-account", test_pid}
+      else
+        {:error, :invalid_external_identity, test_pid}
+      end
+    end
+  end
+
   test "authenticator controls SASL registration using application-owned state" do
     {:ok, server} =
       Server.start_link(
@@ -109,5 +127,35 @@ defmodule Ircxd.ServerAuthenticationTest do
     assert_receive {:ircxd, {:sasl_failure, %{code: "906"}}}, 2_000
     refute_receive {:authentication_attempt, _, _, _}, 250
     refute_receive {:ircxd, :registered}, 250
+  end
+
+  test "delegates SASL EXTERNAL identity validation to the application authenticator" do
+    {:ok, server} =
+      Server.start_link(
+        port: 0,
+        server_name: "ircxd.test",
+        authenticator: {ExternalAuthenticator, self()}
+      )
+
+    on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
+
+    {:ok, client} =
+      Client.start_link(
+        host: "127.0.0.1",
+        port: Server.port(server),
+        nick: "external-auth",
+        username: "certificate-user",
+        realname: "Ircxd external auth client",
+        sasl: {:external, "certificate-user"},
+        notify: self()
+      )
+
+    on_exit(fn -> if Process.alive?(client), do: GenServer.stop(client) end)
+
+    assert_receive {:external_authentication_attempt, "certificate-user", "", _metadata},
+                   2_000
+
+    assert_receive {:ircxd, {:logged_in, %{account: "external-account"}}}, 2_000
+    assert_receive {:ircxd, :registered}, 2_000
   end
 end

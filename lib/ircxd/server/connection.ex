@@ -26,6 +26,7 @@ defmodule Ircxd.Server.Connection do
        password_authenticated?: is_nil(Keyword.get(opts, :password)),
        registration_timer: registration_timer(registration_timeout),
        auth_required?: Keyword.get(opts, :auth_required?, false),
+       sasl_mechanism: nil,
        authenticated?: false,
        account: nil,
        nick: nil,
@@ -145,7 +146,13 @@ defmodule Ircxd.Server.Connection do
 
   defp handle_message(%Message{command: "AUTHENTICATE", params: ["PLAIN"]}, state) do
     send_message(state, "AUTHENTICATE", ["+"])
-    {:noreply, state}
+    {:noreply, %{state | sasl_mechanism: :plain}}
+  end
+
+  defp handle_message(%Message{command: "AUTHENTICATE", params: ["EXTERNAL"]}, state)
+       when state.auth_required? do
+    send_message(state, "AUTHENTICATE", ["+"])
+    {:noreply, %{state | sasl_mechanism: :external}}
   end
 
   defp handle_message(%Message{command: "AUTHENTICATE", params: ["*"]}, state)
@@ -155,28 +162,18 @@ defmodule Ircxd.Server.Connection do
   end
 
   defp handle_message(%Message{command: "AUTHENTICATE", params: [payload]}, state)
+       when state.auth_required? and state.sasl_mechanism == :external do
+    case decode_external(payload) do
+      {:ok, authzid} -> authenticate_credentials(state, authzid, "")
+      :error -> send_message(state, "904", [state.nick, "Invalid SASL credentials"])
+    end
+  end
+
+  defp handle_message(%Message{command: "AUTHENTICATE", params: [payload]}, state)
        when state.auth_required? do
     case decode_plain(payload) do
       {:ok, username, password} ->
-        metadata = %{server: state.server_name, connection: self(), nick: state.nick}
-
-        case Ircxd.Server.authenticate(state.server, username, password, metadata) do
-          {:ok, account} ->
-            userhost = "#{state.nick || "*"}!#{state.username || "user"}@#{state.server_name}"
-
-            send_message(
-              state,
-              "900",
-              [state.nick || "*", userhost, format_account(account), "You are now logged in"]
-            )
-
-            send_message(state, "903", [state.nick, "SASL authentication successful"])
-            maybe_register(%{state | authenticated?: true, account: account})
-
-          {:error, _reason} ->
-            send_message(state, "904", [state.nick, "SASL authentication failed"])
-            {:noreply, state}
-        end
+        authenticate_credentials(state, username, password)
 
       :error ->
         send_message(state, "904", [state.nick, "Invalid SASL credentials"])
@@ -407,6 +404,37 @@ defmodule Ircxd.Server.Connection do
       {:ok, username, password}
     else
       _ -> :error
+    end
+  end
+
+  defp decode_external("+"), do: {:ok, ""}
+
+  defp decode_external(payload) do
+    case Base.decode64(payload) do
+      {:ok, authzid} -> {:ok, authzid}
+      :error -> :error
+    end
+  end
+
+  defp authenticate_credentials(state, username, password) do
+    metadata = %{server: state.server_name, connection: self(), nick: state.nick}
+
+    case Ircxd.Server.authenticate(state.server, username, password, metadata) do
+      {:ok, account} ->
+        userhost = "#{state.nick || "*"}!#{state.username || "user"}@#{state.server_name}"
+
+        send_message(
+          state,
+          "900",
+          [state.nick || "*", userhost, format_account(account), "You are now logged in"]
+        )
+
+        send_message(state, "903", [state.nick, "SASL authentication successful"])
+        maybe_register(%{state | authenticated?: true, account: account})
+
+      {:error, _reason} ->
+        send_message(state, "904", [state.nick, "SASL authentication failed"])
+        {:noreply, state}
     end
   end
 
