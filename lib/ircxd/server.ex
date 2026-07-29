@@ -342,6 +342,59 @@ defmodule Ircxd.Server do
   end
 
   defp handle_registered_command(state, connection, %{
+         command: "ISON",
+         params: targets
+       }) do
+    nick = state.connections[connection].nick
+
+    online_nicks =
+      targets
+      |> Enum.flat_map(fn target ->
+        if Enum.any?(state.connections, fn {_pid, client} -> client.nick == target end),
+          do: [target],
+          else: []
+      end)
+
+    message = %Ircxd.Message{
+      source: state.server_name,
+      command: "303",
+      params: [nick, Enum.join(online_nicks, " ")]
+    }
+
+    broadcast(state, MapSet.new([connection]), message, connection)
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "USERHOST",
+         params: targets
+       }) do
+    nick = state.connections[connection].nick
+
+    replies =
+      targets
+      |> Enum.flat_map(fn target ->
+        case Enum.find(state.connections, fn {_pid, client} -> client.nick == target end) do
+          {_pid, client} ->
+            away = if is_nil(client.away), do: "+", else: "-"
+            username = client.username || client.nick
+            ["#{client.nick}=#{away}#{username}@#{state.server_name}"]
+
+          nil ->
+            []
+        end
+      end)
+      |> Enum.join(" ")
+
+    message = %Ircxd.Message{
+      source: state.server_name,
+      command: "302",
+      params: [nick, replies]
+    }
+
+    broadcast(state, MapSet.new([connection]), message, connection)
+  end
+
+  defp handle_registered_command(state, connection, %{
          command: "LIST",
          params: params
        }) do
