@@ -378,6 +378,15 @@ defmodule Ircxd.Server do
 
   defp handle_registered_command(state, connection, %{
          command: "JOIN",
+         params: ["0"]
+       }) do
+    state.connections[connection].channels
+    |> MapSet.to_list()
+    |> Enum.reduce(state, fn channel, state -> part_channel(state, connection, channel, []) end)
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "JOIN",
          params: [channel, key]
        }) do
     channel

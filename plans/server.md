@@ -41,6 +41,8 @@ to listen on different (or independently configured) endpoints.
    `LIST` now reports channel membership counts and topics.
    Comma-separated JOIN targets are now processed independently.
    Comma-separated PART targets now share the supplied part reason.
+   `JOIN 0` now parts a client from every joined channel through the normal
+   membership cleanup path.
    Configured MOTD delivery is now covered with standard numerics.
    NAMES without a target now enumerates all known channels.
    LUSERS now reports registered-user and channel counts.
@@ -204,6 +206,8 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Routed `TAGMSG` through shared channel policy checks and covered external tag-message suppression/allowance | `test/ircxd/server_tagmsg_policy_test.exs` |
 | 2026-07-29 | Revalidated TAGMSG policy with 84 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the existing direct named-tmux irssi interoperability gate | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
 | 2026-07-29 | Added operator-only INVITE enforcement for `+i` channels with client-driven `482` regression coverage | `test/ircxd/server_invite_policy_test.exs` |
+| 2026-07-29 | Added `JOIN 0` all-channel PART behavior with client-driven cleanup coverage | `test/ircxd/server_join_zero_test.exs` |
+| 2026-07-29 | Revalidated JOIN/PART behavior with 86 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the existing direct named-tmux irssi interoperability gate | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
 | 2026-07-29 | Revalidated invite policy with 85 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the existing direct named-tmux irssi interoperability gate | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
 | 2026-07-29 | Added per-recipient IRCv3 `account-tag` routing for authenticated messages with tagged and untagged client coverage | `test/ircxd/server_account_tag_test.exs` |
 | 2026-07-29 | Revalidated `account-tag` with 72 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 authenticating, joining, and sending a live message through the disposable server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
