@@ -118,5 +118,8 @@ jobs:
       - name: Compile without warnings
         run: mix compile --warnings-as-errors
 
-      - name: Run tests
-        run: mix test
+      - name: Run tests with coverage gate
+        run: mix cover
+
+      - name: Run performance benchmarks
+        run: mix bench
