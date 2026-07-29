@@ -79,7 +79,10 @@ wait_for_pane "Welcome to Ircxd"
 
 tmux send-keys -t "${PANE}" -l "/join ${CHANNEL}"
 tmux send-keys -t "${PANE}" C-m
-wait_for_pane "has joined ${CHANNEL}"
+# Wait for irssi's post-join users line rather than the echoed `/join` input;
+# this avoids matching before the server has actually added irssi to the
+# channel and remains stable when the notification wraps across lines.
+wait_for_pane "[Users ${CHANNEL}]"
 tmux send-keys -t "${PANE}" -l "/window goto 2"
 tmux send-keys -t "${PANE}" C-m
 sleep 1

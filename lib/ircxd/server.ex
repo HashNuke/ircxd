@@ -1726,6 +1726,9 @@ defmodule Ircxd.Server do
           modes in ["+v", "-v"] ->
             set_channel_voice(state, connection, channel, modes, mode_params)
 
+          modes in ["+o", "-o"] ->
+            set_channel_operator(state, connection, channel, modes, mode_params)
+
           modes in ["+b", "-b"] ->
             set_channel_ban(state, connection, channel, modes, mode_params)
 
@@ -1814,6 +1817,48 @@ defmodule Ircxd.Server do
               }
 
               state = %{state | channel_voices: Map.put(state.channel_voices, channel, voices)}
+              broadcast(state, members, message, connection)
+            else
+              error_reply(state, connection, "441", [nick, target, "They aren't on that channel"])
+            end
+        end
+    end
+  end
+
+  defp set_channel_operator(state, connection, channel, modes, mode_params) do
+    nick = state.connections[connection].nick
+
+    case List.first(mode_params) do
+      nil ->
+        error_reply(state, connection, "461", [nick, "MODE", "Not enough parameters"])
+
+      target ->
+        case Enum.find(state.connections, fn {_pid, client} -> client.nick == target end) do
+          nil ->
+            error_reply(state, connection, "401", [nick, target, "No such nick/channel"])
+
+          {target_connection, _target_client} ->
+            members = Map.get(state.channels, channel, MapSet.new())
+
+            if MapSet.member?(members, target_connection) do
+              operators = Map.get(state.channel_operators, channel, MapSet.new())
+
+              operators =
+                if modes == "+o",
+                  do: MapSet.put(operators, target_connection),
+                  else: MapSet.delete(operators, target_connection)
+
+              message = %Ircxd.Message{
+                source: source_for(state.connections[connection], state.server_name),
+                command: "MODE",
+                params: [channel, modes, target]
+              }
+
+              state = %{
+                state
+                | channel_operators: Map.put(state.channel_operators, channel, operators)
+              }
+
               broadcast(state, members, message, connection)
             else
               error_reply(state, connection, "441", [nick, target, "They aren't on that channel"])

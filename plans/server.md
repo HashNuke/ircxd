@@ -69,6 +69,8 @@ to listen on different (or independently configured) endpoints.
    INVITE requests for `+i` channels now require channel-operator authority and
    return `482` to non-operators.
    The first channel member is an operator, shown as `@` in NAMES; MODE and KICK now require operator authority.
+   Channel operators can delegate and revoke authority with `MODE +o/-o`,
+   with the resulting operator state reflected in KICK authorization and NAMES.
    Channel mode `+t` now restricts topic changes to operators with `482` enforcement.
    Topic changes from non-members now return `442` instead of being silently ignored.
    Channel mode `+m` now restricts channel messages to operators and voiced
@@ -329,3 +331,5 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated private mode with 98 focused server tests, 354 non-external tests, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 640.67 ms median per 100k iterations (156,087 ops/s, p95 720.49 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Added negotiated `standard-replies` support for unknown commands, emitting `FAIL <command> UNKNOWN_COMMAND` without removing the established `421` response | `test/ircxd/server_standard_reply_test.exs` |
 | 2026-07-29 | Revalidated standard replies with 99 focused server tests, 355 non-external tests, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 623.99 ms median per 100k iterations (160,260 ops/s, p95 699.98 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added standard channel operator delegation and revocation with `MODE +o/-o`, including authority regression coverage after delegation and revocation | `test/ircxd/server_operator_mode_test.exs` |
+| 2026-07-29 | Revalidated operator delegation with 100 focused server tests, 356 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 663.42 ms median per 100k iterations (150,735 ops/s, p95 754.33 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
