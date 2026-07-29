@@ -170,6 +170,13 @@ defmodule Ircxd.Server.Connection do
     {:noreply, state}
   end
 
+  defp handle_message(%Message{command: "AUTHENTICATE", params: [mechanism]}, state)
+       when state.auth_required? and state.sasl_mechanism == nil and
+              mechanism not in ["PLAIN", "EXTERNAL", "*"] do
+    send_message(state, "904", [state.nick || "*", "Unsupported SASL mechanism"])
+    {:noreply, state}
+  end
+
   defp handle_message(%Message{command: "AUTHENTICATE", params: []}, state) do
     send_message(state, "461", [state.nick || "*", "AUTHENTICATE", "Not enough parameters"])
     {:noreply, state}
@@ -470,11 +477,11 @@ defmodule Ircxd.Server.Connection do
         )
 
         send_message(state, "903", [state.nick, "SASL authentication successful"])
-        maybe_register(%{state | authenticated?: true, account: account})
+        maybe_register(%{state | authenticated?: true, account: account, sasl_mechanism: nil})
 
       {:error, _reason} ->
         send_message(state, "904", [state.nick, "SASL authentication failed"])
-        {:noreply, state}
+        {:noreply, %{state | sasl_mechanism: nil}}
     end
   end
 

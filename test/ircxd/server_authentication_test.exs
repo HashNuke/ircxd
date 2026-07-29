@@ -244,4 +244,38 @@ defmodule Ircxd.ServerAuthenticationTest do
     assert :ok = Client.raw(client, "AUTHENTICATE", ["PLAIN"])
     assert_receive {:ircxd, {:sasl_failure, %{code: "904"}}}, 2_000
   end
+
+  test "returns 904 for an unsupported SASL mechanism" do
+    {:ok, server} =
+      Server.start_link(
+        port: 0,
+        authenticator: {Authenticator, self()}
+      )
+
+    on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
+
+    {:ok, client} =
+      Client.start_link(
+        host: "127.0.0.1",
+        port: Server.port(server),
+        nick: "unsupported-sasl",
+        username: "user",
+        realname: "Ircxd unsupported SASL client",
+        sasl: {:plain, "db-user", "secret"},
+        notify: self()
+      )
+
+    on_exit(fn -> if Process.alive?(client), do: GenServer.stop(client) end)
+    assert_receive {:ircxd, :registered}, 2_000
+
+    assert :ok = Client.raw(client, "AUTHENTICATE", ["SCRAM-SHA-256"])
+
+    assert_receive {:ircxd,
+                    {:sasl_failure,
+                     %{
+                       code: "904",
+                       message: %Ircxd.Message{params: [_, "Unsupported SASL mechanism"]}
+                     }}},
+                   2_000
+  end
 end
