@@ -351,7 +351,7 @@ defmodule Ircxd.Server do
        when command in ["PRIVMSG", "NOTICE"] do
     case Map.fetch(state.connections, connection) do
       {:ok, %{nick: nick} = client} when is_binary(nick) ->
-        recipients = Map.get(state.channels, target, MapSet.new())
+        recipients = recipients_for(state, target)
         source = source_for(client, state.server_name)
         message = %Ircxd.Message{source: source, command: command, params: [target, body]}
         broadcast(state, recipients, message, connection)
@@ -376,6 +376,20 @@ defmodule Ircxd.Server do
   end
 
   defp source_for(%{nick: nick}, server_name), do: "#{nick}!user@#{server_name}"
+
+  defp recipients_for(state, target) do
+    case Map.fetch(state.channels, target) do
+      {:ok, members} ->
+        members
+
+      :error ->
+        state.connections
+        |> Enum.find_value(MapSet.new(), fn
+          {connection, %{nick: ^target}} -> MapSet.new([connection])
+          _ -> nil
+        end)
+    end
+  end
 
   defp remove_connection(state, connection) do
     case Map.pop(state.connections, connection) do
