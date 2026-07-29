@@ -61,6 +61,7 @@ to listen on different (or independently configured) endpoints.
    Registration timeouts, nickname validation, unknown commands, and the
    pre-registration command gate are now covered. Oversized wire lines now
    return `417` and are covered with a focused transport test.
+   Malformed `PRIVMSG` now returns `411`/`412`; malformed `NOTICE` remains silent.
 10. [x] Run the full ExUnit suite, then run an irssi manual/integration check;
    document supported behavior and known boundaries.
 11. [ ] Commit each coherent TDD slice with a detailed rationale and push every
@@ -118,6 +119,7 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Added `VERSION` support with the standard `351` reply | `test/ircxd/server_version_test.exs` |
 | 2026-07-29 | Revalidated VERSION with 39 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Added configurable registration ISUPPORT tokens with `005` | `test/ircxd/server_isupport_test.exs`, `README.md` |
+| 2026-07-29 | Added standard malformed-message handling for `PRIVMSG` and `NOTICE` | `test/ircxd/server_message_errors_test.exs` |
 | 2026-07-29 | Revalidated ISUPPORT registration with 40 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Revalidated all-channel NAMES with 37 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Revalidated multi-target JOIN with 34 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |

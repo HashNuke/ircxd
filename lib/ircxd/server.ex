@@ -461,6 +461,38 @@ defmodule Ircxd.Server do
 
   defp handle_registered_command(state, connection, %{
          command: command,
+         params: [],
+         tags: _tags
+       })
+       when command in ["PRIVMSG", "NOTICE"] do
+    if command == "PRIVMSG" do
+      error_reply(state, connection, "411", [
+        state.connections[connection].nick,
+        "No recipient given"
+      ])
+    else
+      state
+    end
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: command,
+         params: [_target],
+         tags: _tags
+       })
+       when command in ["PRIVMSG", "NOTICE"] do
+    if command == "PRIVMSG" do
+      error_reply(state, connection, "412", [
+        state.connections[connection].nick,
+        "No text to send"
+      ])
+    else
+      state
+    end
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: command,
          params: [target, body],
          tags: tags
        })
