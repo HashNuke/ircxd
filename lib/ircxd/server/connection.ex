@@ -287,6 +287,7 @@ defmodule Ircxd.Server.Connection do
     |> add_message_id(state)
     |> add_server_time(state)
     |> filter_tags(state)
+    |> filter_extended_join(state)
   end
 
   defp add_message_id(%Message{} = message, state) do
@@ -310,6 +311,19 @@ defmodule Ircxd.Server.Connection do
       %{message | tags: %{}}
     end
   end
+
+  defp filter_extended_join(
+         %Message{command: "JOIN", params: [channel, _account, _realname]} = message,
+         state
+       ) do
+    if MapSet.member?(state.active_capabilities, "extended-join") do
+      message
+    else
+      %{message | params: [channel]}
+    end
+  end
+
+  defp filter_extended_join(message, _state), do: message
 
   defp server_time do
     DateTime.utc_now()

@@ -286,8 +286,8 @@ defmodule Ircxd.Server do
 
   defp capabilities(auth_required?) do
     if auth_required?,
-      do: ["message-tags", "server-time", "sasl"],
-      else: ["message-tags", "server-time"]
+      do: ["message-tags", "server-time", "extended-join", "sasl"],
+      else: ["message-tags", "server-time", "extended-join"]
   end
 
   defp normalize_motd(motd) when is_binary(motd), do: String.split(motd, "\n")
@@ -1111,7 +1111,15 @@ defmodule Ircxd.Server do
       {:ok, %{nick: nick} = client} when is_binary(nick) ->
         if valid_channel?(channel) do
           source = source_for(client, state.server_name)
-          message = %Ircxd.Message{source: source, command: "JOIN", params: [channel]}
+          account = if is_nil(client.account), do: "*", else: format_account(client.account)
+          realname = client.realname || ""
+
+          message = %Ircxd.Message{
+            source: source,
+            command: "JOIN",
+            params: [channel, account, realname]
+          }
+
           members = Map.get(state.channels, channel, MapSet.new())
 
           if MapSet.member?(members, connection) do
