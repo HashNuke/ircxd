@@ -47,6 +47,37 @@ defmodule Ircxd.ServerRedactionTest do
     assert_receive {:ircxd, {:batch_end, _}}, 2_000
   end
 
+  test "rejects redaction attempts from non-authors and non-operators" do
+    {:ok, server} = Server.start_link(port: 0)
+    on_exit(fn -> stop_if_alive(server) end)
+
+    caps = ["draft/message-redaction", "message-tags"]
+    {:ok, author} = start_client(server, "redaction-owner", caps)
+    {:ok, outsider} = start_client(server, "redaction-outsider", caps)
+
+    on_exit(fn ->
+      stop_if_alive(author)
+      stop_if_alive(outsider)
+    end)
+
+    assert_receive {:ircxd, :registered}, 2_000
+    assert_receive {:ircxd, :registered}, 2_000
+    assert :ok = Client.join(author, "#redaction-auth")
+    assert_receive {:ircxd, {:join, %{channel: "#redaction-auth"}}}, 2_000
+    assert :ok = Client.join(outsider, "#redaction-auth")
+    assert_receive {:ircxd, {:join, %{channel: "#redaction-auth"}}}, 2_000
+
+    assert :ok = Client.privmsg(author, "#redaction-auth", "keep me")
+    assert_receive {:ircxd, {:privmsg, %{body: "keep me", msgid: msgid}}}, 2_000
+
+    assert :ok = Client.redact(outsider, "#redaction-auth", msgid)
+
+    assert_receive {:ircxd, {:standard_reply, %{command: "REDACT", code: "REDACT_FORBIDDEN"}}},
+                   2_000
+
+    refute_receive {:ircxd, {:redact, %{msgid: ^msgid}}}, 250
+  end
+
   defp start_client(server, nick, caps) do
     Client.start_link(
       host: "127.0.0.1",
