@@ -203,12 +203,7 @@ defmodule Ircxd.Server do
         {:reply, {:error, :authentication_not_configured}, state}
 
       authenticator ->
-        case authenticator.module.authenticate(
-               username,
-               password,
-               metadata,
-               authenticator.state
-             ) do
+        case invoke_authenticator(authenticator, username, password, metadata) do
           {:ok, account, authenticator_state} ->
             state = %{state | authenticator: %{authenticator | state: authenticator_state}}
 
@@ -392,6 +387,28 @@ defmodule Ircxd.Server do
   defp init_authenticator({module, arg}) do
     {:ok, authenticator_state} = module.init(arg)
     %{module: module, state: authenticator_state}
+  end
+
+  defp invoke_authenticator(authenticator, username, password, metadata) do
+    result =
+      try do
+        authenticator.module.authenticate(
+          username,
+          password,
+          metadata,
+          authenticator.state
+        )
+      rescue
+        _error -> {:error, :authentication_failed, authenticator.state}
+      catch
+        _kind, _reason -> {:error, :authentication_failed, authenticator.state}
+      end
+
+    case result do
+      {:ok, _account, _authenticator_state} -> result
+      {:error, _reason, _authenticator_state} -> result
+      _other -> {:error, :authentication_failed, authenticator.state}
+    end
   end
 
   defp capabilities(auth_required?) do

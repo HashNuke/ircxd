@@ -39,6 +39,19 @@ defmodule Ircxd.ServerAuthenticationTest do
     end
   end
 
+  defmodule RaisingAuthenticator do
+    @behaviour Ircxd.Server.Authenticator
+
+    @impl true
+    def init(test_pid), do: {:ok, test_pid}
+
+    @impl true
+    def authenticate(_username, _password, _metadata, test_pid) do
+      send(test_pid, :raising_authenticator_called)
+      raise "database unavailable"
+    end
+  end
+
   test "authenticator controls SASL registration using application-owned state" do
     {:ok, server} =
       Server.start_link(
@@ -157,5 +170,33 @@ defmodule Ircxd.ServerAuthenticationTest do
 
     assert_receive {:ircxd, {:logged_in, %{account: "external-account"}}}, 2_000
     assert_receive {:ircxd, :registered}, 2_000
+  end
+
+  test "contains authenticator exceptions and keeps the server available" do
+    {:ok, server} =
+      Server.start_link(
+        port: 0,
+        authenticator: {RaisingAuthenticator, self()}
+      )
+
+    on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
+
+    {:ok, client} =
+      Client.start_link(
+        host: "127.0.0.1",
+        port: Server.port(server),
+        nick: "raising-auth",
+        username: "db-user",
+        realname: "Ircxd raising auth client",
+        sasl: {:plain, "db-user", "secret"},
+        notify: self()
+      )
+
+    on_exit(fn -> if Process.alive?(client), do: GenServer.stop(client) end)
+
+    assert_receive :raising_authenticator_called, 2_000
+    assert_receive {:ircxd, {:sasl_failure, %{code: "904"}}}, 2_000
+    assert Process.alive?(server)
+    refute_receive {:ircxd, :registered}, 250
   end
 end
