@@ -18,7 +18,7 @@ Status values:
 | Multiple server-instance isolation | implemented | `server_lifecycle_test.exs` |
 | Registration (`CAP`, `NICK`, `USER`, welcome numerics) | partial | `server_registration_test.exs`; duplicate nick rejection exists, add PASS/validation/timeout cases |
 | Core connection commands (`PING`, `PONG`, `QUIT`) | partial | `server_connection_test.exs`, `server_quit_test.exs`; explicit QUIT exists, add malformed/disconnect cases |
-| Channels (`JOIN`, `PART`, `NAMES`, `TOPIC`) | partial | `server_channels_test.exs`, `server_topic_test.exs`; core state exists, add validation and modes |
+| Channels (`JOIN`, `PART`, `NAMES`, `TOPIC`) | partial | `server_channels_test.exs`, `server_topic_test.exs`, `server_validation_test.exs`; core state and basic target validation exist, add modes/policy |
 | Published messages (`PRIVMSG`, `NOTICE`, `TAGMSG`) | partial | `server_messaging_test.exs`, `server_isolation_test.exs`, `server_direct_message_test.exs`, `server_tagmsg_test.exs`; channel/direct routing and tagged TAGMSG exist, add validation |
 | Subscriber callback contract and failure isolation | partial | `server_subscriber_test.exs`; add explicit crash/slow-callback isolation tests |
 | Application-owned SASL authentication | partial | `server_authentication_test.exs`; PLAIN success/failure exist, add mechanisms and policy cases |

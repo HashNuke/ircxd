@@ -204,18 +204,22 @@ defmodule Ircxd.Server do
        }) do
     case Map.fetch(state.connections, connection) do
       {:ok, %{nick: nick} = client} when is_binary(nick) ->
-        source = source_for(client, state.server_name)
-        message = %Ircxd.Message{source: source, command: "JOIN", params: [channel]}
-        members = Map.get(state.channels, channel, MapSet.new())
-        recipients = MapSet.put(members, connection)
-        state = broadcast(state, recipients, message, connection)
-        channels = Map.put(state.channels, channel, recipients)
-        client_channels = MapSet.put(client.channels, channel)
+        if valid_channel?(channel) do
+          source = source_for(client, state.server_name)
+          message = %Ircxd.Message{source: source, command: "JOIN", params: [channel]}
+          members = Map.get(state.channels, channel, MapSet.new())
+          recipients = MapSet.put(members, connection)
+          state = broadcast(state, recipients, message, connection)
+          channels = Map.put(state.channels, channel, recipients)
+          client_channels = MapSet.put(client.channels, channel)
 
-        connections =
-          Map.update!(state.connections, connection, &Map.put(&1, :channels, client_channels))
+          connections =
+            Map.update!(state.connections, connection, &Map.put(&1, :channels, client_channels))
 
-        %{state | channels: channels, connections: connections}
+          %{state | channels: channels, connections: connections}
+        else
+          error_reply(state, connection, "403", [nick, channel, "No such channel"])
+        end
 
       _ ->
         state
@@ -400,6 +404,17 @@ defmodule Ircxd.Server do
   end
 
   defp source_for(%{nick: nick}, server_name), do: "#{nick}!user@#{server_name}"
+
+  defp valid_channel?(channel) when is_binary(channel) do
+    byte_size(channel) > 1 and String.first(channel) in ["#", "&"]
+  end
+
+  defp valid_channel?(_channel), do: false
+
+  defp error_reply(state, connection, command, params) do
+    message = %Ircxd.Message{source: state.server_name, command: command, params: params}
+    broadcast(state, MapSet.new([connection]), message, connection)
+  end
 
   defp recipients_for(state, target) do
     case Map.fetch(state.channels, target) do
