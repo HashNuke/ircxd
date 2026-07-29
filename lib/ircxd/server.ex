@@ -66,9 +66,9 @@ defmodule Ircxd.Server do
     help = normalize_help(Keyword.get(opts, :help))
     isupport = normalize_isupport(Keyword.get(opts, :isupport))
     admin = normalize_admin(Keyword.get(opts, :admin))
-    authenticator = init_authenticator(Keyword.get(opts, :authenticator))
 
-    with {:ok, {transport, listener}} <- listen(port, tls?, tls_options),
+    with {:ok, authenticator} <- init_authenticator(Keyword.get(opts, :authenticator)),
+         {:ok, {transport, listener}} <- listen(port, tls?, tls_options),
          {:ok, {_address, actual_port}} <- socket_name(transport, listener) do
       case init_subscriber(Keyword.get(opts, :subscriber)) do
         {:ok, subscriber} ->
@@ -382,11 +382,23 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp init_authenticator(nil), do: nil
+  defp init_authenticator(nil), do: {:ok, nil}
 
   defp init_authenticator({module, arg}) do
-    {:ok, authenticator_state} = module.init(arg)
-    %{module: module, state: authenticator_state}
+    result =
+      try do
+        module.init(arg)
+      rescue
+        _error -> {:error, :initialization_failed}
+      catch
+        _kind, _reason -> {:error, :initialization_failed}
+      end
+
+    case result do
+      {:ok, authenticator_state} -> {:ok, %{module: module, state: authenticator_state}}
+      {:error, reason} -> {:error, {:authenticator_init_failed, reason}}
+      _other -> {:error, {:authenticator_init_failed, :invalid_return}}
+    end
   end
 
   defp invoke_authenticator(authenticator, username, password, metadata) do

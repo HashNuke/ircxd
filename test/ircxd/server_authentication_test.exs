@@ -52,6 +52,16 @@ defmodule Ircxd.ServerAuthenticationTest do
     end
   end
 
+  defmodule RejectingAuthenticator do
+    @behaviour Ircxd.Server.Authenticator
+
+    @impl true
+    def init(:reject), do: {:error, :database_unavailable}
+
+    @impl true
+    def authenticate(_username, _password, _metadata, state), do: {:error, :unavailable, state}
+  end
+
   test "authenticator controls SASL registration using application-owned state" do
     {:ok, server} =
       Server.start_link(
@@ -198,5 +208,19 @@ defmodule Ircxd.ServerAuthenticationTest do
     assert_receive {:ircxd, {:sasl_failure, %{code: "904"}}}, 2_000
     assert Process.alive?(server)
     refute_receive {:ircxd, :registered}, 250
+  end
+
+  test "returns a structured error when authenticator initialization fails" do
+    previous_trap_exit = Process.flag(:trap_exit, true)
+
+    result =
+      Server.start_link(
+        port: 0,
+        authenticator: {RejectingAuthenticator, :reject}
+      )
+
+    Process.flag(:trap_exit, previous_trap_exit)
+
+    assert {:error, {:authenticator_init_failed, :database_unavailable}} = result
   end
 end
