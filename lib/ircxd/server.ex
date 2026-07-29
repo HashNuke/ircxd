@@ -19,6 +19,9 @@ defmodule Ircxd.Server do
 
   def port(server), do: GenServer.call(server, :port)
 
+  def publish(server, message, metadata),
+    do: GenServer.cast(server, {:publish, message, metadata})
+
   @impl true
   def init(opts) do
     port = Keyword.get(opts, :port, 6667)
@@ -35,13 +38,19 @@ defmodule Ircxd.Server do
          acceptor: acceptor,
          port: actual_port,
          server_name: server_name,
-         connections: %{}
+         connections: %{},
+         subscriber: init_subscriber(Keyword.get(opts, :subscriber))
        }}
     end
   end
 
   @impl true
   def handle_call(:port, _from, state), do: {:reply, state.port, state}
+
+  @impl true
+  def handle_cast({:publish, message, metadata}, state) do
+    {:noreply, dispatch_to_subscriber(state, message, metadata)}
+  end
 
   @impl true
   def handle_info({:accepted, socket}, state) do
@@ -85,6 +94,24 @@ defmodule Ircxd.Server do
 
   defp listen(port) do
     :gen_tcp.listen(port, [:binary, packet: :line, active: false, reuseaddr: true])
+  end
+
+  defp init_subscriber(nil), do: nil
+
+  defp init_subscriber({module, arg}) do
+    {:ok, subscriber_state} = module.init(arg)
+    %{module: module, state: subscriber_state}
+  end
+
+  defp dispatch_to_subscriber(%{subscriber: nil} = state, _message, _metadata), do: state
+
+  defp dispatch_to_subscriber(%{subscriber: subscriber} = state, message, metadata) do
+    case subscriber.module.handle_publish(message, metadata, subscriber.state) do
+      {:ok, subscriber_state} -> %{state | subscriber: %{subscriber | state: subscriber_state}}
+      _other -> state
+    end
+  rescue
+    _error -> state
   end
 
   defp accept_loop(listener, owner) do

@@ -46,7 +46,7 @@ defmodule Ircxd.Server.Connection do
     :error, :closed -> :ok
   end
 
-  defp handle_message(%Message{command: "CAP", params: [_target, "LS" | _]}, state) do
+  defp handle_message(%Message{command: "CAP", params: ["LS" | _]}, state) do
     send_message(state, "CAP", ["*", "LS", ""])
     {:noreply, state}
   end
@@ -84,6 +84,9 @@ defmodule Ircxd.Server.Connection do
   defp maybe_register(state), do: {:noreply, state}
 
   defp send_message(state, command, params) do
-    :gen_tcp.send(state.socket, Message.serialize({command, params}))
+    message = %Message{command: command, params: params}
+    metadata = %{server: state.server_name, connection: self(), nick: state.nick}
+    Ircxd.Server.publish(state.server, message, metadata)
+    :gen_tcp.send(state.socket, Message.serialize(message))
   end
 end
