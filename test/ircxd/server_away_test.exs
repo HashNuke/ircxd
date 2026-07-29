@@ -42,6 +42,7 @@ defmodule Ircxd.ServerAwayTest do
       nick: nick,
       username: nick,
       realname: "Ircxd #{nick} client",
+      caps: ["away-notify"],
       notify: self()
     )
   end

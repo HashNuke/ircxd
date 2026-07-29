@@ -286,8 +286,8 @@ defmodule Ircxd.Server do
 
   defp capabilities(auth_required?) do
     if auth_required?,
-      do: ["message-tags", "server-time", "extended-join", "sasl"],
-      else: ["message-tags", "server-time", "extended-join"]
+      do: ["message-tags", "server-time", "extended-join", "away-notify", "sasl"],
+      else: ["message-tags", "server-time", "extended-join", "away-notify"]
   end
 
   defp normalize_motd(motd) when is_binary(motd), do: String.split(motd, "\n")
@@ -794,6 +794,7 @@ defmodule Ircxd.Server do
       Enum.reduce(channels, MapSet.new(), fn channel, recipients ->
         MapSet.union(recipients, Map.get(state.channels, channel, MapSet.new()))
       end)
+      |> capability_recipients(state, "away-notify")
 
     message = %Ircxd.Message{
       source: source_for(client, state.server_name),
@@ -1582,6 +1583,16 @@ defmodule Ircxd.Server do
           _ -> nil
         end)
     end
+  end
+
+  defp capability_recipients(recipients, state, capability) do
+    Enum.reduce(recipients, MapSet.new(), fn connection, filtered ->
+      active = Map.get(state.connection_capabilities, connection, MapSet.new())
+
+      if MapSet.member?(active, capability),
+        do: MapSet.put(filtered, connection),
+        else: filtered
+    end)
   end
 
   defp remove_connection(state, connection) do
