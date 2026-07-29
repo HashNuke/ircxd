@@ -66,6 +66,9 @@ to listen on different (or independently configured) endpoints.
    `MONITOR` now supports add/remove/clear/list/status and online/offline notifications.
    WHOIS now includes `301 RPL_AWAY` when the target has an away message.
    `ISON` and `USERHOST` now answer online-user and user-host queries with `303` and `302`.
+   The server now advertises `server-time`, tracks negotiated capabilities per
+   connection, and adds millisecond UTC `time` tags to outbound messages for
+   clients that request it.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -133,6 +136,7 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated AWAY presence behavior with 60 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Added `ISON` and `USERHOST` online-user query replies with focused client event coverage | `test/ircxd/server_user_queries_test.exs` |
 | 2026-07-29 | Revalidated `ISON`/`USERHOST` with 63 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added negotiated IRCv3 `server-time` support with per-connection outbound timestamp tags | `test/ircxd/server_server_time_test.exs` |
 | 2026-07-29 | Revalidated voice and moderated-channel policy with 59 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Revalidated limited-channel policy with 58 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Revalidated keyed-channel policy with 57 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |

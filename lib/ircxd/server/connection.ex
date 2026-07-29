@@ -19,6 +19,7 @@ defmodule Ircxd.Server.Connection do
        server_name: Keyword.fetch!(opts, :server_name),
        isupport: Keyword.fetch!(opts, :isupport),
        capabilities: Keyword.fetch!(opts, :capabilities),
+       active_capabilities: MapSet.new(),
        password: Keyword.get(opts, :password),
        password_authenticated?: is_nil(Keyword.get(opts, :password)),
        registration_timer: registration_timer(registration_timeout),
@@ -39,6 +40,8 @@ defmodule Ircxd.Server.Connection do
   end
 
   def handle_info({:server_send, %Message{} = message}, state) do
+    message = add_server_time(state, message)
+
     case :gen_tcp.send(state.socket, Message.serialize(message)) do
       :ok -> {:noreply, state}
       {:error, reason} -> {:stop, reason, state}
@@ -95,11 +98,16 @@ defmodule Ircxd.Server.Connection do
       Enum.all?(requested, &(&1 in state.capabilities)) ->
         send_message(state, "CAP", ["*", "ACK", Enum.join(requested, " ")])
 
+        {:noreply,
+         %{
+           state
+           | active_capabilities: MapSet.union(state.active_capabilities, MapSet.new(requested))
+         }}
+
       true ->
         send_message(state, "CAP", ["*", "NAK", Enum.join(requested, " ")])
+        {:noreply, state}
     end
-
-    {:noreply, state}
   end
 
   defp handle_message(%Message{command: "AUTHENTICATE", params: ["PLAIN"]}, state) do
@@ -261,10 +269,24 @@ defmodule Ircxd.Server.Connection do
   defp cancel_registration_timer(%{registration_timer: timer}), do: Process.cancel_timer(timer)
 
   defp send_message(state, command, params) do
-    message = %Message{command: command, params: params}
+    message = add_server_time(state, %Message{command: command, params: params})
     metadata = %{server: state.server_name, connection: self(), nick: state.nick}
     Ircxd.Server.publish(state.server, message, metadata)
     :gen_tcp.send(state.socket, Message.serialize(message))
+  end
+
+  defp add_server_time(state, %Message{} = message) do
+    if MapSet.member?(state.active_capabilities, "server-time") do
+      %{message | tags: Map.put_new(message.tags, "time", server_time())}
+    else
+      message
+    end
+  end
+
+  defp server_time do
+    DateTime.utc_now()
+    |> DateTime.truncate(:millisecond)
+    |> DateTime.to_iso8601()
   end
 
   defp decode_plain(payload) do

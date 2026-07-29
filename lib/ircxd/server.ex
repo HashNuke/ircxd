@@ -267,7 +267,9 @@ defmodule Ircxd.Server do
   end
 
   defp capabilities(auth_required?) do
-    if auth_required?, do: ["message-tags", "sasl"], else: ["message-tags"]
+    if auth_required?,
+      do: ["message-tags", "server-time", "sasl"],
+      else: ["message-tags", "server-time"]
   end
 
   defp normalize_motd(motd) when is_binary(motd), do: String.split(motd, "\n")
