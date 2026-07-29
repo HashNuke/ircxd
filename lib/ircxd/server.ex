@@ -115,7 +115,15 @@ defmodule Ircxd.Server do
         end)
 
       state = %{state | connections: connections}
-      {:reply, :ok, notify_monitors(state, nick, :online)}
+      state = notify_monitors(state, nick, :online)
+
+      state =
+        case state.connections[connection].account do
+          nil -> state
+          account -> notify_account(state, connection, account)
+        end
+
+      {:reply, :ok, state}
     end
   end
 
@@ -286,8 +294,15 @@ defmodule Ircxd.Server do
 
   defp capabilities(auth_required?) do
     if auth_required?,
-      do: ["message-tags", "server-time", "extended-join", "away-notify", "sasl"],
-      else: ["message-tags", "server-time", "extended-join", "away-notify"]
+      do: [
+        "message-tags",
+        "server-time",
+        "extended-join",
+        "away-notify",
+        "account-notify",
+        "sasl"
+      ],
+      else: ["message-tags", "server-time", "extended-join", "away-notify", "account-notify"]
   end
 
   defp normalize_motd(motd) when is_binary(motd), do: String.split(motd, "\n")
@@ -1038,6 +1053,28 @@ defmodule Ircxd.Server do
         state
       end
     end)
+  end
+
+  defp notify_account(state, connection, account) do
+    case Map.fetch(state.connections, connection) do
+      {:ok, %{channels: channels} = client} ->
+        recipients =
+          Enum.reduce(channels, MapSet.new([connection]), fn channel, recipients ->
+            MapSet.union(recipients, Map.get(state.channels, channel, MapSet.new()))
+          end)
+          |> capability_recipients(state, "account-notify")
+
+        message = %Ircxd.Message{
+          source: source_for(client, state.server_name),
+          command: "ACCOUNT",
+          params: [if(is_nil(account), do: "*", else: format_account(account))]
+        }
+
+        broadcast(state, recipients, message, connection)
+
+      :error ->
+        state
+    end
   end
 
   defp names_channel(state, connection, channel) do

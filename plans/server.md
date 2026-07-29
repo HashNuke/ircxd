@@ -75,6 +75,8 @@ to listen on different (or independently configured) endpoints.
    parameters, while legacy clients retain the one-parameter form.
    `away-notify` is now advertised and AWAY fan-out is limited to clients that
    negotiated the capability.
+   `account-notify` now reports the authenticated client’s account after SASL
+   registration.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -150,6 +152,7 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated `extended-join` with 67 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 joining a live channel after capability negotiation | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Added negotiated `away-notify` fan-out with opt-in and legacy-client coverage | `test/ircxd/server_away_notify_test.exs`, `test/ircxd/server_away_test.exs` |
 | 2026-07-29 | Revalidated `away-notify` with 68 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 capability negotiation plus live AWAY state | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added negotiated self `ACCOUNT` notifications after application-owned SASL authentication | `test/ircxd/server_account_notify_test.exs` |
 | 2026-07-29 | Revalidated voice and moderated-channel policy with 59 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Revalidated limited-channel policy with 58 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Revalidated keyed-channel policy with 57 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
