@@ -40,7 +40,7 @@ defmodule Ircxd.Server.Connection do
   end
 
   def handle_info({:server_send, %Message{} = message}, state) do
-    message = add_server_time(state, message)
+    message = outbound_message(state, message)
 
     case :gen_tcp.send(state.socket, Message.serialize(message)) do
       :ok -> {:noreply, state}
@@ -98,11 +98,10 @@ defmodule Ircxd.Server.Connection do
       Enum.all?(requested, &(&1 in state.capabilities)) ->
         send_message(state, "CAP", ["*", "ACK", Enum.join(requested, " ")])
 
-        {:noreply,
-         %{
-           state
-           | active_capabilities: MapSet.union(state.active_capabilities, MapSet.new(requested))
-         }}
+        active_capabilities = MapSet.union(state.active_capabilities, MapSet.new(requested))
+        Ircxd.Server.capabilities(state.server, self(), active_capabilities)
+
+        {:noreply, %{state | active_capabilities: active_capabilities}}
 
       true ->
         send_message(state, "CAP", ["*", "NAK", Enum.join(requested, " ")])
@@ -269,17 +268,46 @@ defmodule Ircxd.Server.Connection do
   defp cancel_registration_timer(%{registration_timer: timer}), do: Process.cancel_timer(timer)
 
   defp send_message(state, command, params) do
-    message = add_server_time(state, %Message{command: command, params: params})
+    message = outbound_message(state, %Message{command: command, params: params})
     metadata = %{server: state.server_name, connection: self(), nick: state.nick}
     Ircxd.Server.publish(state.server, message, metadata)
     :gen_tcp.send(state.socket, Message.serialize(message))
   end
 
-  defp add_server_time(state, %Message{} = message) do
+  defp add_server_time(%Message{} = message, state) do
     if MapSet.member?(state.active_capabilities, "server-time") do
       %{message | tags: Map.put_new(message.tags, "time", server_time())}
     else
       message
+    end
+  end
+
+  defp outbound_message(state, %Message{} = message) do
+    message
+    |> add_message_id(state)
+    |> add_server_time(state)
+    |> filter_tags(state)
+  end
+
+  defp add_message_id(%Message{} = message, state) do
+    if MapSet.member?(state.active_capabilities, "message-tags") and
+         not Map.has_key?(message.tags, "msgid") do
+      %{message | tags: Map.put(message.tags, "msgid", local_message_id())}
+    else
+      message
+    end
+  end
+
+  defp local_message_id do
+    :erlang.unique_integer([:positive]) |> Integer.to_string(16) |> String.upcase()
+  end
+
+  defp filter_tags(message, state) do
+    if MapSet.member?(state.active_capabilities, "message-tags") or
+         MapSet.member?(state.active_capabilities, "server-time") do
+      message
+    else
+      %{message | tags: %{}}
     end
   end
 

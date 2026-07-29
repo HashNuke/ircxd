@@ -39,6 +39,9 @@ defmodule Ircxd.Server do
   def command(server, connection, message),
     do: GenServer.cast(server, {:client_command, connection, message})
 
+  def capabilities(server, connection, capabilities),
+    do: GenServer.cast(server, {:client_capabilities, connection, capabilities})
+
   def identity(server, connection, username, realname),
     do: GenServer.cast(server, {:client_identity, connection, username, realname})
 
@@ -84,6 +87,8 @@ defmodule Ircxd.Server do
          channel_keys: %{},
          channel_limits: %{},
          monitors: %{},
+         connection_capabilities: %{},
+         message_id: 0,
          capabilities: capabilities(not is_nil(authenticator)),
          subscriber: init_subscriber(Keyword.get(opts, :subscriber)),
          authenticator: authenticator
@@ -185,6 +190,14 @@ defmodule Ircxd.Server do
     {:noreply, handle_client_command(state, connection, message)}
   end
 
+  def handle_cast({:client_capabilities, connection, capabilities}, state) do
+    {:noreply,
+     %{
+       state
+       | connection_capabilities: Map.put(state.connection_capabilities, connection, capabilities)
+     }}
+  end
+
   @impl true
   def handle_info({:accepted, socket}, state) do
     case Connection.start(
@@ -216,7 +229,12 @@ defmodule Ircxd.Server do
             }
 
             {:noreply,
-             %{state | connections: Map.put(state.connections, connection, connection_state)}}
+             %{
+               state
+               | connections: Map.put(state.connections, connection, connection_state),
+                 connection_capabilities:
+                   Map.put(state.connection_capabilities, connection, MapSet.new())
+             }}
 
           {:error, reason} ->
             Process.exit(connection, :shutdown)
@@ -1487,6 +1505,21 @@ defmodule Ircxd.Server do
     %{state | channel_operators: Map.put(state.channel_operators, channel, operators)}
   end
 
+  defp add_message_id(state, recipients, %Ircxd.Message{} = message) do
+    tagged_recipient? =
+      Enum.any?(recipients, fn connection ->
+        "message-tags" in Map.get(state.connection_capabilities, connection, MapSet.new())
+      end)
+
+    if tagged_recipient? and not Map.has_key?(message.tags, "msgid") do
+      next_id = state.message_id + 1
+      msgid = Integer.to_string(next_id, 16) |> String.upcase()
+      {%{state | message_id: next_id}, %{message | tags: Map.put(message.tags, "msgid", msgid)}}
+    else
+      {state, message}
+    end
+  end
+
   defp broadcast(state, recipients, message, sender) do
     metadata = %{
       server: state.server_name,
@@ -1494,6 +1527,7 @@ defmodule Ircxd.Server do
       recipients: MapSet.to_list(recipients)
     }
 
+    {state, message} = add_message_id(state, recipients, message)
     state = dispatch_to_subscriber(state, message, metadata)
     Enum.each(recipients, &send(&1, {:server_send, message}))
     state
@@ -1567,7 +1601,8 @@ defmodule Ircxd.Server do
           state
           | connections: connections,
             channels: channels,
-            monitors: Map.delete(state.monitors, connection)
+            monitors: Map.delete(state.monitors, connection),
+            connection_capabilities: Map.delete(state.connection_capabilities, connection)
         }
 
         state =
