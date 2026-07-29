@@ -86,6 +86,7 @@ defmodule Ircxd.Server do
          topics: %{},
          channel_keys: %{},
          channel_limits: %{},
+         channel_bans: %{},
          monitors: %{},
          connection_capabilities: %{},
          message_id: 0,
@@ -1284,6 +1285,7 @@ defmodule Ircxd.Server do
               MapSet.member?(Map.get(state.channel_modes, channel, MapSet.new()), "i")
 
             invited? = MapSet.member?(Map.get(state.invites, channel, MapSet.new()), connection)
+            banned? = channel_banned?(state, channel, client)
 
             key_required? =
               MapSet.member?(Map.get(state.channel_modes, channel, MapSet.new()), "k")
@@ -1293,6 +1295,9 @@ defmodule Ircxd.Server do
             limit_reached? = is_integer(channel_limit) and MapSet.size(members) >= channel_limit
 
             cond do
+              banned? ->
+                error_reply(state, connection, "474", [nick, channel, "Cannot join channel (+b)"])
+
               limit_reached? ->
                 error_reply(state, connection, "471", [nick, channel, "Cannot join channel (+l)"])
 
@@ -1495,10 +1500,15 @@ defmodule Ircxd.Server do
         error_reply(state, connection, "482", [nick, "You're not channel operator"])
 
       true ->
-        if modes in ["+v", "-v"] do
-          set_channel_voice(state, connection, channel, modes, mode_params)
-        else
-          apply_channel_modes_to_channel(state, connection, channel, modes, mode_params)
+        cond do
+          modes in ["+v", "-v"] ->
+            set_channel_voice(state, connection, channel, modes, mode_params)
+
+          modes in ["+b", "-b"] ->
+            set_channel_ban(state, connection, channel, modes, mode_params)
+
+          true ->
+            apply_channel_modes_to_channel(state, connection, channel, modes, mode_params)
         end
     end
   end
@@ -1592,6 +1602,56 @@ defmodule Ircxd.Server do
     end
   end
 
+  defp set_channel_ban(state, connection, channel, modes, [mask]) when is_binary(mask) do
+    bans = Map.get(state.channel_bans, channel, MapSet.new())
+
+    bans =
+      if modes == "+b",
+        do: MapSet.put(bans, mask),
+        else: MapSet.delete(bans, mask)
+
+    message = %Ircxd.Message{
+      source: source_for(state.connections[connection], state.server_name),
+      command: "MODE",
+      params: [channel, modes, mask]
+    }
+
+    state = %{state | channel_bans: Map.put(state.channel_bans, channel, bans)}
+    broadcast(state, Map.get(state.channels, channel, MapSet.new()), message, connection)
+  end
+
+  defp set_channel_ban(state, connection, channel, "+b", []) do
+    nick = state.connections[connection].nick
+    bans = Map.get(state.channel_bans, channel, MapSet.new())
+
+    state =
+      Enum.reduce(bans, state, fn mask, state ->
+        message = %Ircxd.Message{
+          source: state.server_name,
+          command: "367",
+          params: [nick, channel, mask]
+        }
+
+        broadcast(state, MapSet.new([connection]), message, connection)
+      end)
+
+    end_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "368",
+      params: [nick, channel, "End of channel ban list"]
+    }
+
+    broadcast(state, MapSet.new([connection]), end_message, connection)
+  end
+
+  defp set_channel_ban(state, connection, _channel, _modes, _mode_params) do
+    error_reply(state, connection, "461", [
+      state.connections[connection].nick,
+      "MODE",
+      "Not enough parameters"
+    ])
+  end
+
   defp apply_channel_modes(
          channel_modes,
          <<sign::binary-size(1), modes::binary>>,
@@ -1655,6 +1715,14 @@ defmodule Ircxd.Server do
 
   defp channel_voiced?(state, channel, connection) do
     MapSet.member?(Map.get(state.channel_voices, channel, MapSet.new()), connection)
+  end
+
+  defp channel_banned?(state, channel, client) do
+    client_mask = source_for(client, state.server_name)
+
+    Enum.any?(Map.get(state.channel_bans, channel, MapSet.new()), fn mask ->
+      mask == client.nick or mask == client_mask
+    end)
   end
 
   defp remove_channel_voice(state, channel, connection) do
