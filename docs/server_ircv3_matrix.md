@@ -24,7 +24,7 @@ Status values:
 | Application-owned SASL authentication | partial | `server_authentication_test.exs`; PLAIN success/failure exist, add mechanisms and policy cases |
 | Capability negotiation and `CAP LS/REQ/END` | partial | `server_capabilities_test.exs`; SASL advertisement/ACK is covered by authentication tests |
 | Message tags, server-time, and message IDs | planned | `server_message_tags_test.exs` |
-| SASL authentication | planned | `server_sasl_test.exs` |
+| SASL mechanisms beyond PLAIN | planned | `server_sasl_test.exs` |
 | Account, away, monitor, and user-property tracking | planned | focused feature test files |
 | Batches, multiline, history, and redaction | planned | focused feature test files |
 | Standard replies and labeled responses | planned | focused feature test files |
@@ -34,10 +34,19 @@ Status values:
 
 ## Subscriber contract
 
-The server will accept a subscriber module and initialization argument in its
+The server accepts a subscriber module and initialization argument in its
 options. The subscriber receives every message the server publishes to clients,
 along with server/channel metadata, so an embedding application can persist
 messages or trigger other effects without the server owning a database.
 
 The callback must be isolated from connection processes: a subscriber failure
 must be observable and must not take down the listener or unrelated clients.
+
+## Authentication contract
+
+The server accepts an `authenticator: {module, init_arg}` option. The module
+implements `Ircxd.Server.Authenticator`; its `authenticate/4` callback receives
+the decoded SASL PLAIN username and password, connection metadata, and its own
+state. The callback may query the embedding application's database and returns
+an account value on success or a reason on failure. The server does not own
+credentials, account persistence, or database connections.
