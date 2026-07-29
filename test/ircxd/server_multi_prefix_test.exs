@@ -14,7 +14,7 @@ defmodule Ircxd.ServerMultiPrefixTest do
         nick: "multi-prefix-client",
         username: "multi-prefix-client",
         realname: "Multi Prefix Client",
-        caps: ["multi-prefix"],
+        caps: ["multi-prefix", "no-implicit-names"],
         notify: self()
       )
 

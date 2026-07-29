@@ -57,6 +57,7 @@ defmodule Ircxd.ServerQuitTest do
       nick: nick,
       username: nick,
       realname: "#{nick} test client",
+      caps: ["no-implicit-names"],
       notify: self()
     )
   end

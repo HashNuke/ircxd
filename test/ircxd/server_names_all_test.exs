@@ -33,6 +33,7 @@ defmodule Ircxd.ServerNamesAllTest do
       nick: nick,
       username: nick,
       realname: "Ircxd names client",
+      caps: ["no-implicit-names"],
       notify: self()
     )
   end

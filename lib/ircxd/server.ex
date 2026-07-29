@@ -315,6 +315,7 @@ defmodule Ircxd.Server do
         "account-tag",
         "multi-prefix",
         "userhost-in-names",
+        "no-implicit-names",
         "echo-message",
         "sasl"
       ],
@@ -327,6 +328,7 @@ defmodule Ircxd.Server do
         "account-tag",
         "multi-prefix",
         "userhost-in-names",
+        "no-implicit-names",
         "echo-message"
       ]
   end
@@ -1275,13 +1277,15 @@ defmodule Ircxd.Server do
                     end
                   )
 
-                %{
+                state = %{
                   state
                   | channels: channels,
                     connections: connections,
                     channel_operators: channel_operators,
                     invites: invites
                 }
+
+                maybe_implicit_names(state, connection, channel)
             end
           end
         else
@@ -1291,6 +1295,14 @@ defmodule Ircxd.Server do
       _ ->
         state
     end
+  end
+
+  defp maybe_implicit_names(state, connection, channel) do
+    active = Map.get(state.connection_capabilities, connection, MapSet.new())
+
+    if MapSet.member?(active, "no-implicit-names"),
+      do: state,
+      else: names_channel(state, connection, channel)
   end
 
   defp part_channel(state, connection, channel, rest) do
