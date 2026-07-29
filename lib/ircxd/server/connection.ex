@@ -179,7 +179,8 @@ defmodule Ircxd.Server.Connection do
               "MODE",
               "LIST",
               "MOTD",
-              "LUSERS"
+              "LUSERS",
+              "VERSION"
             ] do
     Ircxd.Server.command(state.server, self(), message)
     {:noreply, state}

@@ -353,6 +353,18 @@ defmodule Ircxd.Server do
     end)
   end
 
+  defp handle_registered_command(state, connection, %{command: "VERSION"}) do
+    nick = state.connections[connection].nick
+
+    message = %Ircxd.Message{
+      source: state.server_name,
+      command: "351",
+      params: [nick, "Ircxd.Server", state.server_name, "Ircxd server"]
+    }
+
+    broadcast(state, MapSet.new([connection]), message, connection)
+  end
+
   defp handle_registered_command(state, connection, %{
          command: "PART",
          params: [channel | rest]
