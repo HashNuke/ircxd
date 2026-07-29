@@ -803,7 +803,7 @@ defmodule Ircxd.Server do
 
           %{state | channels: channels, connections: connections}
         else
-          state
+          error_reply(state, connection, "442", [nick, channel, "You're not on that channel"])
         end
 
       _ ->
