@@ -16,6 +16,9 @@ defmodule Ircxd.Server.Connection do
        socket: socket,
        server: Keyword.fetch!(opts, :server),
        server_name: Keyword.fetch!(opts, :server_name),
+       auth_required?: Keyword.get(opts, :auth_required?, false),
+       authenticated?: false,
+       account: nil,
        nick: nil,
        username: nil,
        realname: nil,
@@ -47,8 +50,43 @@ defmodule Ircxd.Server.Connection do
   end
 
   defp handle_message(%Message{command: "CAP", params: ["LS" | _]}, state) do
-    send_message(state, "CAP", ["*", "LS", ""])
+    caps = if(state.auth_required?, do: "sasl", else: "")
+    send_message(state, "CAP", ["*", "LS", caps])
     {:noreply, state}
+  end
+
+  defp handle_message(%Message{command: "CAP", params: ["REQ", caps]}, state) do
+    if state.auth_required? and String.split(caps) == ["sasl"],
+      do: send_message(state, "CAP", ["*", "ACK", "sasl"])
+
+    {:noreply, state}
+  end
+
+  defp handle_message(%Message{command: "AUTHENTICATE", params: ["PLAIN"]}, state) do
+    send_message(state, "AUTHENTICATE", ["+"])
+    {:noreply, state}
+  end
+
+  defp handle_message(%Message{command: "AUTHENTICATE", params: [payload]}, state)
+       when state.auth_required? do
+    case decode_plain(payload) do
+      {:ok, username, password} ->
+        metadata = %{server: state.server_name, connection: self(), nick: state.nick}
+
+        case Ircxd.Server.authenticate(state.server, username, password, metadata) do
+          {:ok, account} ->
+            send_message(state, "903", [state.nick, "SASL authentication successful"])
+            maybe_register(%{state | authenticated?: true, account: account})
+
+          {:error, _reason} ->
+            send_message(state, "904", [state.nick, "SASL authentication failed"])
+            {:noreply, state}
+        end
+
+      :error ->
+        send_message(state, "904", [state.nick, "Invalid SASL credentials"])
+        {:noreply, state}
+    end
   end
 
   defp handle_message(%Message{command: "NICK", params: [nick]}, state) do
@@ -73,6 +111,9 @@ defmodule Ircxd.Server.Connection do
 
   defp maybe_register(%{registered?: true} = state), do: {:noreply, state}
 
+  defp maybe_register(%{auth_required?: true, authenticated?: false} = state),
+    do: {:noreply, state}
+
   defp maybe_register(%{nick: nick, username: username} = state)
        when is_binary(nick) and is_binary(username) do
     send_message(state, "001", [nick, "Welcome to Ircxd"])
@@ -88,5 +129,14 @@ defmodule Ircxd.Server.Connection do
     metadata = %{server: state.server_name, connection: self(), nick: state.nick}
     Ircxd.Server.publish(state.server, message, metadata)
     :gen_tcp.send(state.socket, Message.serialize(message))
+  end
+
+  defp decode_plain(payload) do
+    with {:ok, decoded} <- Base.decode64(payload),
+         [_, username, password] <- String.split(decoded, <<0>>, parts: 3) do
+      {:ok, username, password}
+    else
+      _ -> :error
+    end
   end
 end

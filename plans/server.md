@@ -35,7 +35,7 @@ to listen on different (or independently configured) endpoints.
    reach the embedding application with connection metadata.
 7. [ ] Add configurable callbacks/handler hooks and test callback failures and
    connection cleanup without taking down the listener.
-8. [ ] Add an authentication contract for SASL and test database-backed host
+8. [x] Add an authentication contract for SASL and test database-backed host
    callbacks, success, failure, and account metadata without embedding a DB.
 9. [ ] Add protocol limits and malformed-input tests, including line size,
    registration timeouts, unknown commands, and nick/channel validation.

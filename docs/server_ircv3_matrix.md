@@ -20,8 +20,9 @@ Status values:
 | Core connection commands (`PING`, `PONG`, `QUIT`) | planned | `server_connection_test.exs` |
 | Channels (`JOIN`, `PART`, `NAMES`, `TOPIC`) | planned | `server_channel_test.exs` |
 | Published messages (`PRIVMSG`, `NOTICE`, `TAGMSG`) | planned | `server_messaging_test.exs` |
-| Subscriber callback contract and failure isolation | planned | `server_subscriber_test.exs` |
-| Capability negotiation and `CAP LS/REQ/END` | partial | `server_capabilities_test.exs` |
+| Subscriber callback contract and failure isolation | partial | `server_subscriber_test.exs`; add explicit crash/slow-callback isolation tests |
+| Application-owned SASL authentication | partial | `server_authentication_test.exs`; PLAIN success/failure exist, add mechanisms and policy cases |
+| Capability negotiation and `CAP LS/REQ/END` | partial | `server_capabilities_test.exs`; SASL advertisement/ACK is covered by authentication tests |
 | Message tags, server-time, and message IDs | planned | `server_message_tags_test.exs` |
 | SASL authentication | planned | `server_sasl_test.exs` |
 | Account, away, monitor, and user-property tracking | planned | focused feature test files |

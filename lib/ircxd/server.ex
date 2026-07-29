@@ -22,6 +22,9 @@ defmodule Ircxd.Server do
   def publish(server, message, metadata),
     do: GenServer.cast(server, {:publish, message, metadata})
 
+  def authenticate(server, username, password, metadata),
+    do: GenServer.call(server, {:authenticate, username, password, metadata})
+
   @impl true
   def init(opts) do
     port = Keyword.get(opts, :port, 6667)
@@ -39,13 +42,37 @@ defmodule Ircxd.Server do
          port: actual_port,
          server_name: server_name,
          connections: %{},
-         subscriber: init_subscriber(Keyword.get(opts, :subscriber))
+         subscriber: init_subscriber(Keyword.get(opts, :subscriber)),
+         authenticator: init_authenticator(Keyword.get(opts, :authenticator))
        }}
     end
   end
 
   @impl true
   def handle_call(:port, _from, state), do: {:reply, state.port, state}
+
+  def handle_call({:authenticate, username, password, metadata}, _from, state) do
+    case state.authenticator do
+      nil ->
+        {:reply, {:error, :authentication_not_configured}, state}
+
+      authenticator ->
+        case authenticator.module.authenticate(
+               username,
+               password,
+               metadata,
+               authenticator.state
+             ) do
+          {:ok, account, authenticator_state} ->
+            state = %{state | authenticator: %{authenticator | state: authenticator_state}}
+            {:reply, {:ok, account}, state}
+
+          {:error, reason, authenticator_state} ->
+            state = %{state | authenticator: %{authenticator | state: authenticator_state}}
+            {:reply, {:error, reason}, state}
+        end
+    end
+  end
 
   @impl true
   def handle_cast({:publish, message, metadata}, state) do
@@ -54,7 +81,12 @@ defmodule Ircxd.Server do
 
   @impl true
   def handle_info({:accepted, socket}, state) do
-    case Connection.start(socket: socket, server: self(), server_name: state.server_name) do
+    case Connection.start(
+           socket: socket,
+           server: self(),
+           server_name: state.server_name,
+           auth_required?: not is_nil(state.authenticator)
+         ) do
       {:ok, connection} ->
         case :gen_tcp.controlling_process(socket, connection) do
           :ok ->
@@ -101,6 +133,13 @@ defmodule Ircxd.Server do
   defp init_subscriber({module, arg}) do
     {:ok, subscriber_state} = module.init(arg)
     %{module: module, state: subscriber_state}
+  end
+
+  defp init_authenticator(nil), do: nil
+
+  defp init_authenticator({module, arg}) do
+    {:ok, authenticator_state} = module.init(arg)
+    %{module: module, state: authenticator_state}
   end
 
   defp dispatch_to_subscriber(%{subscriber: nil} = state, _message, _metadata), do: state
