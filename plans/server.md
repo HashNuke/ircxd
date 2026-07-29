@@ -36,6 +36,7 @@ to listen on different (or independently configured) endpoints.
    PRIVMSG/NOTICE/TOPIC, PING/PONG, and explicit QUIT cleanup slices are covered.
    Read-only user and channel MODE queries and unexpected-disconnect QUIT
    cleanup are now covered as interoperability slices.
+   Tagged `PRIVMSG`/`NOTICE` fan-out now preserves IRCv3 message tags.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -94,3 +95,4 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated input limits with 29 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Broadcast synthetic QUIT messages for unexpected disconnects and prevent duplicate explicit QUIT cleanup | `test/ircxd/server_quit_test.exs` |
 | 2026-07-29 | Revalidated disconnect cleanup with 30 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Preserved IRCv3 tags while routing channel `PRIVMSG` and `NOTICE` messages | `test/ircxd/server_message_tags_test.exs` |

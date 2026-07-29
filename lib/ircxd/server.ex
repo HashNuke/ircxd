@@ -400,14 +400,22 @@ defmodule Ircxd.Server do
 
   defp handle_registered_command(state, connection, %{
          command: command,
-         params: [target, body]
+         params: [target, body],
+         tags: tags
        })
        when command in ["PRIVMSG", "NOTICE"] do
     case Map.fetch(state.connections, connection) do
       {:ok, %{nick: nick} = client} when is_binary(nick) ->
         recipients = recipients_for(state, target)
         source = source_for(client, state.server_name)
-        message = %Ircxd.Message{source: source, command: command, params: [target, body]}
+
+        message = %Ircxd.Message{
+          tags: tags,
+          source: source,
+          command: command,
+          params: [target, body]
+        }
+
         broadcast(state, recipients, message, connection)
 
       _ ->
