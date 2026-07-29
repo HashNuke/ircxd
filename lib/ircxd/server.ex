@@ -31,10 +31,14 @@ defmodule Ircxd.Server do
   def register(server, connection, nick),
     do: GenServer.call(server, {:register, connection, nick})
 
+  def verify_password(server, password),
+    do: GenServer.call(server, {:verify_password, password})
+
   @impl true
   def init(opts) do
     port = Keyword.get(opts, :port, 6667)
     server_name = Keyword.get(opts, :server_name, @default_server_name)
+    password = Keyword.get(opts, :password)
     authenticator = init_authenticator(Keyword.get(opts, :authenticator))
 
     with {:ok, listener} <- listen(port) do
@@ -48,6 +52,7 @@ defmodule Ircxd.Server do
          acceptor: acceptor,
          port: actual_port,
          server_name: server_name,
+         password: password,
          connections: %{},
          channels: %{},
          topics: %{},
@@ -78,6 +83,17 @@ defmodule Ircxd.Server do
 
       {:reply, :ok, %{state | connections: connections}}
     end
+  end
+
+  def handle_call({:verify_password, password}, _from, state) do
+    reply =
+      if is_nil(state.password) or to_string(state.password) == to_string(password) do
+        :ok
+      else
+        {:error, :invalid_password}
+      end
+
+    {:reply, reply, state}
   end
 
   def handle_call({:authenticate, username, password, metadata}, _from, state) do
@@ -118,6 +134,7 @@ defmodule Ircxd.Server do
            socket: socket,
            server: self(),
            server_name: state.server_name,
+           password: state.password,
            auth_required?: not is_nil(state.authenticator),
            capabilities: state.capabilities
          ) do

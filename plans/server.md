@@ -27,7 +27,8 @@ to listen on different (or independently configured) endpoints.
    clean shutdown, and port-bind failure behavior.
 3. [ ] Implement per-connection registration (`NICK`, `USER`, `PASS`, `CAP`)
    and test the complete handshake through `Ircxd.Client`. Basic handshake,
-   SASL gating, and duplicate-nick rejection are covered; add PASS/policy cases.
+   SASL gating, duplicate-nick rejection, and configured server-password
+   acceptance/rejection are covered; add remaining validation and timeout cases.
 4. [ ] Implement identity and channel state with tests for `JOIN`, `PART`,
    `PRIVMSG`, `NOTICE`, `TOPIC`, `NAMES`, `PING`, and `QUIT`. JOIN/PART/NAMES,
    PRIVMSG/NOTICE/TOPIC, PING/PONG, and explicit QUIT cleanup slices are covered.
@@ -66,3 +67,4 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Added direct nickname-target `PRIVMSG` and `NOTICE` routing | `test/ircxd/server_direct_message_test.exs` |
 | 2026-07-29 | Added `message-tags` capability advertisement/ACK and tagged `TAGMSG` fan-out | `test/ircxd/server_tagmsg_test.exs` |
 | 2026-07-29 | Added channel-target validation and `403 ERR_NOSUCHCHANNEL` | `test/ircxd/server_validation_test.exs` |
+| 2026-07-29 | Added configured server-password registration with `PASS`/`464` tests | `test/ircxd/server_password_test.exs` |

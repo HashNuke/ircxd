@@ -17,6 +17,8 @@ defmodule Ircxd.Server.Connection do
        server: Keyword.fetch!(opts, :server),
        server_name: Keyword.fetch!(opts, :server_name),
        capabilities: Keyword.fetch!(opts, :capabilities),
+       password: Keyword.get(opts, :password),
+       password_authenticated?: is_nil(Keyword.get(opts, :password)),
        auth_required?: Keyword.get(opts, :auth_required?, false),
        authenticated?: false,
        account: nil,
@@ -97,6 +99,17 @@ defmodule Ircxd.Server.Connection do
     end
   end
 
+  defp handle_message(%Message{command: "PASS", params: [password]}, state) do
+    case Ircxd.Server.verify_password(state.server, password) do
+      :ok ->
+        maybe_register(%{state | password_authenticated?: true})
+
+      {:error, :invalid_password} ->
+        send_message(state, "464", [state.nick || "*", "Password incorrect"])
+        {:noreply, state}
+    end
+  end
+
   defp handle_message(%Message{command: "NICK", params: [nick]}, state) do
     state = %{state | nick: nick}
     maybe_register(state)
@@ -132,6 +145,8 @@ defmodule Ircxd.Server.Connection do
 
   defp maybe_register(%{auth_required?: true, authenticated?: false} = state),
     do: {:noreply, state}
+
+  defp maybe_register(%{password_authenticated?: false} = state), do: {:noreply, state}
 
   defp maybe_register(%{nick: nick, username: username} = state)
        when is_binary(nick) and is_binary(username) do
