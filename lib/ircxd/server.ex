@@ -244,28 +244,9 @@ defmodule Ircxd.Server do
          command: "JOIN",
          params: [channel]
        }) do
-    case Map.fetch(state.connections, connection) do
-      {:ok, %{nick: nick} = client} when is_binary(nick) ->
-        if valid_channel?(channel) do
-          source = source_for(client, state.server_name)
-          message = %Ircxd.Message{source: source, command: "JOIN", params: [channel]}
-          members = Map.get(state.channels, channel, MapSet.new())
-          recipients = MapSet.put(members, connection)
-          state = broadcast(state, recipients, message, connection)
-          channels = Map.put(state.channels, channel, recipients)
-          client_channels = MapSet.put(client.channels, channel)
-
-          connections =
-            Map.update!(state.connections, connection, &Map.put(&1, :channels, client_channels))
-
-          %{state | channels: channels, connections: connections}
-        else
-          error_reply(state, connection, "403", [nick, channel, "No such channel"])
-        end
-
-      _ ->
-        state
-    end
+    channel
+    |> String.split(",", trim: true)
+    |> Enum.reduce(state, fn channel, state -> join_channel(state, connection, channel) end)
   end
 
   defp handle_registered_command(state, connection, %{
@@ -514,6 +495,31 @@ defmodule Ircxd.Server do
       command,
       "Unknown command"
     ])
+  end
+
+  defp join_channel(state, connection, channel) do
+    case Map.fetch(state.connections, connection) do
+      {:ok, %{nick: nick} = client} when is_binary(nick) ->
+        if valid_channel?(channel) do
+          source = source_for(client, state.server_name)
+          message = %Ircxd.Message{source: source, command: "JOIN", params: [channel]}
+          members = Map.get(state.channels, channel, MapSet.new())
+          recipients = MapSet.put(members, connection)
+          state = broadcast(state, recipients, message, connection)
+          channels = Map.put(state.channels, channel, recipients)
+          client_channels = MapSet.put(client.channels, channel)
+
+          connections =
+            Map.update!(state.connections, connection, &Map.put(&1, :channels, client_channels))
+
+          %{state | channels: channels, connections: connections}
+        else
+          error_reply(state, connection, "403", [nick, channel, "No such channel"])
+        end
+
+      _ ->
+        state
+    end
   end
 
   defp broadcast(state, recipients, message, sender) do

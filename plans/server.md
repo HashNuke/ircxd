@@ -38,6 +38,7 @@ to listen on different (or independently configured) endpoints.
    cleanup are now covered as interoperability slices.
    Tagged `PRIVMSG`/`NOTICE` fan-out now preserves IRCv3 message tags.
    `LIST` now reports channel membership counts and topics.
+   Comma-separated JOIN targets are now processed independently.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -100,4 +101,5 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Accepted `CAP END` and made socket-send failures terminate connections cleanly | `test/ircxd/server_capability_test.exs`, `Ircxd.Server.Connection` |
 | 2026-07-29 | Revalidated tagged message routing and capability/transport hardening with 32 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Added `LIST` channel discovery with `321`/`322`/`323` numerics | `test/ircxd/server_list_test.exs` |
+| 2026-07-29 | Added comma-separated multi-target `JOIN` handling | `test/ircxd/server_multi_join_test.exs` |
 | 2026-07-29 | Revalidated LIST support with 33 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
