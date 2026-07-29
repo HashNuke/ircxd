@@ -178,7 +178,8 @@ defmodule Ircxd.Server.Connection do
               "TOPIC",
               "MODE",
               "LIST",
-              "MOTD"
+              "MOTD",
+              "LUSERS"
             ] do
     Ircxd.Server.command(state.server, self(), message)
     {:noreply, state}

@@ -334,6 +334,25 @@ defmodule Ircxd.Server do
     broadcast(state, MapSet.new([connection]), end_message, connection)
   end
 
+  defp handle_registered_command(state, connection, %{command: "LUSERS"}) do
+    nick = state.connections[connection].nick
+    users = Enum.count(state.connections, fn {_pid, client} -> client.registered? end)
+    channels = map_size(state.channels)
+
+    replies = [
+      {"251", [nick, "There are #{users} users and 0 services on 1 servers"]},
+      {"252", [nick, "0", "operator(s) online"]},
+      {"253", [nick, "0", "unknown connection(s)"]},
+      {"254", [nick, Integer.to_string(channels), "channels formed"]},
+      {"255", [nick, "I have #{users} clients and 1 servers"]}
+    ]
+
+    Enum.reduce(replies, state, fn {command, params}, state ->
+      message = %Ircxd.Message{source: state.server_name, command: command, params: params}
+      broadcast(state, MapSet.new([connection]), message, connection)
+    end)
+  end
+
   defp handle_registered_command(state, connection, %{
          command: "PART",
          params: [channel | rest]
