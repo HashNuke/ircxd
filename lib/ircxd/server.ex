@@ -835,10 +835,18 @@ defmodule Ircxd.Server do
   defp message_recipients(state, connection, target) do
     case Map.fetch(state.channels, target) do
       {:ok, members} ->
-        if MapSet.member?(members, connection) do
-          {:ok, members}
-        else
-          {:error, "404", [state.connections[connection].nick, target, "Cannot send to channel"]}
+        cond do
+          not MapSet.member?(members, connection) ->
+            {:error, "404",
+             [state.connections[connection].nick, target, "Cannot send to channel"]}
+
+          MapSet.member?(Map.get(state.channel_modes, target, MapSet.new()), "m") and
+              not channel_operator?(state, target, connection) ->
+            {:error, "404",
+             [state.connections[connection].nick, target, "Cannot send to channel"]}
+
+          true ->
+            {:ok, members}
         end
 
       :error ->
@@ -1082,7 +1090,7 @@ defmodule Ircxd.Server do
     modes
     |> String.graphemes()
     |> Enum.reduce_while({:ok, channel_modes}, fn mode, {:ok, current} ->
-      if mode in ["i", "t"] do
+      if mode in ["i", "m", "t"] do
         next = if sign == "+", do: MapSet.put(current, mode), else: MapSet.delete(current, mode)
         {:cont, {:ok, next}}
       else
