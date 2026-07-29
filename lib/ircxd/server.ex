@@ -1462,6 +1462,10 @@ defmodule Ircxd.Server do
       not Map.has_key?(state.channels, channel) ->
         error_reply(state, connection, "403", [requester, channel, "No such channel"])
 
+      MapSet.member?(Map.get(state.channel_modes, channel, MapSet.new()), "i") and
+          not channel_operator?(state, channel, connection) ->
+        error_reply(state, connection, "482", [requester, "You're not channel operator"])
+
       true ->
         case Enum.find(state.connections, fn {_pid, client} -> client.nick == target end) do
           nil ->
