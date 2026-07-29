@@ -17,8 +17,9 @@ defmodule Ircxd.ServerKickTest do
 
     wait_registered(2)
     assert :ok = Client.join(alice, "#kick")
+    assert_receive {:ircxd, {:join, %{channel: "#kick", nick: "alice"}}}, 2_000
     assert :ok = Client.join(bob, "#kick")
-    wait_for_joins(MapSet.new(["alice", "bob"]))
+    assert_receive {:ircxd, {:join, %{channel: "#kick", nick: "bob"}}}, 2_000
 
     assert :ok = Client.kick(alice, "#kick", "bob", "cleanup")
 
@@ -56,19 +57,6 @@ defmodule Ircxd.ServerKickTest do
       _other -> wait_registered(remaining)
     after
       2_000 -> flunk("clients did not register")
-    end
-  end
-
-  defp wait_for_joins(nicks) do
-    receive do
-      {:ircxd, {:join, %{nick: nick, channel: "#kick"}}} ->
-        nicks = MapSet.delete(nicks, nick)
-        if MapSet.size(nicks) == 0, do: :ok, else: wait_for_joins(nicks)
-
-      _other ->
-        wait_for_joins(nicks)
-    after
-      2_000 -> flunk("clients did not join")
     end
   end
 

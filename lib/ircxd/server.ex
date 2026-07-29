@@ -76,6 +76,7 @@ defmodule Ircxd.Server do
          registration_timeout: Keyword.get(opts, :registration_timeout, 60_000),
          connections: %{},
          channels: %{},
+         channel_operators: %{},
          channel_modes: %{},
          invites: %{},
          topics: %{},
@@ -799,7 +800,10 @@ defmodule Ircxd.Server do
 
     names =
       members
-      |> Enum.map(&state.connections[&1].nick)
+      |> Enum.map(fn member ->
+        nick = state.connections[member].nick
+        if channel_operator?(state, channel, member), do: "@" <> nick, else: nick
+      end)
       |> Enum.reject(&is_nil/1)
       |> Enum.join(" ")
 
@@ -878,7 +882,23 @@ defmodule Ircxd.Server do
               invites =
                 Map.update(state.invites, channel, MapSet.new(), &MapSet.delete(&1, connection))
 
-              %{state | channels: channels, connections: connections, invites: invites}
+              channel_operators =
+                Map.update(
+                  state.channel_operators,
+                  channel,
+                  MapSet.new([connection]),
+                  fn operators ->
+                    if MapSet.size(operators) == 0, do: MapSet.new([connection]), else: operators
+                  end
+                )
+
+              %{
+                state
+                | channels: channels,
+                  connections: connections,
+                  channel_operators: channel_operators,
+                  invites: invites
+              }
             end
           end
         else
@@ -905,7 +925,8 @@ defmodule Ircxd.Server do
           connections =
             Map.update!(state.connections, connection, &Map.put(&1, :channels, client_channels))
 
-          %{state | channels: channels, connections: connections}
+          state = %{state | channels: channels, connections: connections}
+          update_channel_operators(state, channel, Map.get(channels, channel, MapSet.new()))
         else
           error_reply(state, connection, "442", [nick, channel, "You're not on that channel"])
         end
@@ -922,6 +943,9 @@ defmodule Ircxd.Server do
     cond do
       not MapSet.member?(members, connection) ->
         error_reply(state, connection, "442", [requester, channel, "You're not on that channel"])
+
+      not channel_operator?(state, channel, connection) ->
+        error_reply(state, connection, "482", [requester, "You're not channel operator"])
 
       not Enum.any?(state.connections, fn {_pid, client} -> client.nick == target end) ->
         error_reply(state, connection, "401", [requester, target, "No such nick/channel"])
@@ -949,7 +973,8 @@ defmodule Ircxd.Server do
               %{target_client | channels: MapSet.delete(target_client.channels, channel)}
             )
 
-          %{state | channels: channels, connections: connections}
+          state = %{state | channels: channels, connections: connections}
+          update_channel_operators(state, channel, Map.get(channels, channel, MapSet.new()))
         else
           error_reply(state, connection, "441", [requester, target, "They aren't on that channel"])
         end
@@ -1016,6 +1041,9 @@ defmodule Ircxd.Server do
       not MapSet.member?(members, connection) ->
         error_reply(state, connection, "442", [nick, channel, "You're not on that channel"])
 
+      not channel_operator?(state, channel, connection) ->
+        error_reply(state, connection, "482", [nick, "You're not channel operator"])
+
       true ->
         case apply_channel_modes(Map.get(state.channel_modes, channel, MapSet.new()), modes) do
           {:ok, channel_modes} ->
@@ -1064,6 +1092,26 @@ defmodule Ircxd.Server do
       "" -> "+"
       modes -> "+" <> modes
     end
+  end
+
+  defp channel_operator?(state, channel, connection) do
+    MapSet.member?(Map.get(state.channel_operators, channel, MapSet.new()), connection)
+  end
+
+  defp update_channel_operators(state, channel, members) do
+    operators =
+      state.channel_operators
+      |> Map.get(channel, MapSet.new())
+      |> MapSet.intersection(members)
+
+    operators =
+      if MapSet.size(operators) == 0 and MapSet.size(members) > 0 do
+        MapSet.new([Enum.at(MapSet.to_list(members), 0)])
+      else
+        operators
+      end
+
+    %{state | channel_operators: Map.put(state.channel_operators, channel, operators)}
   end
 
   defp broadcast(state, recipients, message, sender) do
@@ -1126,9 +1174,9 @@ defmodule Ircxd.Server do
       {nil, _connections} ->
         state
 
-      {%{channels: channels}, connections} ->
+      {%{channels: client_channels}, connections} ->
         channels =
-          Enum.reduce(channels, state.channels, fn channel, channel_state ->
+          Enum.reduce(client_channels, state.channels, fn channel, channel_state ->
             case Map.get(channel_state, channel) do
               nil ->
                 channel_state
@@ -1142,7 +1190,11 @@ defmodule Ircxd.Server do
             end
           end)
 
-        %{state | connections: connections, channels: channels}
+        state = %{state | connections: connections, channels: channels}
+
+        Enum.reduce(client_channels, state, fn channel, state ->
+          update_channel_operators(state, channel, Map.get(state.channels, channel, MapSet.new()))
+        end)
     end
   end
 
