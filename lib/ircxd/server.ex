@@ -46,6 +46,7 @@ defmodule Ircxd.Server do
          server_name: server_name,
          connections: %{},
          channels: %{},
+         topics: %{},
          subscriber: init_subscriber(Keyword.get(opts, :subscriber)),
          authenticator: init_authenticator(Keyword.get(opts, :authenticator))
        }}
@@ -238,6 +239,55 @@ defmodule Ircxd.Server do
 
       _ ->
         state
+    end
+  end
+
+  defp handle_client_command(state, connection, %{
+         command: "TOPIC",
+         params: [channel, topic]
+       }) do
+    members = Map.get(state.channels, channel, MapSet.new())
+
+    if MapSet.member?(members, connection) do
+      client = state.connections[connection]
+
+      message = %Ircxd.Message{
+        source: source_for(client, state.server_name),
+        command: "TOPIC",
+        params: [channel, topic]
+      }
+
+      state = broadcast(state, members, message, connection)
+      %{state | topics: Map.put(state.topics, channel, topic)}
+    else
+      state
+    end
+  end
+
+  defp handle_client_command(state, connection, %{
+         command: "TOPIC",
+         params: [channel]
+       }) do
+    nick = state.connections[connection].nick
+
+    case Map.get(state.topics, channel) do
+      nil ->
+        message = %Ircxd.Message{
+          source: state.server_name,
+          command: "331",
+          params: [nick, channel, "No topic is set"]
+        }
+
+        broadcast(state, MapSet.new([connection]), message, connection)
+
+      topic ->
+        message = %Ircxd.Message{
+          source: state.server_name,
+          command: "332",
+          params: [nick, channel, topic]
+        }
+
+        broadcast(state, MapSet.new([connection]), message, connection)
     end
   end
 

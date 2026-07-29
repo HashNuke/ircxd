@@ -29,7 +29,7 @@ to listen on different (or independently configured) endpoints.
    and test the complete handshake through `Ircxd.Client`.
 4. [ ] Implement identity and channel state with tests for `JOIN`, `PART`,
    `PRIVMSG`, `NOTICE`, `TOPIC`, `NAMES`, `PING`, and `QUIT`. JOIN/PART/NAMES,
-   PRIVMSG/NOTICE, and PING/PONG slices are covered.
+   PRIVMSG/NOTICE/TOPIC, and PING/PONG slices are covered.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -59,3 +59,4 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Added channel `PRIVMSG`/`NOTICE` fan-out, connection `PING`/`PONG`, and cross-instance subscriber isolation | `test/ircxd/server_messaging_test.exs`, `test/ircxd/server_connection_test.exs`, `test/ircxd/server_isolation_test.exs` |
 | 2026-07-29 | Verified irssi 1.4.5 can connect to an ephemeral `Ircxd.Server` listener; server observed one live connection | `mix run` + `irssi` compatibility check |
 | 2026-07-29 | Added NAMES replies and PART fan-out with preserved reasons | `test/ircxd/server_channels_test.exs` |
+| 2026-07-29 | Added channel topic publication and topic state | `test/ircxd/server_topic_test.exs` |
