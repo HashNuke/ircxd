@@ -1223,12 +1223,14 @@ defmodule Ircxd.Server do
   defp message_recipients(state, connection, target) do
     case Map.fetch(state.channels, target) do
       {:ok, members} ->
+        channel_modes = Map.get(state.channel_modes, target, MapSet.new(["n"]))
+
         cond do
-          not MapSet.member?(members, connection) ->
+          not MapSet.member?(members, connection) and MapSet.member?(channel_modes, "n") ->
             {:error, "404",
              [state.connections[connection].nick, target, "Cannot send to channel"]}
 
-          MapSet.member?(Map.get(state.channel_modes, target, MapSet.new()), "m") and
+          MapSet.member?(channel_modes, "m") and
             not channel_operator?(state, target, connection) and
               not channel_voiced?(state, target, connection) ->
             {:error, "404",
@@ -1340,6 +1342,7 @@ defmodule Ircxd.Server do
                   | channels: channels,
                     connections: connections,
                     channel_operators: channel_operators,
+                    channel_modes: Map.put_new(state.channel_modes, channel, MapSet.new(["n"])),
                     invites: invites
                 }
 
@@ -1525,12 +1528,10 @@ defmodule Ircxd.Server do
            Map.get(state.channel_limits, channel)
          ) do
       {:ok, channel_modes, channel_key, channel_limit} ->
-        mode_string = channel_mode_string(channel_modes)
-
         message = %Ircxd.Message{
           source: source_for(state.connections[connection], state.server_name),
           command: "MODE",
-          params: [channel, mode_string]
+          params: [channel, modes]
         }
 
         channel_keys =
@@ -1666,7 +1667,7 @@ defmodule Ircxd.Server do
                                                               {:ok, current, current_key,
                                                                current_limit} ->
       cond do
-        mode in ["i", "m", "s", "t"] ->
+        mode in ["i", "m", "n", "s", "t"] ->
           next = if sign == "+", do: MapSet.put(current, mode), else: MapSet.delete(current, mode)
           {:cont, {:ok, next, current_key, current_limit}}
 

@@ -68,6 +68,8 @@ to listen on different (or independently configured) endpoints.
    Channel mode `+b` now tracks nick masks with `*`/`?` wildcards, rejects
    matching JOINs with `474`, supports `-b`, and returns `367`/`368` ban-list
    numerics.
+   New channels now explicitly start with `+n`; `-n` permits external channel
+   messages while `+n` restores the `404` restriction.
    `AWAY` now tracks per-connection presence, broadcasts updates, and returns `305`/`306` status numerics.
    `MONITOR` now supports add/remove/clear/list/status and online/offline notifications.
    WHOIS now includes `301 RPL_AWAY` when the target has an away message.
@@ -194,6 +196,7 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated ban-mode behavior with 81 focused server tests, the full ExUnit suite, formatting/whitespace checks, and irssi 1.4.5 receiving live `+b` and ban-list numerics from a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
 | 2026-07-29 | Extended ban matching to support `*` and `?` nick-mask wildcards with client-driven regression coverage | `test/ircxd/server_ban_mode_test.exs` |
 | 2026-07-29 | Revalidated wildcard ban matching with 82 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the existing direct irssi server interoperability coverage | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
+| 2026-07-29 | Added explicit default `+n` channel state and `-n` external-message policy coverage; revalidated with 83 focused server tests, the full suite, formatting checks, and direct irssi mode queries | `test/ircxd/server_no_external_mode_test.exs`, `mix test`, named-tmux irssi check |
 | 2026-07-29 | Added per-recipient IRCv3 `account-tag` routing for authenticated messages with tagged and untagged client coverage | `test/ircxd/server_account_tag_test.exs` |
 | 2026-07-29 | Revalidated `account-tag` with 72 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 authenticating, joining, and sending a live message through the disposable server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Added negotiated `multi-prefix` NAMES output with simultaneous operator/voice prefix coverage | `test/ircxd/server_multi_prefix_test.exs` |

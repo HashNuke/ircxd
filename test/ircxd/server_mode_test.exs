@@ -23,7 +23,7 @@ defmodule Ircxd.ServerModeTest do
     assert_receive {:ircxd, {:join, %{channel: "#modes"}}}, 2_000
 
     assert :ok = Client.channel_modes(client, "#modes")
-    assert_receive {:ircxd, {:channel_mode, %{channel: "#modes", modes: "+"}}}, 2_000
+    assert_receive {:ircxd, {:channel_mode, %{channel: "#modes", modes: "+n"}}}, 2_000
 
     assert :ok = Client.user_modes(client, "mode-client")
     assert_receive {:ircxd, {:user_mode, %{modes: "+"}}}, 2_000
