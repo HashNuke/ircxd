@@ -17,6 +17,7 @@ defmodule Ircxd.Server.Connection do
        socket: socket,
        server: Keyword.fetch!(opts, :server),
        server_name: Keyword.fetch!(opts, :server_name),
+       isupport: Keyword.fetch!(opts, :isupport),
        capabilities: Keyword.fetch!(opts, :capabilities),
        password: Keyword.get(opts, :password),
        password_authenticated?: is_nil(Keyword.get(opts, :password)),
@@ -209,6 +210,13 @@ defmodule Ircxd.Server.Connection do
       :ok ->
         send_message(state, "001", [nick, "Welcome to Ircxd"])
         send_message(state, "002", [nick, "Your host is #{state.server_name}"])
+
+        send_message(
+          state,
+          "005",
+          [nick | state.isupport] ++ ["are supported by this server"]
+        )
+
         cancel_registration_timer(state)
         {:noreply, %{state | registered?: true, registration_timer: nil}}
 

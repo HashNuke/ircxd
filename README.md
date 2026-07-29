@@ -107,6 +107,9 @@ for application-owned SASL credential checks. See
 `docs/server_ircv3_matrix.md` and `plans/server.md` for the current protocol
 coverage and boundaries.
 
+Server information can be configured with `motd: ["Welcome"]` and
+`isupport: ["CHANTYPES=#&", "NICKLEN=30"]`.
+
 Use `Ircxd.Handler` when you want callback-style event handling:
 
 ```elixir

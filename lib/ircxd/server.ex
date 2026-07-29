@@ -51,6 +51,7 @@ defmodule Ircxd.Server do
     server_name = Keyword.get(opts, :server_name, @default_server_name)
     password = Keyword.get(opts, :password)
     motd = normalize_motd(Keyword.get(opts, :motd, []))
+    isupport = normalize_isupport(Keyword.get(opts, :isupport))
     authenticator = init_authenticator(Keyword.get(opts, :authenticator))
 
     with {:ok, listener} <- listen(port) do
@@ -66,6 +67,7 @@ defmodule Ircxd.Server do
          server_name: server_name,
          password: password,
          motd: motd,
+         isupport: isupport,
          registration_timeout: Keyword.get(opts, :registration_timeout, 60_000),
          connections: %{},
          channels: %{},
@@ -148,6 +150,7 @@ defmodule Ircxd.Server do
            socket: socket,
            server: self(),
            server_name: state.server_name,
+           isupport: state.isupport,
            password: state.password,
            registration_timeout: state.registration_timeout,
            auth_required?: not is_nil(state.authenticator),
@@ -225,6 +228,14 @@ defmodule Ircxd.Server do
   defp normalize_motd(motd) when is_binary(motd), do: String.split(motd, "\n")
   defp normalize_motd(motd) when is_list(motd), do: Enum.map(motd, &to_string/1)
   defp normalize_motd(_motd), do: []
+
+  defp normalize_isupport(nil), do: ["CHANTYPES=#&", "NICKLEN=30", "CASEMAPPING=ascii"]
+
+  defp normalize_isupport(tokens) when is_binary(tokens),
+    do: String.split(tokens, " ", trim: true)
+
+  defp normalize_isupport(tokens) when is_list(tokens), do: Enum.map(tokens, &to_string/1)
+  defp normalize_isupport(_tokens), do: normalize_isupport(nil)
 
   defp dispatch_to_subscriber(%{subscriber: nil} = state, _message, _metadata), do: state
 
