@@ -77,6 +77,7 @@ defmodule Ircxd.Server do
          connections: %{},
          channels: %{},
          channel_operators: %{},
+         channel_voices: %{},
          channel_modes: %{},
          invites: %{},
          topics: %{},
@@ -822,7 +823,12 @@ defmodule Ircxd.Server do
       members
       |> Enum.map(fn member ->
         nick = state.connections[member].nick
-        if channel_operator?(state, channel, member), do: "@" <> nick, else: nick
+
+        cond do
+          channel_operator?(state, channel, member) -> "@" <> nick
+          channel_voiced?(state, channel, member) -> "+" <> nick
+          true -> nick
+        end
       end)
       |> Enum.reject(&is_nil/1)
       |> Enum.join(" ")
@@ -852,7 +858,8 @@ defmodule Ircxd.Server do
              [state.connections[connection].nick, target, "Cannot send to channel"]}
 
           MapSet.member?(Map.get(state.channel_modes, target, MapSet.new()), "m") and
-              not channel_operator?(state, target, connection) ->
+            not channel_operator?(state, target, connection) and
+              not channel_voiced?(state, target, connection) ->
             {:error, "404",
              [state.connections[connection].nick, target, "Cannot send to channel"]}
 
@@ -971,6 +978,7 @@ defmodule Ircxd.Server do
             Map.update!(state.connections, connection, &Map.put(&1, :channels, client_channels))
 
           state = %{state | channels: channels, connections: connections}
+          state = remove_channel_voice(state, channel, connection)
           update_channel_operators(state, channel, Map.get(channels, channel, MapSet.new()))
         else
           error_reply(state, connection, "442", [nick, channel, "You're not on that channel"])
@@ -1019,6 +1027,7 @@ defmodule Ircxd.Server do
             )
 
           state = %{state | channels: channels, connections: connections}
+          state = remove_channel_voice(state, channel, target_connection)
           update_channel_operators(state, channel, Map.get(channels, channel, MapSet.new()))
         else
           error_reply(state, connection, "441", [requester, target, "They aren't on that channel"])
@@ -1090,50 +1099,99 @@ defmodule Ircxd.Server do
         error_reply(state, connection, "482", [nick, "You're not channel operator"])
 
       true ->
-        case apply_channel_modes(
-               Map.get(state.channel_modes, channel, MapSet.new()),
-               modes,
-               mode_params,
-               Map.get(state.channel_keys, channel),
-               Map.get(state.channel_limits, channel)
-             ) do
-          {:ok, channel_modes, channel_key, channel_limit} ->
-            mode_string = channel_mode_string(channel_modes)
+        if modes in ["+v", "-v"] do
+          set_channel_voice(state, connection, channel, modes, mode_params)
+        else
+          apply_channel_modes_to_channel(state, connection, channel, modes, mode_params)
+        end
+    end
+  end
 
-            message = %Ircxd.Message{
-              source: source_for(state.connections[connection], state.server_name),
-              command: "MODE",
-              params: [channel, mode_string]
-            }
+  defp apply_channel_modes_to_channel(state, connection, channel, modes, mode_params) do
+    nick = state.connections[connection].nick
+    members = Map.get(state.channels, channel, MapSet.new())
 
-            channel_keys =
-              if is_nil(channel_key),
-                do: Map.delete(state.channel_keys, channel),
-                else: Map.put(state.channel_keys, channel, channel_key)
+    case apply_channel_modes(
+           Map.get(state.channel_modes, channel, MapSet.new()),
+           modes,
+           mode_params,
+           Map.get(state.channel_keys, channel),
+           Map.get(state.channel_limits, channel)
+         ) do
+      {:ok, channel_modes, channel_key, channel_limit} ->
+        mode_string = channel_mode_string(channel_modes)
 
-            channel_limits =
-              if is_nil(channel_limit),
-                do: Map.delete(state.channel_limits, channel),
-                else: Map.put(state.channel_limits, channel, channel_limit)
+        message = %Ircxd.Message{
+          source: source_for(state.connections[connection], state.server_name),
+          command: "MODE",
+          params: [channel, mode_string]
+        }
 
-            state = %{
-              state
-              | channel_modes: Map.put(state.channel_modes, channel, channel_modes),
-                channel_keys: channel_keys,
-                channel_limits: channel_limits
-            }
+        channel_keys =
+          if is_nil(channel_key),
+            do: Map.delete(state.channel_keys, channel),
+            else: Map.put(state.channel_keys, channel, channel_key)
 
-            broadcast(state, members, message, connection)
+        channel_limits =
+          if is_nil(channel_limit),
+            do: Map.delete(state.channel_limits, channel),
+            else: Map.put(state.channel_limits, channel, channel_limit)
 
-          {:error, :need_param} ->
-            error_reply(state, connection, "461", [nick, "MODE", "Not enough parameters"])
+        state = %{
+          state
+          | channel_modes: Map.put(state.channel_modes, channel, channel_modes),
+            channel_keys: channel_keys,
+            channel_limits: channel_limits
+        }
 
-          {:error, mode} ->
-            error_reply(state, connection, "472", [
-              nick,
-              mode,
-              "is an unknown mode character to me"
-            ])
+        broadcast(state, members, message, connection)
+
+      {:error, :need_param} ->
+        error_reply(state, connection, "461", [nick, "MODE", "Not enough parameters"])
+
+      {:error, mode} ->
+        error_reply(state, connection, "472", [
+          nick,
+          mode,
+          "is an unknown mode character to me"
+        ])
+    end
+  end
+
+  defp set_channel_voice(state, connection, channel, modes, mode_params) do
+    nick = state.connections[connection].nick
+
+    case List.first(mode_params) do
+      nil ->
+        error_reply(state, connection, "461", [nick, "MODE", "Not enough parameters"])
+
+      target ->
+        case Enum.find(state.connections, fn {_pid, client} -> client.nick == target end) do
+          nil ->
+            error_reply(state, connection, "401", [nick, target, "No such nick/channel"])
+
+          {target_connection, _target_client} ->
+            members = Map.get(state.channels, channel, MapSet.new())
+
+            if MapSet.member?(members, target_connection) do
+              voices = Map.get(state.channel_voices, channel, MapSet.new())
+
+              voices =
+                if modes == "+v",
+                  do: MapSet.put(voices, target_connection),
+                  else: MapSet.delete(voices, target_connection)
+
+              message = %Ircxd.Message{
+                source: source_for(state.connections[connection], state.server_name),
+                command: "MODE",
+                params: [channel, modes, target]
+              }
+
+              state = %{state | channel_voices: Map.put(state.channel_voices, channel, voices)}
+              broadcast(state, members, message, connection)
+            else
+              error_reply(state, connection, "441", [nick, target, "They aren't on that channel"])
+            end
         end
     end
   end
@@ -1197,6 +1255,15 @@ defmodule Ircxd.Server do
 
   defp channel_operator?(state, channel, connection) do
     MapSet.member?(Map.get(state.channel_operators, channel, MapSet.new()), connection)
+  end
+
+  defp channel_voiced?(state, channel, connection) do
+    MapSet.member?(Map.get(state.channel_voices, channel, MapSet.new()), connection)
+  end
+
+  defp remove_channel_voice(state, channel, connection) do
+    voices = MapSet.delete(Map.get(state.channel_voices, channel, MapSet.new()), connection)
+    %{state | channel_voices: Map.put(state.channel_voices, channel, voices)}
   end
 
   defp update_channel_operators(state, channel, members) do
@@ -1294,6 +1361,7 @@ defmodule Ircxd.Server do
         state = %{state | connections: connections, channels: channels}
 
         Enum.reduce(client_channels, state, fn channel, state ->
+          state = remove_channel_voice(state, channel, connection)
           update_channel_operators(state, channel, Map.get(state.channels, channel, MapSet.new()))
         end)
     end
