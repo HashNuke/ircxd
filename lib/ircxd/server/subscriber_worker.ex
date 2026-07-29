@@ -9,8 +9,16 @@ defmodule Ircxd.Server.SubscriberWorker do
 
   @impl true
   def init({module, arg}) do
-    {:ok, callback_state} = module.init(arg)
-    {:ok, %{module: module, callback_state: callback_state}}
+    case module.init(arg) do
+      {:ok, callback_state} ->
+        {:ok, %{module: module, callback_state: callback_state}}
+
+      {:error, reason} ->
+        {:stop, {:subscriber_init_failed, reason}}
+
+      other ->
+        {:stop, {:subscriber_init_failed, {:invalid_return, other}}}
+    end
   end
 
   @impl true

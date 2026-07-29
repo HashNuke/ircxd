@@ -43,6 +43,16 @@ defmodule Ircxd.ServerSubscriberTest do
     end
   end
 
+  defmodule RejectingSubscriber do
+    @behaviour Ircxd.Server.Subscriber
+
+    @impl true
+    def init(:reject), do: {:error, :subscriber_unavailable}
+
+    @impl true
+    def handle_publish(_message, _metadata, state), do: {:ok, state}
+  end
+
   test "receives every published server message with connection metadata" do
     {:ok, server} =
       Server.start_link(
@@ -115,5 +125,21 @@ defmodule Ircxd.ServerSubscriberTest do
     assert_receive :failing_subscriber_called, 2_000
     assert_receive {:ircxd, :registered}, 2_000
     assert Process.alive?(server)
+  end
+
+  test "closes the listener when subscriber initialization fails" do
+    {:ok, probe} = :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true])
+    {:ok, {_address, port}} = :inet.sockname(probe)
+    :ok = :gen_tcp.close(probe)
+
+    previous_trap_exit = Process.flag(:trap_exit, true)
+
+    result = Server.start_link(port: port, subscriber: {RejectingSubscriber, :reject})
+
+    Process.flag(:trap_exit, previous_trap_exit)
+    assert {:error, {:subscriber_init_failed, :subscriber_unavailable}} = result
+
+    assert {:ok, socket} = :gen_tcp.listen(port, [:binary, active: false, reuseaddr: true])
+    :ok = :gen_tcp.close(socket)
   end
 end

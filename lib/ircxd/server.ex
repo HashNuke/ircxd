@@ -70,45 +70,52 @@ defmodule Ircxd.Server do
 
     with {:ok, {transport, listener}} <- listen(port, tls?, tls_options),
          {:ok, {_address, actual_port}} <- socket_name(transport, listener) do
-      owner = self()
-      {:ok, acceptor} = Task.start(fn -> accept_loop(transport, listener, owner) end)
+      case init_subscriber(Keyword.get(opts, :subscriber)) do
+        {:ok, subscriber} ->
+          owner = self()
+          {:ok, acceptor} = Task.start(fn -> accept_loop(transport, listener, owner) end)
 
-      {:ok,
-       %{
-         listener: listener,
-         transport: transport,
-         acceptor: acceptor,
-         port: actual_port,
-         server_name: server_name,
-         password: password,
-         motd: motd,
-         info: info,
-         help: help,
-         started_at: System.monotonic_time(:second),
-         isupport: isupport,
-         admin: admin,
-         registration_timeout: Keyword.get(opts, :registration_timeout, 60_000),
-         connections: %{},
-         channels: %{},
-         whowas: %{},
-         channel_operators: %{},
-         channel_voices: %{},
-         channel_modes: %{},
-         invites: %{},
-         topics: %{},
-         channel_keys: %{},
-         channel_limits: %{},
-         channel_bans: %{},
-         batches: %{},
-         history: [],
-         history_limit: normalize_history_limit(Keyword.get(opts, :history_limit, 1_000)),
-         monitors: %{},
-         connection_capabilities: %{},
-         message_id: 0,
-         capabilities: capabilities(not is_nil(authenticator)),
-         subscriber: init_subscriber(Keyword.get(opts, :subscriber)),
-         authenticator: authenticator
-       }}
+          {:ok,
+           %{
+             listener: listener,
+             transport: transport,
+             acceptor: acceptor,
+             port: actual_port,
+             server_name: server_name,
+             password: password,
+             motd: motd,
+             info: info,
+             help: help,
+             started_at: System.monotonic_time(:second),
+             isupport: isupport,
+             admin: admin,
+             registration_timeout: Keyword.get(opts, :registration_timeout, 60_000),
+             connections: %{},
+             channels: %{},
+             whowas: %{},
+             channel_operators: %{},
+             channel_voices: %{},
+             channel_modes: %{},
+             invites: %{},
+             topics: %{},
+             channel_keys: %{},
+             channel_limits: %{},
+             channel_bans: %{},
+             batches: %{},
+             history: [],
+             history_limit: normalize_history_limit(Keyword.get(opts, :history_limit, 1_000)),
+             monitors: %{},
+             connection_capabilities: %{},
+             message_id: 0,
+             capabilities: capabilities(not is_nil(authenticator)),
+             subscriber: subscriber,
+             authenticator: authenticator
+           }}
+
+        {:error, reason} ->
+          close_socket(transport, listener)
+          {:stop, reason}
+      end
     end
   end
 
@@ -371,11 +378,13 @@ defmodule Ircxd.Server do
   defp close_socket(:gen_tcp, socket), do: :gen_tcp.close(socket)
   defp close_socket(:ssl, socket), do: :ssl.close(socket)
 
-  defp init_subscriber(nil), do: nil
+  defp init_subscriber(nil), do: {:ok, nil}
 
   defp init_subscriber({module, arg}) do
-    {:ok, pid} = SubscriberWorker.start(module, arg)
-    %{pid: pid}
+    case SubscriberWorker.start(module, arg) do
+      {:ok, pid} -> {:ok, %{pid: pid}}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   defp init_authenticator(nil), do: nil
