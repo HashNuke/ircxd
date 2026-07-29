@@ -58,6 +58,7 @@ to listen on different (or independently configured) endpoints.
    The first channel member is an operator, shown as `@` in NAMES; MODE and KICK now require operator authority.
    Channel mode `+t` now restricts topic changes to operators with `482` enforcement.
    Channel mode `+m` now restricts channel messages to operators with `404` enforcement; voice grants remain planned.
+   Channel mode `+k` now stores a channel key and rejects incorrect JOIN keys with `475`.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -114,6 +115,7 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Added first-member channel operators, `@` NAMES prefixes, `482` enforcement for MODE/KICK, and deterministic operator-order tests | `test/ircxd/server_operator_test.exs` |
 | 2026-07-29 | Added topic-lock mode `+t` and verified non-operator topic changes receive `482` | `test/ircxd/server_topic_mode_test.exs` |
 | 2026-07-29 | Added moderated channel mode `+m` and verified non-operator message rejection while preserving operator fan-out | `test/ircxd/server_moderated_mode_test.exs` |
+| 2026-07-29 | Added keyed channel mode `+k`, key-aware JOIN handling, and `475` rejection coverage | `test/ircxd/server_key_mode_test.exs` |
 | 2026-07-29 | Revalidated moderated-mode routing with 56 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Revalidated topic-lock policy with 55 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Revalidated operator permissions with 54 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |

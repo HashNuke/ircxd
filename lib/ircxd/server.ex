@@ -80,6 +80,7 @@ defmodule Ircxd.Server do
          channel_modes: %{},
          invites: %{},
          topics: %{},
+         channel_keys: %{},
          capabilities: capabilities(not is_nil(authenticator)),
          subscriber: init_subscriber(Keyword.get(opts, :subscriber)),
          authenticator: authenticator
@@ -306,11 +307,20 @@ defmodule Ircxd.Server do
 
   defp handle_registered_command(state, connection, %{
          command: "JOIN",
+         params: [channel, key]
+       }) do
+    channel
+    |> String.split(",", trim: true)
+    |> Enum.reduce(state, fn channel, state -> join_channel(state, connection, channel, key) end)
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "JOIN",
          params: [channel]
        }) do
     channel
     |> String.split(",", trim: true)
-    |> Enum.reduce(state, fn channel, state -> join_channel(state, connection, channel) end)
+    |> Enum.reduce(state, fn channel, state -> join_channel(state, connection, channel, nil) end)
   end
 
   defp handle_registered_command(state, connection, %{
@@ -791,9 +801,9 @@ defmodule Ircxd.Server do
 
   defp handle_registered_command(state, connection, %{
          command: "MODE",
-         params: [channel, modes]
+         params: [channel, modes | mode_params]
        }) do
-    set_channel_mode(state, connection, channel, modes)
+    set_channel_mode(state, connection, channel, modes, mode_params)
   end
 
   defp handle_registered_command(state, connection, %{command: command}) do
@@ -865,7 +875,7 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp join_channel(state, connection, channel) do
+  defp join_channel(state, connection, channel, key) do
     case Map.fetch(state.connections, connection) do
       {:ok, %{nick: nick} = client} when is_binary(nick) ->
         if valid_channel?(channel) do
@@ -881,41 +891,53 @@ defmodule Ircxd.Server do
 
             invited? = MapSet.member?(Map.get(state.invites, channel, MapSet.new()), connection)
 
-            if invite_only? and not invited? do
-              error_reply(state, connection, "473", [nick, channel, "Cannot join channel (+i)"])
-            else
-              recipients = MapSet.put(members, connection)
-              state = broadcast(state, recipients, message, connection)
-              channels = Map.put(state.channels, channel, recipients)
-              client_channels = MapSet.put(client.channels, channel)
+            key_required? =
+              MapSet.member?(Map.get(state.channel_modes, channel, MapSet.new()), "k")
 
-              connections =
-                Map.update!(
-                  state.connections,
-                  connection,
-                  &Map.put(&1, :channels, client_channels)
-                )
+            key_valid? = not key_required? or key == Map.get(state.channel_keys, channel)
 
-              invites =
-                Map.update(state.invites, channel, MapSet.new(), &MapSet.delete(&1, connection))
+            cond do
+              not key_valid? ->
+                error_reply(state, connection, "475", [nick, channel, "Cannot join channel (+k)"])
 
-              channel_operators =
-                Map.update(
-                  state.channel_operators,
-                  channel,
-                  MapSet.new([connection]),
-                  fn operators ->
-                    if MapSet.size(operators) == 0, do: MapSet.new([connection]), else: operators
-                  end
-                )
+              invite_only? and not invited? ->
+                error_reply(state, connection, "473", [nick, channel, "Cannot join channel (+i)"])
 
-              %{
-                state
-                | channels: channels,
-                  connections: connections,
-                  channel_operators: channel_operators,
-                  invites: invites
-              }
+              true ->
+                recipients = MapSet.put(members, connection)
+                state = broadcast(state, recipients, message, connection)
+                channels = Map.put(state.channels, channel, recipients)
+                client_channels = MapSet.put(client.channels, channel)
+
+                connections =
+                  Map.update!(
+                    state.connections,
+                    connection,
+                    &Map.put(&1, :channels, client_channels)
+                  )
+
+                invites =
+                  Map.update(state.invites, channel, MapSet.new(), &MapSet.delete(&1, connection))
+
+                channel_operators =
+                  Map.update(
+                    state.channel_operators,
+                    channel,
+                    MapSet.new([connection]),
+                    fn operators ->
+                      if MapSet.size(operators) == 0,
+                        do: MapSet.new([connection]),
+                        else: operators
+                    end
+                  )
+
+                %{
+                  state
+                  | channels: channels,
+                    connections: connections,
+                    channel_operators: channel_operators,
+                    invites: invites
+                }
             end
           end
         else
@@ -1047,7 +1069,7 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp set_channel_mode(state, connection, channel, modes) do
+  defp set_channel_mode(state, connection, channel, modes, mode_params) do
     nick = state.connections[connection].nick
     members = Map.get(state.channels, channel, MapSet.new())
 
@@ -1062,8 +1084,13 @@ defmodule Ircxd.Server do
         error_reply(state, connection, "482", [nick, "You're not channel operator"])
 
       true ->
-        case apply_channel_modes(Map.get(state.channel_modes, channel, MapSet.new()), modes) do
-          {:ok, channel_modes} ->
+        case apply_channel_modes(
+               Map.get(state.channel_modes, channel, MapSet.new()),
+               modes,
+               mode_params,
+               Map.get(state.channel_keys, channel)
+             ) do
+          {:ok, channel_modes, channel_key} ->
             mode_string = channel_mode_string(channel_modes)
 
             message = %Ircxd.Message{
@@ -1072,8 +1099,21 @@ defmodule Ircxd.Server do
               params: [channel, mode_string]
             }
 
-            state = %{state | channel_modes: Map.put(state.channel_modes, channel, channel_modes)}
+            channel_keys =
+              if is_nil(channel_key),
+                do: Map.delete(state.channel_keys, channel),
+                else: Map.put(state.channel_keys, channel, channel_key)
+
+            state = %{
+              state
+              | channel_modes: Map.put(state.channel_modes, channel, channel_modes),
+                channel_keys: channel_keys
+            }
+
             broadcast(state, members, message, connection)
+
+          {:error, :need_param} ->
+            error_reply(state, connection, "461", [nick, "MODE", "Not enough parameters"])
 
           {:error, mode} ->
             error_reply(state, connection, "472", [
@@ -1085,21 +1125,32 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp apply_channel_modes(channel_modes, <<sign::binary-size(1), modes::binary>>)
+  defp apply_channel_modes(channel_modes, <<sign::binary-size(1), modes::binary>>, params, key)
        when sign in ["+", "-"] do
     modes
     |> String.graphemes()
-    |> Enum.reduce_while({:ok, channel_modes}, fn mode, {:ok, current} ->
-      if mode in ["i", "m", "t"] do
-        next = if sign == "+", do: MapSet.put(current, mode), else: MapSet.delete(current, mode)
-        {:cont, {:ok, next}}
-      else
-        {:halt, {:error, mode}}
+    |> Enum.reduce_while({:ok, channel_modes, key}, fn mode, {:ok, current, current_key} ->
+      cond do
+        mode in ["i", "m", "t"] ->
+          next = if sign == "+", do: MapSet.put(current, mode), else: MapSet.delete(current, mode)
+          {:cont, {:ok, next, current_key}}
+
+        mode == "k" and sign == "+" and is_binary(List.first(params)) ->
+          {:cont, {:ok, MapSet.put(current, mode), List.first(params)}}
+
+        mode == "k" and sign == "+" ->
+          {:halt, {:error, :need_param}}
+
+        mode == "k" and sign == "-" ->
+          {:cont, {:ok, MapSet.delete(current, mode), nil}}
+
+        true ->
+          {:halt, {:error, mode}}
       end
     end)
   end
 
-  defp apply_channel_modes(_channel_modes, _modes), do: {:error, "?"}
+  defp apply_channel_modes(_channel_modes, _modes, _params, _key), do: {:error, "?"}
 
   defp channel_mode_string(state, channel),
     do: channel_mode_string(Map.get(state.channel_modes, channel, MapSet.new()))
