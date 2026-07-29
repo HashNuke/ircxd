@@ -148,6 +148,12 @@ defmodule Ircxd.Server.Connection do
     {:noreply, state}
   end
 
+  defp handle_message(%Message{command: "AUTHENTICATE", params: ["*"]}, state)
+       when state.auth_required? do
+    send_message(state, "906", [state.nick || "*", "SASL authentication aborted"])
+    {:noreply, state}
+  end
+
   defp handle_message(%Message{command: "AUTHENTICATE", params: [payload]}, state)
        when state.auth_required? do
     case decode_plain(payload) do

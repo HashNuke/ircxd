@@ -64,6 +64,8 @@ to listen on different (or independently configured) endpoints.
    WHOIS now returns tracked user and server identity details.
    Successful SASL authentication now tracks the application account and exposes it through WHOIS `330`.
    Successful SASL authentication now also returns standard `900 RPL_LOGGEDIN` account metadata.
+   Clients can abort an in-progress SASL exchange with `AUTHENTICATE *` and
+   receive `906` without invoking the application authenticator.
    Repeated JOIN requests are idempotent and do not publish duplicate JOIN events.
    `KICK` now broadcasts removal and updates channel membership state.
    `INVITE` now sends `341` to the inviter and an INVITE event to the target.
@@ -337,3 +339,5 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated operator delegation with 100 focused server tests, 356 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 663.42 ms median per 100k iterations (150,735 ops/s, p95 754.33 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Added regression coverage and default `005` metadata for implemented channel prefixes and mode classes (`PREFIX=(ov)@+`, `CHANMODES=b,k,l,imnpst`) | `test/ircxd/server_isupport_test.exs` |
 | 2026-07-29 | Revalidated ISUPPORT discovery with 101 focused server tests, 357 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 604.57 ms median per 100k iterations (165,407 ops/s, p95 726.2 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added `AUTHENTICATE *` SASL abort handling with `906` and verified the application authenticator is not invoked when a client cancels | `test/ircxd/server_authentication_test.exs` |
+| 2026-07-29 | Revalidated SASL abort behavior with 102 focused server tests, 358 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 630.55 ms median per 100k iterations (158,592 ops/s, p95 714.29 ms) and serialization measured 250.0 ms (400,006 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |

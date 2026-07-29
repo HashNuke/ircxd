@@ -81,4 +81,33 @@ defmodule Ircxd.ServerAuthenticationTest do
     assert_receive {:authentication_attempt, "db-user", "wrong", _metadata}, 2_000
     refute_receive {:ircxd, :registered}, 500
   end
+
+  test "allows a client to abort an in-progress SASL exchange" do
+    {:ok, server} =
+      Server.start_link(
+        port: 0,
+        server_name: "ircxd.test",
+        authenticator: {Authenticator, self()}
+      )
+
+    on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
+
+    {:ok, client} =
+      Client.start_link(
+        host: "127.0.0.1",
+        port: Server.port(server),
+        nick: "auth-abort",
+        username: "client-user",
+        realname: "Ircxd auth abort client",
+        notify: self()
+      )
+
+    on_exit(fn -> if Process.alive?(client), do: GenServer.stop(client) end)
+
+    assert_receive {:ircxd, {:connected, _}}, 2_000
+    assert :ok = Client.raw(client, "AUTHENTICATE", ["*"])
+    assert_receive {:ircxd, {:sasl_failure, %{code: "906"}}}, 2_000
+    refute_receive {:authentication_attempt, _, _, _}, 250
+    refute_receive {:ircxd, :registered}, 250
+  end
 end
