@@ -52,6 +52,7 @@ defmodule Ircxd.Server do
     password = Keyword.get(opts, :password)
     motd = normalize_motd(Keyword.get(opts, :motd, []))
     isupport = normalize_isupport(Keyword.get(opts, :isupport))
+    admin = normalize_admin(Keyword.get(opts, :admin))
     authenticator = init_authenticator(Keyword.get(opts, :authenticator))
 
     with {:ok, listener} <- listen(port) do
@@ -68,6 +69,7 @@ defmodule Ircxd.Server do
          password: password,
          motd: motd,
          isupport: isupport,
+         admin: admin,
          registration_timeout: Keyword.get(opts, :registration_timeout, 60_000),
          connections: %{},
          channels: %{},
@@ -237,6 +239,14 @@ defmodule Ircxd.Server do
   defp normalize_isupport(tokens) when is_list(tokens), do: Enum.map(tokens, &to_string/1)
   defp normalize_isupport(_tokens), do: normalize_isupport(nil)
 
+  defp normalize_admin(nil), do: %{location: [], email: nil}
+
+  defp normalize_admin(admin) when is_map(admin) do
+    %{location: List.wrap(Map.get(admin, :location, [])), email: Map.get(admin, :email)}
+  end
+
+  defp normalize_admin(_admin), do: normalize_admin(nil)
+
   defp dispatch_to_subscriber(%{subscriber: nil} = state, _message, _metadata), do: state
 
   defp dispatch_to_subscriber(%{subscriber: subscriber} = state, message, metadata) do
@@ -386,6 +396,41 @@ defmodule Ircxd.Server do
     }
 
     broadcast(state, MapSet.new([connection]), message, connection)
+  end
+
+  defp handle_registered_command(state, connection, %{command: "ADMIN"}) do
+    nick = state.connections[connection].nick
+
+    start_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "256",
+      params: [nick, state.server_name, "Administrative info"]
+    }
+
+    state = broadcast(state, MapSet.new([connection]), start_message, connection)
+
+    state =
+      state.admin.location
+      |> Enum.take(2)
+      |> Enum.with_index(257)
+      |> Enum.reduce(state, fn {line, command}, state ->
+        message = %Ircxd.Message{
+          source: state.server_name,
+          command: Integer.to_string(command),
+          params: [nick, line]
+        }
+
+        broadcast(state, MapSet.new([connection]), message, connection)
+      end)
+
+    case state.admin.email do
+      email when is_binary(email) ->
+        message = %Ircxd.Message{source: state.server_name, command: "259", params: [nick, email]}
+        broadcast(state, MapSet.new([connection]), message, connection)
+
+      _ ->
+        state
+    end
   end
 
   defp handle_registered_command(state, connection, %{

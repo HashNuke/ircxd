@@ -108,7 +108,8 @@ for application-owned SASL credential checks. See
 coverage and boundaries.
 
 Server information can be configured with `motd: ["Welcome"]` and
-`isupport: ["CHANTYPES=#&", "NICKLEN=30"]`.
+`isupport: ["CHANTYPES=#&", "NICKLEN=30"]`. Administrative details use
+`admin: %{location: ["Operations"], email: "admin@example.test"}`.
 
 Use `Ircxd.Handler` when you want callback-style event handling:
 
