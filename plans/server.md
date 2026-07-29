@@ -116,6 +116,8 @@ to listen on different (or independently configured) endpoints.
    `CAP REQ -capability` now disables an active capability per connection and
    synchronizes the server-side capability state.
    `CAP LIST` now returns the sorted active capability set for the connection.
+   `invite-notify` is advertised and sends capability-gated INVITE notices to
+   current channel members while preserving the normal target notification.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -307,3 +309,5 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated malformed channel-command handling with 92 focused server tests, the full suite, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 638.97 ms median per 100k iterations (156,503 ops/s, p95 742.37 ms) | `mix test`, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Added registered nickname changes with channel-wide `NICK` fan-out, direct routing after rename, `433` collision coverage, and client current-nickname synchronization | `lib/ircxd/client.ex`, `test/ircxd/server_nick_change_test.exs` |
 | 2026-07-29 | Revalidated nickname changes with 94 focused server tests, the full suite, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 610.2 ms median per 100k iterations (163,881 ops/s, p95 678.46 ms) | `mix test`, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added IRCv3 `invite-notify` advertisement and capability-gated INVITE fan-out to channel members, with legacy-client isolation coverage | `test/ircxd/server_invite_notify_test.exs` |
+| 2026-07-29 | Revalidated `invite-notify` with 95 focused server tests, the full suite, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 632.48 ms median per 100k iterations (158,108 ops/s, p95 695.6 ms) | `mix test`, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |

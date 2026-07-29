@@ -356,6 +356,7 @@ defmodule Ircxd.Server do
         "no-implicit-names",
         "setname",
         "echo-message",
+        "invite-notify",
         "sasl"
       ],
       else: [
@@ -369,7 +370,8 @@ defmodule Ircxd.Server do
         "userhost-in-names",
         "no-implicit-names",
         "setname",
-        "echo-message"
+        "echo-message",
+        "invite-notify"
       ]
   end
 
@@ -1505,6 +1507,10 @@ defmodule Ircxd.Server do
       else: names_channel(state, connection, channel)
   end
 
+  defp capability_enabled?(state, connection, capability) do
+    MapSet.member?(Map.get(state.connection_capabilities, connection, MapSet.new()), capability)
+  end
+
   defp part_channel(state, connection, channel, rest) do
     case Map.fetch(state.connections, connection) do
       {:ok, %{nick: nick} = client} when is_binary(nick) ->
@@ -1627,12 +1633,16 @@ defmodule Ircxd.Server do
               params: [target, channel]
             }
 
-            broadcast(
-              %{state | invites: invites},
-              MapSet.new([target_connection]),
-              invite,
-              connection
-            )
+            state = %{state | invites: invites}
+            state = broadcast(state, MapSet.new([target_connection]), invite, connection)
+
+            notify_recipients =
+              members
+              |> Enum.filter(&capability_enabled?(state, &1, "invite-notify"))
+              |> MapSet.new()
+              |> MapSet.delete(target_connection)
+
+            broadcast(state, notify_recipients, invite, connection)
         end
     end
   end
