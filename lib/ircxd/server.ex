@@ -85,6 +85,7 @@ defmodule Ircxd.Server do
          registration_timeout: Keyword.get(opts, :registration_timeout, 60_000),
          connections: %{},
          channels: %{},
+         whowas: %{},
          channel_operators: %{},
          channel_voices: %{},
          channel_modes: %{},
@@ -146,6 +147,8 @@ defmodule Ircxd.Server do
         if nick_in_use? do
           {:reply, {:error, :nick_in_use}, state}
         else
+          state = record_whowas(state, client.nick, client)
+
           recipients =
             Enum.reduce(channels, MapSet.new([connection]), fn channel, recipients ->
               MapSet.union(recipients, Map.get(state.channels, channel, MapSet.new()))
@@ -861,6 +864,45 @@ defmodule Ircxd.Server do
         }
 
         broadcast(state, MapSet.new([connection]), end_message, connection)
+    end
+  end
+
+  defp handle_registered_command(state, connection, %{command: "WHOWAS", params: []}) do
+    error_reply(state, connection, "461", [
+      state.connections[connection].nick,
+      "WHOWAS",
+      "Not enough parameters"
+    ])
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "WHOWAS",
+         params: [target | rest]
+       }) do
+    requester = state.connections[connection].nick
+    entries = state.whowas |> Map.get(target, []) |> Enum.take(whowas_count(rest))
+
+    if entries == [] do
+      error_reply(state, connection, "406", [requester, target, "There was no such nickname"])
+    else
+      state =
+        Enum.reduce(entries, state, fn entry, state ->
+          message = %Ircxd.Message{
+            source: state.server_name,
+            command: "314",
+            params: [requester, entry.nick, entry.username, entry.host, "*", entry.realname]
+          }
+
+          broadcast(state, MapSet.new([connection]), message, connection)
+        end)
+
+      end_message = %Ircxd.Message{
+        source: state.server_name,
+        command: "369",
+        params: [requester, target, "End of WHOWAS"]
+      }
+
+      broadcast(state, MapSet.new([connection]), end_message, connection)
     end
   end
 
@@ -2012,6 +2054,29 @@ defmodule Ircxd.Server do
     end)
   end
 
+  defp whowas_count([count | _rest]) when is_binary(count) do
+    case Integer.parse(count) do
+      {count, ""} when count > 0 -> min(count, 10)
+      _ -> 1
+    end
+  end
+
+  defp whowas_count(_rest), do: 1
+
+  defp record_whowas(state, nick, _client) when not is_binary(nick), do: state
+
+  defp record_whowas(state, nick, client) do
+    entry = %{
+      nick: nick,
+      username: client.username || nick,
+      host: "user",
+      realname: client.realname || nick
+    }
+
+    history = [entry | Map.get(state.whowas, nick, [])] |> Enum.take(10)
+    %{state | whowas: Map.put(state.whowas, nick, history)}
+  end
+
   defp wildcard_match?(mask, value) when is_binary(mask) and is_binary(value) do
     wildcard_match?(String.graphemes(mask), String.graphemes(value))
   end
@@ -2171,7 +2236,9 @@ defmodule Ircxd.Server do
       {nil, _connections} ->
         state
 
-      {%{channels: client_channels, nick: nick}, connections} ->
+      {%{channels: client_channels, nick: nick} = client, connections} ->
+        state = record_whowas(state, nick, client)
+
         channels =
           Enum.reduce(client_channels, state.channels, fn channel, channel_state ->
             case Map.get(channel_state, channel) do

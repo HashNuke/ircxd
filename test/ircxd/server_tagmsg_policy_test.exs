@@ -15,7 +15,7 @@ defmodule Ircxd.ServerTagmsgPolicyTest do
       stop_if_alive(bob)
     end)
 
-    wait_registered(2)
+    wait_ready(2, 2)
     assert :ok = Client.join(alice, "#tag-policy")
     assert_receive {:ircxd, {:join, %{channel: "#tag-policy"}}}, 2_000
 
@@ -43,14 +43,15 @@ defmodule Ircxd.ServerTagmsgPolicyTest do
     )
   end
 
-  defp wait_registered(0), do: :ok
+  defp wait_ready(0, 0), do: :ok
 
-  defp wait_registered(remaining) do
+  defp wait_ready(registered, capabilities) do
     receive do
-      {:ircxd, :registered} -> wait_registered(remaining - 1)
-      _other -> wait_registered(remaining)
+      {:ircxd, :registered} -> wait_ready(registered - 1, capabilities)
+      {:ircxd, {:cap_ack, _caps}} -> wait_ready(registered, capabilities - 1)
+      _other -> wait_ready(registered, capabilities)
     after
-      2_000 -> flunk("clients did not register")
+      2_000 -> flunk("clients did not register and negotiate message-tags")
     end
   end
 

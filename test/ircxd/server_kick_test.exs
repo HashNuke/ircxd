@@ -29,6 +29,7 @@ defmodule Ircxd.ServerKickTest do
     assert_receive {:ircxd, {:kick, %{channel: "#kick", target_nick: "bob", reason: "cleanup"}}},
                    2_000
 
+    wait_for_removal(server, "#kick", bob)
     assert :ok = Client.names(alice, "#kick")
     assert_receive {:ircxd, {:names, %{channel: "#kick", names: names}}}, 2_000
     assert Enum.map(names, & &1.nick) == ["alice"]
@@ -57,6 +58,17 @@ defmodule Ircxd.ServerKickTest do
       _other -> wait_registered(remaining)
     after
       2_000 -> flunk("clients did not register")
+    end
+  end
+
+  defp wait_for_removal(server, channel, connection) do
+    members = :sys.get_state(server).channels |> Map.get(channel, MapSet.new())
+
+    if MapSet.member?(members, connection) do
+      Process.sleep(10)
+      wait_for_removal(server, channel, connection)
+    else
+      :ok
     end
   end
 

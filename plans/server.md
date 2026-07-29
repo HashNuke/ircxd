@@ -54,6 +54,9 @@ to listen on different (or independently configured) endpoints.
    and mode classes with `PREFIX=(ov)@+` and `CHANMODES=b,k,l,imnpst`.
    TIME now returns a parseable UTC timestamp.
    ADMIN now returns configurable location and email information.
+   WHOWAS now retains a bounded in-memory history for nick changes and
+   disconnects and returns `314`/`369` responses; durable history remains
+   application-owned.
    WHO now reports tracked username and realname identity for channel members.
    WHO now also resolves online nicknames with `*` as the channel field.
    Registered clients can change nicknames; the server broadcasts `NICK` to
@@ -341,3 +344,5 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated ISUPPORT discovery with 101 focused server tests, 357 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 604.57 ms median per 100k iterations (165,407 ops/s, p95 726.2 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Added `AUTHENTICATE *` SASL abort handling with `906` and verified the application authenticator is not invoked when a client cancels | `test/ircxd/server_authentication_test.exs` |
 | 2026-07-29 | Revalidated SASL abort behavior with 102 focused server tests, 358 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 630.55 ms median per 100k iterations (158,592 ops/s, p95 714.29 ms) and serialization measured 250.0 ms (400,006 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added bounded in-memory `WHOWAS` history for nickname changes and disconnects with `314`/`369` replies and client-driven query coverage | `test/ircxd/server_whowas_test.exs` |
+| 2026-07-29 | Stabilized capability and membership assertions in the server regression suite, then revalidated WHOWAS with 103 focused server tests, 359 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 621.29 ms median per 100k iterations (160,955 ops/s, p95 700.81 ms) and serialization measured 238.25 ms (419,736 ops/s) | `test/ircxd/server_tagmsg_policy_test.exs`, `test/ircxd/server_kick_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
