@@ -260,6 +260,8 @@ defmodule Ircxd.Server.Connection do
     {:noreply, state}
   end
 
+  defp handle_message(%Message{command: "PONG"}, state), do: {:noreply, state}
+
   defp handle_message(%Message{command: command} = message, state)
        when command in [
               "JOIN",
