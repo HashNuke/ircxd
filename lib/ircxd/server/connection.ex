@@ -38,8 +38,10 @@ defmodule Ircxd.Server.Connection do
   end
 
   def handle_info({:server_send, %Message{} = message}, state) do
-    :ok = :gen_tcp.send(state.socket, Message.serialize(message))
-    {:noreply, state}
+    case :gen_tcp.send(state.socket, Message.serialize(message)) do
+      :ok -> {:noreply, state}
+      {:error, reason} -> {:stop, reason, state}
+    end
   end
 
   def handle_info({:tcp, socket, line}, %{socket: socket} = state) do
@@ -78,6 +80,9 @@ defmodule Ircxd.Server.Connection do
     send_message(state, "CAP", ["*", "LS", caps])
     {:noreply, state}
   end
+
+  defp handle_message(%Message{command: "CAP", params: ["END" | _]}, state),
+    do: {:noreply, state}
 
   defp handle_message(%Message{command: "CAP", params: ["REQ", caps]}, state) do
     requested = String.split(caps, " ", trim: true)

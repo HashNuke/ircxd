@@ -23,7 +23,7 @@ Status values:
 | Input limits and malformed wire handling | partial | `server_limits_test.exs`, `server_registration_test.exs`, `server_protocol_errors_test.exs`; oversized lines return 417 and registration/command errors are covered, add malformed parameter policy |
 | Subscriber callback contract and failure isolation | implemented | `server_subscriber_test.exs`; callback state is serialized in a worker and slow/raising callbacks do not block server routing |
 | Application-owned SASL authentication | partial | `server_authentication_test.exs`; PLAIN success/failure exist, add mechanisms and policy cases |
-| Capability negotiation and `CAP LS/REQ/END` | partial | `server_tagmsg_test.exs`, `server_authentication_test.exs`, `server_capability_test.exs`; LS/ACK/NAK and message-tags/SASL advertisement exist, add capability state and END policy cases |
+| Capability negotiation and `CAP LS/REQ/END` | partial | `server_tagmsg_test.exs`, `server_authentication_test.exs`, `server_capability_test.exs`; LS/ACK/NAK/END and message-tags/SASL advertisement exist, add capability state policy cases |
 | Message tags, server-time, and message IDs | planned | `server_message_tags_test.exs` |
 | SASL mechanisms beyond PLAIN | planned | `server_sasl_test.exs` |
 | Account, away, monitor, and user-property tracking | planned | focused feature test files |
