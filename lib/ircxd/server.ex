@@ -376,6 +376,18 @@ defmodule Ircxd.Server do
     broadcast(state, MapSet.new([connection]), message, connection)
   end
 
+  defp handle_registered_command(state, connection, %{command: "TIME"}) do
+    nick = state.connections[connection].nick
+
+    message = %Ircxd.Message{
+      source: state.server_name,
+      command: "391",
+      params: [nick, state.server_name, DateTime.utc_now() |> DateTime.to_iso8601()]
+    }
+
+    broadcast(state, MapSet.new([connection]), message, connection)
+  end
+
   defp handle_registered_command(state, connection, %{
          command: "PART",
          params: [channel | rest]
