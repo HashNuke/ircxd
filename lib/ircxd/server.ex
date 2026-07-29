@@ -63,6 +63,7 @@ defmodule Ircxd.Server do
     tls_options = Keyword.get(opts, :tls_options, [])
     motd = normalize_motd(Keyword.get(opts, :motd, []))
     info = normalize_info(Keyword.get(opts, :info))
+    help = normalize_help(Keyword.get(opts, :help))
     isupport = normalize_isupport(Keyword.get(opts, :isupport))
     admin = normalize_admin(Keyword.get(opts, :admin))
     authenticator = init_authenticator(Keyword.get(opts, :authenticator))
@@ -82,6 +83,7 @@ defmodule Ircxd.Server do
          password: password,
          motd: motd,
          info: info,
+         help: help,
          isupport: isupport,
          admin: admin,
          registration_timeout: Keyword.get(opts, :registration_timeout, 60_000),
@@ -425,6 +427,16 @@ defmodule Ircxd.Server do
   defp normalize_info(info) when is_list(info), do: Enum.map(info, &to_string/1)
   defp normalize_info(_info), do: normalize_info(nil)
 
+  defp normalize_help(nil), do: %{}
+
+  defp normalize_help(help) when is_map(help) do
+    Enum.into(help, %{}, fn {subject, lines} ->
+      {String.upcase(to_string(subject)), lines |> List.wrap() |> Enum.map(&to_string/1)}
+    end)
+  end
+
+  defp normalize_help(_help), do: normalize_help(nil)
+
   defp normalize_isupport(nil),
     do: [
       "CHANTYPES=#&",
@@ -734,6 +746,47 @@ defmodule Ircxd.Server do
     }
 
     broadcast(state, MapSet.new([connection]), end_message, connection)
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "HELP",
+         params: params
+       }) do
+    nick = state.connections[connection].nick
+    subject = params |> List.first() |> to_string() |> String.upcase()
+
+    case Map.fetch(state.help, subject) do
+      {:ok, lines} ->
+        start_message = %Ircxd.Message{
+          source: state.server_name,
+          command: "704",
+          params: [nick, subject, "Help for #{subject}"]
+        }
+
+        state = broadcast(state, MapSet.new([connection]), start_message, connection)
+
+        state =
+          Enum.reduce(lines, state, fn line, state ->
+            message = %Ircxd.Message{
+              source: state.server_name,
+              command: "705",
+              params: [nick, subject, line]
+            }
+
+            broadcast(state, MapSet.new([connection]), message, connection)
+          end)
+
+        end_message = %Ircxd.Message{
+          source: state.server_name,
+          command: "706",
+          params: [nick, subject, "End of HELP"]
+        }
+
+        broadcast(state, MapSet.new([connection]), end_message, connection)
+
+      :error ->
+        error_reply(state, connection, "524", [nick, subject, "No help available"])
+    end
   end
 
   defp handle_registered_command(state, connection, %{

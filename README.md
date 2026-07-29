@@ -107,9 +107,10 @@ for application-owned SASL credential checks. See
 `docs/server_ircv3_matrix.md` and `plans/server.md` for the current protocol
 coverage and boundaries.
 
-Server information can be configured with `motd: ["Welcome"]` and
-`isupport: ["CHANTYPES=#&", "NICKLEN=30"]`. Administrative details use
-`admin: %{location: ["Operations"], email: "admin@example.test"}`.
+Server information can be configured with `motd: ["Welcome"]`,
+`info: ["Ircxd.Server"]`, and `isupport: ["CHANTYPES=#&", "NICKLEN=30"]`.
+Help text uses `help: %{"JOIN" => ["JOIN <channel>"]}`. Administrative
+details use `admin: %{location: ["Operations"], email: "admin@example.test"}`.
 
 For an implicit TLS listener, set `tls: true` and provide standard Erlang SSL
 options such as `certfile` and `keyfile` through `tls_options`:
