@@ -76,6 +76,8 @@ defmodule Ircxd.Server do
          registration_timeout: Keyword.get(opts, :registration_timeout, 60_000),
          connections: %{},
          channels: %{},
+         channel_modes: %{},
+         invites: %{},
          topics: %{},
          capabilities: capabilities(not is_nil(authenticator)),
          subscriber: init_subscriber(Keyword.get(opts, :subscriber)),
@@ -764,7 +766,7 @@ defmodule Ircxd.Server do
         message = %Ircxd.Message{
           source: state.server_name,
           command: "324",
-          params: [nick, target, "+"]
+          params: [nick, target, channel_mode_string(state, target)]
         }
 
         broadcast(state, MapSet.new([connection]), message, connection)
@@ -775,6 +777,13 @@ defmodule Ircxd.Server do
       true ->
         error_reply(state, connection, "401", [nick, target, "No such nick/channel"])
     end
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "MODE",
+         params: [channel, modes]
+       }) do
+    set_channel_mode(state, connection, channel, modes)
   end
 
   defp handle_registered_command(state, connection, %{command: command}) do
@@ -846,15 +855,31 @@ defmodule Ircxd.Server do
           if MapSet.member?(members, connection) do
             state
           else
-            recipients = MapSet.put(members, connection)
-            state = broadcast(state, recipients, message, connection)
-            channels = Map.put(state.channels, channel, recipients)
-            client_channels = MapSet.put(client.channels, channel)
+            invite_only? =
+              MapSet.member?(Map.get(state.channel_modes, channel, MapSet.new()), "i")
 
-            connections =
-              Map.update!(state.connections, connection, &Map.put(&1, :channels, client_channels))
+            invited? = MapSet.member?(Map.get(state.invites, channel, MapSet.new()), connection)
 
-            %{state | channels: channels, connections: connections}
+            if invite_only? and not invited? do
+              error_reply(state, connection, "473", [nick, channel, "Cannot join channel (+i)"])
+            else
+              recipients = MapSet.put(members, connection)
+              state = broadcast(state, recipients, message, connection)
+              channels = Map.put(state.channels, channel, recipients)
+              client_channels = MapSet.put(client.channels, channel)
+
+              connections =
+                Map.update!(
+                  state.connections,
+                  connection,
+                  &Map.put(&1, :channels, client_channels)
+                )
+
+              invites =
+                Map.update(state.invites, channel, MapSet.new(), &MapSet.delete(&1, connection))
+
+              %{state | channels: channels, connections: connections, invites: invites}
+            end
           end
         else
           error_reply(state, connection, "403", [nick, channel, "No such channel"])
@@ -948,6 +973,14 @@ defmodule Ircxd.Server do
             error_reply(state, connection, "401", [requester, target, "No such nick/channel"])
 
           {target_connection, _target_client} ->
+            invites =
+              Map.update(
+                state.invites,
+                channel,
+                MapSet.new([target_connection]),
+                &MapSet.put(&1, target_connection)
+              )
+
             inviting = %Ircxd.Message{
               source: state.server_name,
               command: "341",
@@ -962,8 +995,74 @@ defmodule Ircxd.Server do
               params: [target, channel]
             }
 
-            broadcast(state, MapSet.new([target_connection]), invite, connection)
+            broadcast(
+              %{state | invites: invites},
+              MapSet.new([target_connection]),
+              invite,
+              connection
+            )
         end
+    end
+  end
+
+  defp set_channel_mode(state, connection, channel, modes) do
+    nick = state.connections[connection].nick
+    members = Map.get(state.channels, channel, MapSet.new())
+
+    cond do
+      not Map.has_key?(state.channels, channel) ->
+        error_reply(state, connection, "403", [nick, channel, "No such channel"])
+
+      not MapSet.member?(members, connection) ->
+        error_reply(state, connection, "442", [nick, channel, "You're not on that channel"])
+
+      true ->
+        case apply_channel_modes(Map.get(state.channel_modes, channel, MapSet.new()), modes) do
+          {:ok, channel_modes} ->
+            mode_string = channel_mode_string(channel_modes)
+
+            message = %Ircxd.Message{
+              source: source_for(state.connections[connection], state.server_name),
+              command: "MODE",
+              params: [channel, mode_string]
+            }
+
+            state = %{state | channel_modes: Map.put(state.channel_modes, channel, channel_modes)}
+            broadcast(state, members, message, connection)
+
+          {:error, mode} ->
+            error_reply(state, connection, "472", [
+              nick,
+              mode,
+              "is an unknown mode character to me"
+            ])
+        end
+    end
+  end
+
+  defp apply_channel_modes(channel_modes, <<sign::binary-size(1), modes::binary>>)
+       when sign in ["+", "-"] do
+    modes
+    |> String.graphemes()
+    |> Enum.reduce_while({:ok, channel_modes}, fn mode, {:ok, current} ->
+      if mode == "i" do
+        next = if sign == "+", do: MapSet.put(current, mode), else: MapSet.delete(current, mode)
+        {:cont, {:ok, next}}
+      else
+        {:halt, {:error, mode}}
+      end
+    end)
+  end
+
+  defp apply_channel_modes(_channel_modes, _modes), do: {:error, "?"}
+
+  defp channel_mode_string(state, channel),
+    do: channel_mode_string(Map.get(state.channel_modes, channel, MapSet.new()))
+
+  defp channel_mode_string(channel_modes) do
+    case channel_modes |> MapSet.to_list() |> Enum.sort() |> Enum.join() do
+      "" -> "+"
+      modes -> "+" <> modes
     end
   end
 
