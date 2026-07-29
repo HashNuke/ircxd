@@ -316,6 +316,7 @@ defmodule Ircxd.Server do
         "multi-prefix",
         "userhost-in-names",
         "no-implicit-names",
+        "setname",
         "echo-message",
         "sasl"
       ],
@@ -329,6 +330,7 @@ defmodule Ircxd.Server do
         "multi-prefix",
         "userhost-in-names",
         "no-implicit-names",
+        "setname",
         "echo-message"
       ]
   end
@@ -861,6 +863,33 @@ defmodule Ircxd.Server do
     }
 
     broadcast(state, MapSet.new([connection]), status, connection)
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "SETNAME",
+         params: [realname]
+       }) do
+    case Map.fetch(state.connections, connection) do
+      {:ok, %{channels: channels} = client} ->
+        recipients =
+          Enum.reduce(channels, MapSet.new([connection]), fn channel, recipients ->
+            MapSet.union(recipients, Map.get(state.channels, channel, MapSet.new()))
+          end)
+          |> capability_recipients(state, "setname")
+
+        message = %Ircxd.Message{
+          source: source_for(client, state.server_name),
+          command: "SETNAME",
+          params: [realname]
+        }
+
+        connections = Map.put(state.connections, connection, %{client | realname: realname})
+        state = %{state | connections: connections}
+        broadcast(state, recipients, message, connection)
+
+      :error ->
+        state
+    end
   end
 
   defp handle_registered_command(state, connection, %{

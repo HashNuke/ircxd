@@ -206,7 +206,8 @@ defmodule Ircxd.Server.Connection do
               "TIME",
               "ADMIN",
               "WHO",
-              "WHOIS"
+              "WHOIS",
+              "SETNAME"
             ] do
     Ircxd.Server.command(state.server, self(), message)
     {:noreply, state}
