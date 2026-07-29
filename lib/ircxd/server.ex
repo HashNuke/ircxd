@@ -1413,7 +1413,10 @@ defmodule Ircxd.Server do
 
           state = %{state | channels: channels, connections: connections}
           state = remove_channel_voice(state, channel, connection)
-          update_channel_operators(state, channel, Map.get(channels, channel, MapSet.new()))
+
+          state
+          |> update_channel_operators(channel, Map.get(channels, channel, MapSet.new()))
+          |> cleanup_empty_channel(channel)
         else
           error_reply(state, connection, "442", [nick, channel, "You're not on that channel"])
         end
@@ -1462,7 +1465,10 @@ defmodule Ircxd.Server do
 
           state = %{state | channels: channels, connections: connections}
           state = remove_channel_voice(state, channel, target_connection)
-          update_channel_operators(state, channel, Map.get(channels, channel, MapSet.new()))
+
+          state
+          |> update_channel_operators(channel, Map.get(channels, channel, MapSet.new()))
+          |> cleanup_empty_channel(channel)
         else
           error_reply(state, connection, "441", [requester, target, "They aren't on that channel"])
         end
@@ -1797,6 +1803,25 @@ defmodule Ircxd.Server do
     %{state | channel_operators: Map.put(state.channel_operators, channel, operators)}
   end
 
+  defp cleanup_empty_channel(state, channel) do
+    if MapSet.size(Map.get(state.channels, channel, MapSet.new())) == 0 do
+      %{
+        state
+        | channels: Map.delete(state.channels, channel),
+          channel_operators: Map.delete(state.channel_operators, channel),
+          channel_voices: Map.delete(state.channel_voices, channel),
+          channel_modes: Map.delete(state.channel_modes, channel),
+          invites: Map.delete(state.invites, channel),
+          topics: Map.delete(state.topics, channel),
+          channel_keys: Map.delete(state.channel_keys, channel),
+          channel_limits: Map.delete(state.channel_limits, channel),
+          channel_bans: Map.delete(state.channel_bans, channel)
+      }
+    else
+      state
+    end
+  end
+
   defp add_message_id(state, recipients, %Ircxd.Message{} = message) do
     tagged_recipient? =
       Enum.any?(recipients, fn connection ->
@@ -1926,11 +1951,9 @@ defmodule Ircxd.Server do
           Enum.reduce(client_channels, state, fn channel, state ->
             state = remove_channel_voice(state, channel, connection)
 
-            update_channel_operators(
-              state,
-              channel,
-              Map.get(state.channels, channel, MapSet.new())
-            )
+            state
+            |> update_channel_operators(channel, Map.get(state.channels, channel, MapSet.new()))
+            |> cleanup_empty_channel(channel)
           end)
 
         notify_monitors(state, nick, :offline)

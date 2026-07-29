@@ -43,6 +43,8 @@ to listen on different (or independently configured) endpoints.
    Comma-separated PART targets now share the supplied part reason.
    `JOIN 0` now parts a client from every joined channel through the normal
    membership cleanup path.
+   Empty channels are now removed from `LIST`, and their modes, topics, keys,
+   limits, bans, voices, invites, and operators are discarded.
    Configured MOTD delivery is now covered with standard numerics.
    NAMES without a target now enumerates all known channels.
    LUSERS now reports registered-user and channel counts.
@@ -213,6 +215,7 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated secret-channel LIST/NAMES/WHO privacy with 86 focused server tests, the full ExUnit suite, and formatting/whitespace checks | `mix test`, `mix format --check-formatted` |
 | 2026-07-29 | Added `442` membership validation for topic changes with client-driven regression coverage | `test/ircxd/server_topic_test.exs` |
 | 2026-07-29 | Revalidated topic authorization with 87 focused server tests, the full ExUnit suite, and formatting/whitespace checks | `mix test`, `mix format --check-formatted` |
+| 2026-07-29 | Added empty-channel lifecycle cleanup with client-driven LIST and fresh-state coverage; revalidated with 88 focused server tests and the full suite | `test/ircxd/server_channel_lifecycle_test.exs`, `mix test` |
 | 2026-07-29 | Revalidated invite policy with 85 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the existing direct named-tmux irssi interoperability gate | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
 | 2026-07-29 | Added per-recipient IRCv3 `account-tag` routing for authenticated messages with tagged and untagged client coverage | `test/ircxd/server_account_tag_test.exs` |
 | 2026-07-29 | Revalidated `account-tag` with 72 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 authenticating, joining, and sending a live message through the disposable server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
