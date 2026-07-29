@@ -464,7 +464,7 @@ defmodule Ircxd.Server do
          params: params
        }) do
     nick = state.connections[connection].nick
-    channels = channels_for_list(state, params)
+    channels = channels_for_list(state, connection, params)
 
     start_message = %Ircxd.Message{
       source: state.server_name,
@@ -1582,7 +1582,7 @@ defmodule Ircxd.Server do
                                                               {:ok, current, current_key,
                                                                current_limit} ->
       cond do
-        mode in ["i", "m", "t"] ->
+        mode in ["i", "m", "s", "t"] ->
           next = if sign == "+", do: MapSet.put(current, mode), else: MapSet.delete(current, mode)
           {:cont, {:ok, next, current_key, current_limit}}
 
@@ -1710,17 +1710,29 @@ defmodule Ircxd.Server do
 
   defp valid_channel?(_channel), do: false
 
-  defp channels_for_list(state, []), do: Map.to_list(state.channels)
+  defp channels_for_list(state, connection, []) do
+    Enum.filter(Map.to_list(state.channels), &channel_visible_in_list?(state, connection, &1))
+  end
 
-  defp channels_for_list(state, [targets | _]) do
+  defp channels_for_list(state, connection, [targets | _]) do
     targets
     |> String.split(",", trim: true)
     |> Enum.flat_map(fn channel ->
       case Map.fetch(state.channels, channel) do
-        {:ok, members} -> [{channel, members}]
-        :error -> []
+        {:ok, members} ->
+          if channel_visible_in_list?(state, connection, {channel, members}),
+            do: [{channel, members}],
+            else: []
+
+        :error ->
+          []
       end
     end)
+  end
+
+  defp channel_visible_in_list?(state, connection, {channel, members}) do
+    not MapSet.member?(Map.get(state.channel_modes, channel, MapSet.new()), "s") or
+      MapSet.member?(members, connection)
   end
 
   defp error_reply(state, connection, command, params) do
