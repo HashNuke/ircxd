@@ -133,6 +133,7 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated channel membership validation with 47 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Added target-aware `PRIVMSG` errors for missing nicks/channels and non-members | `test/ircxd/server_message_target_test.exs` |
 | 2026-07-29 | Revalidated message target policy with 48 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Revalidated JOIN idempotency with 49 server tests, the full suite, irssi 1.4.5, and refreshed protocol benchmarks; tagged `PRIVMSG` parsing measured 669.19 ms per 100k iterations (149,434 ops/s, p95 752.58 ms) | `mix test`, named tmux irssi check, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Revalidated ISUPPORT registration with 40 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Added `TIME` support with standard `391` replies | `test/ircxd/server_time_test.exs` |
 | 2026-07-29 | Revalidated TIME with 43 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
