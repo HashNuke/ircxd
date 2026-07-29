@@ -81,6 +81,7 @@ defmodule Ircxd.Server do
          invites: %{},
          topics: %{},
          channel_keys: %{},
+         channel_limits: %{},
          capabilities: capabilities(not is_nil(authenticator)),
          subscriber: init_subscriber(Keyword.get(opts, :subscriber)),
          authenticator: authenticator
@@ -895,8 +896,13 @@ defmodule Ircxd.Server do
               MapSet.member?(Map.get(state.channel_modes, channel, MapSet.new()), "k")
 
             key_valid? = not key_required? or key == Map.get(state.channel_keys, channel)
+            channel_limit = Map.get(state.channel_limits, channel)
+            limit_reached? = is_integer(channel_limit) and MapSet.size(members) >= channel_limit
 
             cond do
+              limit_reached? ->
+                error_reply(state, connection, "471", [nick, channel, "Cannot join channel (+l)"])
+
               not key_valid? ->
                 error_reply(state, connection, "475", [nick, channel, "Cannot join channel (+k)"])
 
@@ -1088,9 +1094,10 @@ defmodule Ircxd.Server do
                Map.get(state.channel_modes, channel, MapSet.new()),
                modes,
                mode_params,
-               Map.get(state.channel_keys, channel)
+               Map.get(state.channel_keys, channel),
+               Map.get(state.channel_limits, channel)
              ) do
-          {:ok, channel_modes, channel_key} ->
+          {:ok, channel_modes, channel_key, channel_limit} ->
             mode_string = channel_mode_string(channel_modes)
 
             message = %Ircxd.Message{
@@ -1104,10 +1111,16 @@ defmodule Ircxd.Server do
                 do: Map.delete(state.channel_keys, channel),
                 else: Map.put(state.channel_keys, channel, channel_key)
 
+            channel_limits =
+              if is_nil(channel_limit),
+                do: Map.delete(state.channel_limits, channel),
+                else: Map.put(state.channel_limits, channel, channel_limit)
+
             state = %{
               state
               | channel_modes: Map.put(state.channel_modes, channel, channel_modes),
-                channel_keys: channel_keys
+                channel_keys: channel_keys,
+                channel_limits: channel_limits
             }
 
             broadcast(state, members, message, connection)
@@ -1125,24 +1138,44 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp apply_channel_modes(channel_modes, <<sign::binary-size(1), modes::binary>>, params, key)
+  defp apply_channel_modes(
+         channel_modes,
+         <<sign::binary-size(1), modes::binary>>,
+         params,
+         key,
+         limit
+       )
        when sign in ["+", "-"] do
     modes
     |> String.graphemes()
-    |> Enum.reduce_while({:ok, channel_modes, key}, fn mode, {:ok, current, current_key} ->
+    |> Enum.reduce_while({:ok, channel_modes, key, limit}, fn mode,
+                                                              {:ok, current, current_key,
+                                                               current_limit} ->
       cond do
         mode in ["i", "m", "t"] ->
           next = if sign == "+", do: MapSet.put(current, mode), else: MapSet.delete(current, mode)
-          {:cont, {:ok, next, current_key}}
+          {:cont, {:ok, next, current_key, current_limit}}
 
         mode == "k" and sign == "+" and is_binary(List.first(params)) ->
-          {:cont, {:ok, MapSet.put(current, mode), List.first(params)}}
+          {:cont, {:ok, MapSet.put(current, mode), List.first(params), current_limit}}
 
         mode == "k" and sign == "+" ->
           {:halt, {:error, :need_param}}
 
         mode == "k" and sign == "-" ->
-          {:cont, {:ok, MapSet.delete(current, mode), nil}}
+          {:cont, {:ok, MapSet.delete(current, mode), nil, current_limit}}
+
+        mode == "l" and sign == "+" ->
+          case Integer.parse(to_string(List.first(params))) do
+            {next_limit, ""} when next_limit > 0 ->
+              {:cont, {:ok, MapSet.put(current, mode), current_key, next_limit}}
+
+            _ ->
+              {:halt, {:error, :invalid_limit}}
+          end
+
+        mode == "l" and sign == "-" ->
+          {:cont, {:ok, MapSet.delete(current, mode), current_key, nil}}
 
         true ->
           {:halt, {:error, mode}}
@@ -1150,7 +1183,7 @@ defmodule Ircxd.Server do
     end)
   end
 
-  defp apply_channel_modes(_channel_modes, _modes, _params, _key), do: {:error, "?"}
+  defp apply_channel_modes(_channel_modes, _modes, _params, _key, _limit), do: {:error, "?"}
 
   defp channel_mode_string(state, channel),
     do: channel_mode_string(Map.get(state.channel_modes, channel, MapSet.new()))
