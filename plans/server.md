@@ -90,6 +90,8 @@ to listen on different (or independently configured) endpoints.
    their own `PRIVMSG`, `NOTICE`, or `TAGMSG` when they request it.
    `account-tag` now adds authenticated account metadata to relayed messages
    for opted-in recipients and removes it for recipients without the feature.
+   `TAGMSG` now applies the same channel membership, moderation, and `+n`
+   policy as text messages before relaying tags.
    `multi-prefix` now exposes simultaneous operator and voice prefixes in
    NAMES replies while retaining legacy output for other clients.
    `userhost-in-names` now exposes full `nick!user@host` entries to opted-in
@@ -197,6 +199,8 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Extended ban matching to support `*` and `?` nick-mask wildcards with client-driven regression coverage | `test/ircxd/server_ban_mode_test.exs` |
 | 2026-07-29 | Revalidated wildcard ban matching with 82 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the existing direct irssi server interoperability coverage | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
 | 2026-07-29 | Added explicit default `+n` channel state and `-n` external-message policy coverage; revalidated with 83 focused server tests, the full suite, formatting checks, and direct irssi mode queries | `test/ircxd/server_no_external_mode_test.exs`, `mix test`, named-tmux irssi check |
+| 2026-07-29 | Routed `TAGMSG` through shared channel policy checks and covered external tag-message suppression/allowance | `test/ircxd/server_tagmsg_policy_test.exs` |
+| 2026-07-29 | Revalidated TAGMSG policy with 84 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the existing direct named-tmux irssi interoperability gate | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
 | 2026-07-29 | Added per-recipient IRCv3 `account-tag` routing for authenticated messages with tagged and untagged client coverage | `test/ircxd/server_account_tag_test.exs` |
 | 2026-07-29 | Revalidated `account-tag` with 72 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 authenticating, joining, and sending a live message through the disposable server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Added negotiated `multi-prefix` NAMES output with simultaneous operator/voice prefix coverage | `test/ircxd/server_multi_prefix_test.exs` |

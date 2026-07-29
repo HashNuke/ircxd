@@ -968,12 +968,24 @@ defmodule Ircxd.Server do
        }) do
     case Map.fetch(state.connections, connection) do
       {:ok, %{nick: nick} = client} when is_binary(nick) ->
-        recipients = recipients_for(state, target)
-        recipients = echo_recipients(state, connection, recipients)
+        case message_recipients(state, connection, target) do
+          {:ok, recipients} ->
+            recipients = echo_recipients(state, connection, recipients)
 
-        source = source_for(client, state.server_name)
-        message = %Ircxd.Message{tags: tags, source: source, command: "TAGMSG", params: [target]}
-        broadcast(state, recipients, message, connection)
+            source = source_for(client, state.server_name)
+
+            message = %Ircxd.Message{
+              tags: tags,
+              source: source,
+              command: "TAGMSG",
+              params: [target]
+            }
+
+            broadcast(state, recipients, message, connection)
+
+          {:error, _error_command, _params} ->
+            state
+        end
 
       _ ->
         state
@@ -1847,20 +1859,6 @@ defmodule Ircxd.Server do
   defp error_reply(state, connection, command, params) do
     message = %Ircxd.Message{source: state.server_name, command: command, params: params}
     broadcast(state, MapSet.new([connection]), message, connection)
-  end
-
-  defp recipients_for(state, target) do
-    case Map.fetch(state.channels, target) do
-      {:ok, members} ->
-        members
-
-      :error ->
-        state.connections
-        |> Enum.find_value(MapSet.new(), fn
-          {connection, %{nick: ^target}} -> MapSet.new([connection])
-          _ -> nil
-        end)
-    end
   end
 
   defp capability_recipients(recipients, state, capability) do
