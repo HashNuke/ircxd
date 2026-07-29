@@ -123,7 +123,7 @@ defmodule Ircxd.Server do
   end
 
   def handle_info({:DOWN, _ref, :process, connection, _reason}, state) do
-    {:noreply, %{state | connections: Map.delete(state.connections, connection)}}
+    {:noreply, remove_connection(state, connection)}
   end
 
   @impl true
@@ -243,6 +243,30 @@ defmodule Ircxd.Server do
   end
 
   defp handle_client_command(state, connection, %{
+         command: "QUIT",
+         params: params
+       }) do
+    case Map.fetch(state.connections, connection) do
+      {:ok, %{nick: nick, channels: channels} = client} when is_binary(nick) ->
+        recipients =
+          Enum.reduce(channels, MapSet.new(), fn channel, recipients ->
+            MapSet.union(recipients, Map.get(state.channels, channel, MapSet.new()))
+          end)
+
+        message = %Ircxd.Message{
+          source: source_for(client, state.server_name),
+          command: "QUIT",
+          params: params
+        }
+
+        broadcast(state, recipients, message, connection)
+
+      _ ->
+        state
+    end
+  end
+
+  defp handle_client_command(state, connection, %{
          command: "TOPIC",
          params: [channel, topic]
        }) do
@@ -323,6 +347,31 @@ defmodule Ircxd.Server do
   end
 
   defp source_for(%{nick: nick}, server_name), do: "#{nick}!user@#{server_name}"
+
+  defp remove_connection(state, connection) do
+    case Map.pop(state.connections, connection) do
+      {nil, _connections} ->
+        state
+
+      {%{channels: channels}, connections} ->
+        channels =
+          Enum.reduce(channels, state.channels, fn channel, channel_state ->
+            case Map.get(channel_state, channel) do
+              nil ->
+                channel_state
+
+              members ->
+                members = MapSet.delete(members, connection)
+
+                if MapSet.size(members) == 0,
+                  do: Map.delete(channel_state, channel),
+                  else: Map.put(channel_state, channel, members)
+            end
+          end)
+
+        %{state | connections: connections, channels: channels}
+    end
+  end
 
   defp accept_loop(listener, owner) do
     case :gen_tcp.accept(listener) do
