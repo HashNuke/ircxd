@@ -46,6 +46,7 @@ defmodule Ircxd.ServerKickTest do
       nick: nick,
       username: nick,
       realname: "Ircxd #{nick} client",
+      caps: ["no-implicit-names"],
       notify: self()
     )
   end

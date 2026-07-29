@@ -26,13 +26,15 @@ to listen on different (or independently configured) endpoints.
    independently identified children in one supervisor.
 2. [x] Add a TCP listener/acceptor boundary with tests using an ephemeral port,
    clean shutdown, and port-bind failure behavior.
-3. [ ] Implement per-connection registration (`NICK`, `USER`, `PASS`, `CAP`)
+3. [x] Implement per-connection registration (`NICK`, `USER`, `PASS`, `CAP`)
    and test the complete handshake through `Ircxd.Client`. Basic handshake,
    SASL gating, duplicate-nick rejection, and configured server-password
    acceptance/rejection are covered; add remaining validation and timeout cases.
    Nickname grammar and configurable registration timeouts are now covered.
    Repeated `USER` commands after registration now return `462` without changing identity.
-4. [ ] Implement identity and channel state with tests for `JOIN`, `PART`,
+   The baseline registration contract is complete; broader capability and
+   authentication mechanisms remain tracked in the IRCv3 matrix.
+4. [x] Implement identity and channel state with tests for `JOIN`, `PART`,
    `PRIVMSG`, `NOTICE`, `TOPIC`, `NAMES`, `PING`, and `QUIT`. JOIN/PART/NAMES,
    PRIVMSG/NOTICE/TOPIC, PING/PONG, and explicit QUIT cleanup slices are covered.
    Read-only user and channel MODE queries and unexpected-disconnect QUIT
@@ -175,7 +177,7 @@ to listen on different (or independently configured) endpoints.
    failures preserve the listener.
 8. [x] Add an authentication contract for SASL and test database-backed host
    callbacks, success, failure, and account metadata without embedding a DB.
-9. [ ] Add protocol limits and malformed-input tests, including line size,
+9. [x] Add protocol limits and malformed-input tests, including line size,
    registration timeouts, unknown commands, and nick/channel validation.
    Registration timeouts, nickname validation, unknown commands, and the
    pre-registration command gate are now covered. Oversized wire lines now
@@ -188,6 +190,8 @@ to listen on different (or independently configured) endpoints.
    `USER`, `WHOIS`, and `PING` parameters now return `461` with client-driven
    coverage.
    PRIVMSG target validation now returns `401`, `403`, or `404` as appropriate.
+   The named limits and malformed-input baseline is complete; remaining
+   command-specific policy is tracked in the IRCv3 matrix.
 10. [x] Run the full ExUnit suite, then run an irssi manual/integration check;
    document supported behavior and known boundaries.
 11. [ ] Commit each coherent TDD slice with a detailed rationale and push every
@@ -425,4 +429,5 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Added immediate `904` SASL failure responses when clients request PLAIN or EXTERNAL without a configured authenticator, with client-driven coverage | `lib/ircxd/server/connection.ex`, `test/ircxd/server_authentication_test.exs` |
 | 2026-07-29 | Added explicit `904 Unsupported SASL mechanism` handling and reset the connection’s SASL mechanism state after each credential attempt, with configured PLAIN/EXTERNAL regression coverage | `lib/ircxd/server/connection.ex`, `test/ircxd/server_authentication_test.exs` |
 | 2026-07-29 | Revalidated unsupported-mechanism handling with 125 focused server tests, 381 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 640.05 ms median per 100k iterations (156,238 ops/s, p95 726.34 ms), serialization 245.48 ms (407,372 ops/s), tag escaping 170.87 ms (585,227 ops/s), styled-text parsing 207.66 ms (481,552 ops/s), and ISUPPORT parsing 579.33 ms (172,614 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Completed the baseline-plan audit: registration, identity/channel state, subscriber hooks, authentication contract, and named malformed-input requirements are now marked complete; stabilized kick-test mailbox ordering with negotiated `no-implicit-names`, then revalidated 381 non-external tests, irssi interoperability, and benchmarks at 619.58 ms tagged parsing per 100k (p95 697.49 ms) | `plans/server.md`, `test/ircxd/server_kick_test.exs`, `mix test`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Revalidated no-authenticator SASL handling with 124 focused server tests, 380 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 605.02 ms median per 100k iterations (165,284 ops/s, p95 699.21 ms), serialization 239.57 ms (417,420 ops/s), tag escaping 171.13 ms (584,348 ops/s), styled-text parsing 207.16 ms (482,723 ops/s), and ISUPPORT parsing 587.42 ms (170,237 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
