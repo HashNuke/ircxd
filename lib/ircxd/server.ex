@@ -131,6 +131,17 @@ defmodule Ircxd.Server do
              ) do
           {:ok, account, authenticator_state} ->
             state = %{state | authenticator: %{authenticator | state: authenticator_state}}
+
+            connections =
+              case Map.fetch(state.connections, metadata.connection) do
+                {:ok, client} ->
+                  Map.put(state.connections, metadata.connection, %{client | account: account})
+
+                :error ->
+                  state.connections
+              end
+
+            state = %{state | connections: connections}
             {:reply, {:ok, account}, state}
 
           {:error, reason, authenticator_state} ->
@@ -190,6 +201,7 @@ defmodule Ircxd.Server do
               nick: nil,
               username: nil,
               realname: nil,
+              account: nil,
               registered?: false,
               channels: MapSet.new()
             }
@@ -524,6 +536,21 @@ defmodule Ircxd.Server do
         }
 
         state = broadcast(state, MapSet.new([connection]), user_message, connection)
+
+        state =
+          case client.account do
+            nil ->
+              state
+
+            account ->
+              account_message = %Ircxd.Message{
+                source: state.server_name,
+                command: "330",
+                params: [requester, client.nick, format_account(account), "is logged in as"]
+              }
+
+              broadcast(state, MapSet.new([connection]), account_message, connection)
+          end
 
         server_message = %Ircxd.Message{
           source: state.server_name,
@@ -862,6 +889,9 @@ defmodule Ircxd.Server do
   end
 
   defp source_for(%{nick: nick}, server_name), do: "#{nick}!user@#{server_name}"
+
+  defp format_account(account) when is_binary(account), do: account
+  defp format_account(account), do: to_string(account)
 
   defp valid_channel?(channel) when is_binary(channel) do
     byte_size(channel) > 1 and String.first(channel) in ["#", "&"]

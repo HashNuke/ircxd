@@ -48,6 +48,9 @@ defmodule Ircxd.ServerAuthenticationTest do
                    2_000
 
     assert_receive {:ircxd, :registered}, 2_000
+
+    assert :ok = Client.whois(client, "auth-test")
+    assert_receive {:ircxd, {:whois_account, %{nick: "auth-test", account: "account-123"}}}, 2_000
   end
 
   test "does not register clients when the authenticator rejects credentials" do
