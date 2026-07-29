@@ -53,6 +53,7 @@ to listen on different (or independently configured) endpoints.
    Successful SASL authentication now tracks the application account and exposes it through WHOIS `330`.
    Repeated JOIN requests are idempotent and do not publish duplicate JOIN events.
    `KICK` now broadcasts removal and updates channel membership state.
+   `INVITE` now sends `341` to the inviter and an INVITE event to the target.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -104,6 +105,7 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Made repeated JOIN requests idempotent and added a regression test for duplicate event suppression | `test/ircxd/server_join_idempotency_test.exs` |
 | 2026-07-29 | Rejected post-registration `USER` changes with `462 ERR_ALREADYREGISTERED` and preserved connection identity | `test/ircxd/server_registration_test.exs` |
 | 2026-07-29 | Added channel `KICK` handling with broadcast/removal and a client-driven membership regression test | `test/ircxd/server_kick_test.exs` |
+| 2026-07-29 | Added member-authorized channel `INVITE` delivery with `341` and a client-driven target notification test | `test/ircxd/server_invite_test.exs` |
 | 2026-07-29 | Revalidated KICK with 51 server tests, the full ExUnit suite, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, named tmux irssi check |
 | 2026-07-29 | Revalidated registration identity protection with 50 server tests, formatting checks, and the full ExUnit suite | `mix format --check-formatted`, `mix test test/ircxd/server_*_test.exs`, `mix test` |
 | 2026-07-29 | Propagated successful authenticator account values into server identity state and WHOIS `330` replies | `test/ircxd/server_authentication_test.exs` |

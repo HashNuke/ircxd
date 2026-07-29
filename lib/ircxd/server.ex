@@ -587,6 +587,13 @@ defmodule Ircxd.Server do
   end
 
   defp handle_registered_command(state, connection, %{
+         command: "INVITE",
+         params: [target, channel]
+       }) do
+    invite_member(state, connection, target, channel)
+  end
+
+  defp handle_registered_command(state, connection, %{
          command: "QUIT",
          params: params
        }) do
@@ -920,6 +927,42 @@ defmodule Ircxd.Server do
           %{state | channels: channels, connections: connections}
         else
           error_reply(state, connection, "441", [requester, target, "They aren't on that channel"])
+        end
+    end
+  end
+
+  defp invite_member(state, connection, target, channel) do
+    requester = state.connections[connection].nick
+    members = Map.get(state.channels, channel, MapSet.new())
+
+    cond do
+      not MapSet.member?(members, connection) ->
+        error_reply(state, connection, "442", [requester, channel, "You're not on that channel"])
+
+      not Map.has_key?(state.channels, channel) ->
+        error_reply(state, connection, "403", [requester, channel, "No such channel"])
+
+      true ->
+        case Enum.find(state.connections, fn {_pid, client} -> client.nick == target end) do
+          nil ->
+            error_reply(state, connection, "401", [requester, target, "No such nick/channel"])
+
+          {target_connection, _target_client} ->
+            inviting = %Ircxd.Message{
+              source: state.server_name,
+              command: "341",
+              params: [requester, target, channel]
+            }
+
+            state = broadcast(state, MapSet.new([connection]), inviting, connection)
+
+            invite = %Ircxd.Message{
+              source: source_for(state.connections[connection], state.server_name),
+              command: "INVITE",
+              params: [target, channel]
+            }
+
+            broadcast(state, MapSet.new([target_connection]), invite, connection)
         end
     end
   end
