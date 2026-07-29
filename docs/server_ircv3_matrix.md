@@ -22,7 +22,7 @@ Status values:
 | Published messages (`PRIVMSG`, `NOTICE`, `TAGMSG`) | partial | `server_messaging_test.exs`, `server_isolation_test.exs`, `server_direct_message_test.exs`, `server_tagmsg_test.exs`; channel/direct routing and tagged TAGMSG exist, add validation |
 | Subscriber callback contract and failure isolation | implemented | `server_subscriber_test.exs`; callback state is serialized in a worker and slow/raising callbacks do not block server routing |
 | Application-owned SASL authentication | partial | `server_authentication_test.exs`; PLAIN success/failure exist, add mechanisms and policy cases |
-| Capability negotiation and `CAP LS/REQ/END` | partial | `server_tagmsg_test.exs`, `server_authentication_test.exs`; message-tags and SASL advertisement/ACK exist, add unsupported-request/error cases |
+| Capability negotiation and `CAP LS/REQ/END` | partial | `server_tagmsg_test.exs`, `server_authentication_test.exs`, `server_capability_test.exs`; LS/ACK/NAK and message-tags/SASL advertisement exist, add capability state and END policy cases |
 | Message tags, server-time, and message IDs | planned | `server_message_tags_test.exs` |
 | SASL mechanisms beyond PLAIN | planned | `server_sasl_test.exs` |
 | Account, away, monitor, and user-property tracking | planned | focused feature test files |

@@ -75,8 +75,16 @@ defmodule Ircxd.Server.Connection do
   defp handle_message(%Message{command: "CAP", params: ["REQ", caps]}, state) do
     requested = String.split(caps, " ", trim: true)
 
-    if requested != [] and Enum.all?(requested, &(&1 in state.capabilities)),
-      do: send_message(state, "CAP", ["*", "ACK", Enum.join(requested, " ")])
+    cond do
+      requested == [] ->
+        send_message(state, "CAP", ["*", "NAK", ""])
+
+      Enum.all?(requested, &(&1 in state.capabilities)) ->
+        send_message(state, "CAP", ["*", "ACK", Enum.join(requested, " ")])
+
+      true ->
+        send_message(state, "CAP", ["*", "NAK", Enum.join(requested, " ")])
+    end
 
     {:noreply, state}
   end
