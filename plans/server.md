@@ -56,6 +56,8 @@ to listen on different (or independently configured) endpoints.
    ADMIN now returns configurable location and email information.
    INFO now returns configurable server description lines with `371`/`374`.
    HELP now serves a configurable subject-to-lines catalog with `704`/`705`/`706`.
+   LINKS now reports the standalone server with `364`/`365` and supports
+   server/mask filtering without inventing remote topology.
    WHOWAS now retains a bounded in-memory history for nick changes and
    disconnects and returns `314`/`369` responses; durable history remains
    application-owned.
@@ -356,3 +358,5 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated INFO with 105 focused server tests, 361 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 651.62 ms median per 100k iterations (153,465 ops/s, p95 766.63 ms), serialization 250.61 ms (399,030 ops/s), tag escaping 174.69 ms (572,436 ops/s), and styled-text parsing 211.31 ms (473,250 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
 | 2026-07-29 | Added configurable HELP subjects with standard `704`/`705`/`706` start, text, and completion replies, plus embedding documentation | `test/ircxd/server_help_test.exs`, `README.md` |
 | 2026-07-29 | Revalidated HELP with 106 focused server tests, 362 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 685.3 ms median per 100k iterations (145,922 ops/s, p95 779.94 ms), serialization 234.71 ms (426,060 ops/s), tag escaping 169.25 ms (590,859 ops/s), and styled-text parsing 201.48 ms (496,325 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added standalone-server `LINKS` responses with `364`/`365` and server/mask filtering through the existing client query API | `test/ircxd/server_links_test.exs` |
+| 2026-07-29 | Revalidated LINKS with 107 focused server tests, 363 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 632.86 ms median per 100k iterations (158,013 ops/s, p95 727.46 ms), serialization 241.84 ms (413,491 ops/s), tag escaping 184.37 ms (542,388 ops/s), and styled-text parsing 195.43 ms (511,705 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |

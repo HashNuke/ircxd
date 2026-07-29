@@ -790,6 +790,41 @@ defmodule Ircxd.Server do
   end
 
   defp handle_registered_command(state, connection, %{
+         command: "LINKS",
+         params: params
+       }) do
+    nick = state.connections[connection].nick
+
+    {remote, mask} =
+      case params do
+        [] -> {nil, "*"}
+        [remote] -> {remote, "*"}
+        [remote, mask | _rest] -> {remote, mask}
+      end
+
+    state =
+      if remote in [nil, "*", state.server_name] and wildcard_match?(mask, state.server_name) do
+        message = %Ircxd.Message{
+          source: state.server_name,
+          command: "364",
+          params: [nick, mask, state.server_name, "0", "Ircxd server"]
+        }
+
+        broadcast(state, MapSet.new([connection]), message, connection)
+      else
+        state
+      end
+
+    end_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "365",
+      params: [nick, mask, "End of LINKS list"]
+    }
+
+    broadcast(state, MapSet.new([connection]), end_message, connection)
+  end
+
+  defp handle_registered_command(state, connection, %{
          command: "WHO",
          params: []
        }) do
