@@ -50,6 +50,7 @@ defmodule Ircxd.Server do
     port = Keyword.get(opts, :port, 6667)
     server_name = Keyword.get(opts, :server_name, @default_server_name)
     password = Keyword.get(opts, :password)
+    motd = normalize_motd(Keyword.get(opts, :motd, []))
     authenticator = init_authenticator(Keyword.get(opts, :authenticator))
 
     with {:ok, listener} <- listen(port) do
@@ -64,6 +65,7 @@ defmodule Ircxd.Server do
          port: actual_port,
          server_name: server_name,
          password: password,
+         motd: motd,
          registration_timeout: Keyword.get(opts, :registration_timeout, 60_000),
          connections: %{},
          channels: %{},
@@ -220,6 +222,10 @@ defmodule Ircxd.Server do
     if auth_required?, do: ["message-tags", "sasl"], else: ["message-tags"]
   end
 
+  defp normalize_motd(motd) when is_binary(motd), do: String.split(motd, "\n")
+  defp normalize_motd(motd) when is_list(motd), do: Enum.map(motd, &to_string/1)
+  defp normalize_motd(_motd), do: []
+
   defp dispatch_to_subscriber(%{subscriber: nil} = state, _message, _metadata), do: state
 
   defp dispatch_to_subscriber(%{subscriber: subscriber} = state, message, metadata) do
@@ -312,6 +318,32 @@ defmodule Ircxd.Server do
       source: state.server_name,
       command: "323",
       params: [nick, "End of /LIST"]
+    }
+
+    broadcast(state, MapSet.new([connection]), end_message, connection)
+  end
+
+  defp handle_registered_command(state, connection, %{command: "MOTD"}) do
+    nick = state.connections[connection].nick
+
+    start_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "375",
+      params: [nick, "- #{state.server_name} Message of the day -"]
+    }
+
+    state = broadcast(state, MapSet.new([connection]), start_message, connection)
+
+    state =
+      Enum.reduce(state.motd, state, fn line, state ->
+        message = %Ircxd.Message{source: state.server_name, command: "372", params: [nick, line]}
+        broadcast(state, MapSet.new([connection]), message, connection)
+      end)
+
+    end_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "376",
+      params: [nick, "End of /MOTD command"]
     }
 
     broadcast(state, MapSet.new([connection]), end_message, connection)

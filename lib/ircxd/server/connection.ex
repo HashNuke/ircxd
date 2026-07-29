@@ -177,7 +177,8 @@ defmodule Ircxd.Server.Connection do
               "TAGMSG",
               "TOPIC",
               "MODE",
-              "LIST"
+              "LIST",
+              "MOTD"
             ] do
     Ircxd.Server.command(state.server, self(), message)
     {:noreply, state}
