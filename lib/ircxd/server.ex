@@ -378,6 +378,17 @@ defmodule Ircxd.Server do
 
   defp handle_registered_command(state, connection, %{
          command: "JOIN",
+         params: []
+       }) do
+    error_reply(state, connection, "461", [
+      state.connections[connection].nick,
+      "JOIN",
+      "Not enough parameters"
+    ])
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "JOIN",
          params: ["0"]
        }) do
     state.connections[connection].channels
@@ -786,9 +797,33 @@ defmodule Ircxd.Server do
 
   defp handle_registered_command(state, connection, %{
          command: "KICK",
+         params: params
+       })
+       when length(params) < 2 do
+    error_reply(state, connection, "461", [
+      state.connections[connection].nick,
+      "KICK",
+      "Not enough parameters"
+    ])
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "KICK",
          params: [channel, target | rest]
        }) do
     kick_member(state, connection, channel, target, rest)
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "INVITE",
+         params: params
+       })
+       when length(params) < 2 do
+    error_reply(state, connection, "461", [
+      state.connections[connection].nick,
+      "INVITE",
+      "Not enough parameters"
+    ])
   end
 
   defp handle_registered_command(state, connection, %{

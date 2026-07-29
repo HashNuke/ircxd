@@ -131,6 +131,7 @@ to listen on different (or independently configured) endpoints.
    Malformed `PRIVMSG` now returns `411`/`412`; malformed `NOTICE` remains silent.
    PART membership validation now returns `442` for non-members.
    Malformed `PART` without a channel now returns `461`.
+   Malformed `JOIN`, `INVITE`, and `KICK` commands now return `461`.
    PRIVMSG target validation now returns `401`, `403`, or `404` as appropriate.
 10. [x] Run the full ExUnit suite, then run an irssi manual/integration check;
    document supported behavior and known boundaries.
@@ -298,3 +299,5 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Revalidated all-channel NAMES with 37 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Revalidated multi-target JOIN with 34 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
 | 2026-07-29 | Revalidated LIST support with 33 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added `461 ERR_NEEDMOREPARAMS` validation for parameterless `JOIN`, incomplete `INVITE`, and incomplete `KICK` commands | `test/ircxd/server_protocol_errors_test.exs` |
+| 2026-07-29 | Revalidated malformed channel-command handling with 92 focused server tests, the full suite, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 638.97 ms median per 100k iterations (156,503 ops/s, p95 742.37 ms) | `mix test`, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |

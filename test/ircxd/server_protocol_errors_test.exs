@@ -28,6 +28,24 @@ defmodule Ircxd.ServerProtocolErrorsTest do
     assert_receive {:ircxd, {:irc_error, %{code: "461", target: "PART"}}}, 2_000
   end
 
+  test "returns 461 when channel commands are missing required parameters" do
+    {:ok, server} = Server.start_link(port: 0)
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, client} = start_client(server, "channel-parameters")
+    on_exit(fn -> stop_if_alive(client) end)
+    assert_receive {:ircxd, :registered}, 2_000
+
+    assert :ok = Client.raw(client, "JOIN", [])
+    assert_receive {:ircxd, {:irc_error, %{code: "461", target: "JOIN"}}}, 2_000
+
+    assert :ok = Client.raw(client, "INVITE", ["channel-parameters"])
+    assert_receive {:ircxd, {:irc_error, %{code: "461", target: "INVITE"}}}, 2_000
+
+    assert :ok = Client.raw(client, "KICK", ["#missing-target"])
+    assert_receive {:ircxd, {:irc_error, %{code: "461", target: "KICK"}}}, 2_000
+  end
+
   test "returns 451 when an unregistered client sends a command" do
     {:ok, server} = Server.start_link(port: 0)
     on_exit(fn -> stop_if_alive(server) end)
