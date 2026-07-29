@@ -113,6 +113,11 @@ defmodule Ircxd.Server.Connection do
   defp handle_message(%Message{command: "CAP", params: ["END" | _]}, state),
     do: {:noreply, state}
 
+  defp handle_message(%Message{command: "CAP", params: ["REQ"]}, state) do
+    send_message(state, "461", [state.nick || "*", "CAP", "Not enough parameters"])
+    {:noreply, state}
+  end
+
   defp handle_message(%Message{command: "CAP", params: ["REQ", caps]}, state) do
     requested = String.split(caps, " ", trim: true)
     requests = Enum.map(requested, &capability_request/1)
