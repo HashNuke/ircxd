@@ -158,6 +158,11 @@ defmodule Ircxd.Server.Connection do
     {:noreply, state}
   end
 
+  defp handle_message(%Message{command: "AUTHENTICATE", params: []}, state) do
+    send_message(state, "461", [state.nick || "*", "AUTHENTICATE", "Not enough parameters"])
+    {:noreply, state}
+  end
+
   defp handle_message(%Message{command: "AUTHENTICATE", params: [payload]}, state)
        when state.auth_required? and state.sasl_mechanism == :external do
     case decode_external(payload) do
@@ -187,6 +192,16 @@ defmodule Ircxd.Server.Connection do
         send_message(state, "464", [state.nick || "*", "Password incorrect"])
         {:noreply, state}
     end
+  end
+
+  defp handle_message(%Message{command: "PASS", params: []}, state) do
+    send_message(state, "461", [state.nick || "*", "PASS", "Not enough parameters"])
+    {:noreply, state}
+  end
+
+  defp handle_message(%Message{command: "NICK", params: []}, state) do
+    send_message(state, "431", [state.nick || "*", "No nickname given"])
+    {:noreply, state}
   end
 
   defp handle_message(%Message{command: "NICK", params: [nick]}, state) do

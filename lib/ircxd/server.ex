@@ -973,6 +973,14 @@ defmodule Ircxd.Server do
     broadcast(state, MapSet.new([connection]), end_message, connection)
   end
 
+  defp handle_registered_command(state, connection, %{command: "WHOIS", params: []}) do
+    error_reply(state, connection, "461", [
+      state.connections[connection].nick,
+      "WHOIS",
+      "Not enough parameters"
+    ])
+  end
+
   defp handle_registered_command(state, connection, %{
          command: "WHOIS",
          params: [target | _rest],
@@ -1173,6 +1181,14 @@ defmodule Ircxd.Server do
       _ ->
         state
     end
+  end
+
+  defp handle_registered_command(state, connection, %{command: "TOPIC", params: []}) do
+    error_reply(state, connection, "461", [
+      state.connections[connection].nick,
+      "TOPIC",
+      "Not enough parameters"
+    ])
   end
 
   defp handle_registered_command(state, connection, %{
