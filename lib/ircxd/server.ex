@@ -83,6 +83,7 @@ defmodule Ircxd.Server do
          topics: %{},
          channel_keys: %{},
          channel_limits: %{},
+         monitors: %{},
          capabilities: capabilities(not is_nil(authenticator)),
          subscriber: init_subscriber(Keyword.get(opts, :subscriber)),
          authenticator: authenticator
@@ -108,7 +109,8 @@ defmodule Ircxd.Server do
           %{client | nick: nick, registered?: true}
         end)
 
-      {:reply, :ok, %{state | connections: connections}}
+      state = %{state | connections: connections}
+      {:reply, :ok, notify_monitors(state, nick, :online)}
     end
   end
 
@@ -846,12 +848,107 @@ defmodule Ircxd.Server do
     set_channel_mode(state, connection, channel, modes, mode_params)
   end
 
+  defp handle_registered_command(state, connection, %{
+         command: "MONITOR",
+         params: [subcommand | rest]
+       }) do
+    handle_monitor_command(state, connection, subcommand, rest)
+  end
+
   defp handle_registered_command(state, connection, %{command: command}) do
     error_reply(state, connection, "421", [
       state.connections[connection].nick,
       command,
       "Unknown command"
     ])
+  end
+
+  defp handle_monitor_command(state, connection, "+", [targets]) do
+    targets = String.split(targets, ",", trim: true)
+    monitored = Map.get(state.monitors, connection, MapSet.new())
+    monitored = Enum.reduce(targets, monitored, &MapSet.put(&2, &1))
+    state = %{state | monitors: Map.put(state.monitors, connection, monitored)}
+    nick = state.connections[connection].nick
+
+    {online, offline} =
+      Enum.split_with(targets, fn target ->
+        Enum.any?(state.connections, fn {_pid, client} -> client.nick == target end)
+      end)
+
+    state =
+      if online == [],
+        do: state,
+        else:
+          monitor_reply(state, connection, "730", [nick, monitor_online_targets(state, online)])
+
+    if offline == [],
+      do: state,
+      else: monitor_reply(state, connection, "731", [nick, Enum.join(offline, ",")])
+  end
+
+  defp handle_monitor_command(state, connection, "-", [targets]) do
+    targets = String.split(targets, ",", trim: true)
+    monitored = Map.get(state.monitors, connection, MapSet.new())
+
+    monitored = Enum.reduce(targets, monitored, &MapSet.delete(&2, &1))
+    %{state | monitors: Map.put(state.monitors, connection, monitored)}
+  end
+
+  defp handle_monitor_command(state, connection, "C", _rest),
+    do: %{state | monitors: Map.delete(state.monitors, connection)}
+
+  defp handle_monitor_command(state, connection, subcommand, _rest)
+       when subcommand in ["L", "S"] do
+    nick = state.connections[connection].nick
+
+    targets =
+      state.monitors |> Map.get(connection, MapSet.new()) |> MapSet.to_list() |> Enum.sort()
+
+    state = monitor_reply(state, connection, "732", [nick, Enum.join(targets, ",")])
+    monitor_reply(state, connection, "733", [nick, "End of MONITOR list"])
+  end
+
+  defp handle_monitor_command(state, _connection, _subcommand, _rest), do: state
+
+  defp monitor_online_targets(state, targets) do
+    targets
+    |> Enum.map(fn target ->
+      {_pid, client} =
+        Enum.find(state.connections, fn {_pid, client} -> client.nick == target end)
+
+      source_for(client, state.server_name)
+    end)
+    |> Enum.join(",")
+  end
+
+  defp monitor_reply(state, connection, command, params) do
+    message = %Ircxd.Message{source: state.server_name, command: command, params: params}
+    broadcast(state, MapSet.new([connection]), message, connection)
+  end
+
+  defp notify_monitors(state, nil, _status), do: state
+
+  defp notify_monitors(state, nick, status) do
+    Enum.reduce(state.monitors, state, fn {watcher, targets}, state ->
+      if MapSet.member?(targets, nick) and Map.has_key?(state.connections, watcher) do
+        watcher_nick = state.connections[watcher].nick
+
+        case status do
+          :online ->
+            target =
+              Enum.find_value(state.connections, fn {_pid, client} ->
+                if client.nick == nick, do: source_for(client, state.server_name)
+              end)
+
+            monitor_reply(state, watcher, "730", [watcher_nick, target])
+
+          :offline ->
+            monitor_reply(state, watcher, "731", [watcher_nick, nick])
+        end
+      else
+        state
+      end
+    end)
   end
 
   defp names_channel(state, connection, channel) do
@@ -1380,7 +1477,7 @@ defmodule Ircxd.Server do
       {nil, _connections} ->
         state
 
-      {%{channels: client_channels}, connections} ->
+      {%{channels: client_channels, nick: nick}, connections} ->
         channels =
           Enum.reduce(client_channels, state.channels, fn channel, channel_state ->
             case Map.get(channel_state, channel) do
@@ -1396,12 +1493,25 @@ defmodule Ircxd.Server do
             end
           end)
 
-        state = %{state | connections: connections, channels: channels}
+        state = %{
+          state
+          | connections: connections,
+            channels: channels,
+            monitors: Map.delete(state.monitors, connection)
+        }
 
-        Enum.reduce(client_channels, state, fn channel, state ->
-          state = remove_channel_voice(state, channel, connection)
-          update_channel_operators(state, channel, Map.get(state.channels, channel, MapSet.new()))
-        end)
+        state =
+          Enum.reduce(client_channels, state, fn channel, state ->
+            state = remove_channel_voice(state, channel, connection)
+
+            update_channel_operators(
+              state,
+              channel,
+              Map.get(state.channels, channel, MapSet.new())
+            )
+          end)
+
+        notify_monitors(state, nick, :offline)
     end
   end
 

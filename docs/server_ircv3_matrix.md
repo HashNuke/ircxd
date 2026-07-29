@@ -27,7 +27,7 @@ Status values:
 | Capability negotiation and `CAP LS/REQ/END` | partial | `server_tagmsg_test.exs`, `server_authentication_test.exs`, `server_capability_test.exs`; LS/ACK/NAK/END and message-tags/SASL advertisement exist, add capability state policy cases |
 | Message tags, server-time, and message IDs | planned | `server_message_tags_test.exs` |
 | SASL mechanisms beyond PLAIN | planned | `server_sasl_test.exs` |
-| Account, away, monitor, and user-property tracking | partial | `server_authentication_test.exs`, `server_away_test.exs`; application-owned account propagation and AWAY state/fan-out with `305`/`306` exist, add monitor and remaining user-property tracking |
+| Account, away, monitor, and user-property tracking | partial | `server_authentication_test.exs`, `server_away_test.exs`, `server_monitor_test.exs`; application-owned account propagation, AWAY state/fan-out with `305`/`306`, and MONITOR add/remove/clear/list/status with `730`/`731`/`732`/`733` plus connect/disconnect notifications exist, add remaining user-property tracking |
 | Batches, multiline, history, and redaction | planned | focused feature test files |
 | Standard replies and labeled responses | planned | focused feature test files |
 | TLS listener and STS policy | planned | `server_tls_test.exs`; host certificate configuration remains host-owned |
