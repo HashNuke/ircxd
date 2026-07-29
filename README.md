@@ -206,6 +206,7 @@ real standard-replies coverage:
 scripts/run_services_integration.sh
 scripts/run_standard_replies_integration.sh
 scripts/run_irssi_manual_check.sh
+scripts/run_irssi_server_check.sh
 ```
 
 ## Documentation

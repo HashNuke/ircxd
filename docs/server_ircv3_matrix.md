@@ -32,7 +32,7 @@ Status values:
 | Standard replies and labeled responses | planned | focused feature test files |
 | TLS listener and STS policy | partial | `server_tls_test.exs`; implicit TLS listeners accept `tls_options` and share the normal server protocol path, while certificate provisioning and STS policy remain host-owned |
 | Persistence, moderation policy, and application side effects | host | subscriber/callback contract |
-| irssi interoperability | partial | irssi is installed; run an opt-in manual/integration check after core commands stabilize |
+| irssi interoperability | partial | `scripts/run_irssi_server_check.sh`; irssi connects to a disposable `Ircxd.Server` in a named tmux session and receives a message sent by `Ircxd.Client`, while the existing `scripts/run_irssi_manual_check.sh` covers the external InspIRCd gate |
 
 ## Subscriber contract
 
