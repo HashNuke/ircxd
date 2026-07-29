@@ -223,4 +223,25 @@ defmodule Ircxd.ServerAuthenticationTest do
 
     assert {:error, {:authenticator_init_failed, :database_unavailable}} = result
   end
+
+  test "rejects SASL mechanisms when no authenticator is configured" do
+    {:ok, server} = Server.start_link(port: 0)
+    on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
+
+    {:ok, client} =
+      Client.start_link(
+        host: "127.0.0.1",
+        port: Server.port(server),
+        nick: "no-authenticator",
+        username: "user",
+        realname: "Ircxd no authenticator client",
+        notify: self()
+      )
+
+    on_exit(fn -> if Process.alive?(client), do: GenServer.stop(client) end)
+    assert_receive {:ircxd, :registered}, 2_000
+
+    assert :ok = Client.raw(client, "AUTHENTICATE", ["PLAIN"])
+    assert_receive {:ircxd, {:sasl_failure, %{code: "904"}}}, 2_000
+  end
 end

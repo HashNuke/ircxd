@@ -146,9 +146,16 @@ defmodule Ircxd.Server.Connection do
     end
   end
 
-  defp handle_message(%Message{command: "AUTHENTICATE", params: ["PLAIN"]}, state) do
+  defp handle_message(%Message{command: "AUTHENTICATE", params: ["PLAIN"]}, state)
+       when state.auth_required? do
     send_message(state, "AUTHENTICATE", ["+"])
     {:noreply, %{state | sasl_mechanism: :plain}}
+  end
+
+  defp handle_message(%Message{command: "AUTHENTICATE", params: [mechanism]}, state)
+       when not state.auth_required? and mechanism in ["PLAIN", "EXTERNAL"] do
+    send_message(state, "904", [state.nick || "*", "SASL authentication unavailable"])
+    {:noreply, state}
   end
 
   defp handle_message(%Message{command: "AUTHENTICATE", params: ["EXTERNAL"]}, state)
