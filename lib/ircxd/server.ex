@@ -556,6 +556,21 @@ defmodule Ircxd.Server do
         state = broadcast(state, MapSet.new([connection]), user_message, connection)
 
         state =
+          case client.away do
+            nil ->
+              state
+
+            away ->
+              away_message = %Ircxd.Message{
+                source: state.server_name,
+                command: "301",
+                params: [requester, client.nick, away]
+              }
+
+              broadcast(state, MapSet.new([connection]), away_message, connection)
+          end
+
+        state =
           case client.account do
             nil ->
               state

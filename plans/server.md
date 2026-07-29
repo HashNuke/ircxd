@@ -63,6 +63,7 @@ to listen on different (or independently configured) endpoints.
    Channel modes `+v`/`-v` now grant and revoke moderated-channel speaking rights; voiced users appear as `+` in NAMES.
    `AWAY` now tracks per-connection presence, broadcasts updates, and returns `305`/`306` status numerics.
    `MONITOR` now supports add/remove/clear/list/status and online/offline notifications.
+   WHOIS now includes `301 RPL_AWAY` when the target has an away message.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
@@ -124,6 +125,7 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Added voice grants for moderated channels, `+` NAMES prefixes, and voice cleanup on membership removal | `test/ircxd/server_voice_mode_test.exs` |
 | 2026-07-29 | Added server AWAY state, channel presence fan-out, and standard away/unaway status replies | `test/ircxd/server_away_test.exs` |
 | 2026-07-29 | Added MONITOR tracking with `730`/`731` notifications, `732`/`733` list replies, and connect/disconnect tests | `test/ircxd/server_monitor_test.exs` |
+| 2026-07-29 | Added away-state WHOIS replies with `301 RPL_AWAY` coverage | `test/ircxd/server_away_test.exs` |
 | 2026-07-29 | Revalidated MONITOR presence behavior with 62 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Revalidated AWAY presence behavior with 60 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
 | 2026-07-29 | Revalidated voice and moderated-channel policy with 59 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |

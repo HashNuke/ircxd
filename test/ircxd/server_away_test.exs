@@ -27,6 +27,9 @@ defmodule Ircxd.ServerAwayTest do
     assert_receive {:ircxd, {:away, %{nick: "alice", away?: true, message: "gone fishing"}}},
                    2_000
 
+    assert :ok = Client.whois(bob, "alice")
+    assert_receive {:ircxd, {:away_reply, %{nick: "alice", text: "gone fishing"}}}, 2_000
+
     assert :ok = Client.away(alice)
     assert_receive {:ircxd, {:unaway, %{text: "You are no longer marked as being away"}}}, 2_000
     assert_receive {:ircxd, {:away, %{nick: "alice", away?: false, message: nil}}}, 2_000
