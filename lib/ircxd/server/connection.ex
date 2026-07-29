@@ -85,6 +85,12 @@ defmodule Ircxd.Server.Connection do
     {:noreply, state}
   end
 
+  defp handle_message(%Message{command: "CAP", params: ["LIST" | _]}, state) do
+    caps = state.active_capabilities |> MapSet.to_list() |> Enum.sort() |> Enum.join(" ")
+    send_message(state, "CAP", ["*", "LIST", caps])
+    {:noreply, state}
+  end
+
   defp handle_message(%Message{command: "CAP", params: ["END" | _]}, state),
     do: {:noreply, state}
 
