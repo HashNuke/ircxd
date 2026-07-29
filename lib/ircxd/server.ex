@@ -208,6 +208,7 @@ defmodule Ircxd.Server do
               username: nil,
               realname: nil,
               account: nil,
+              away: nil,
               registered?: false,
               channels: MapSet.new()
             }
@@ -689,6 +690,43 @@ defmodule Ircxd.Server do
 
         broadcast(state, MapSet.new([connection]), message, connection)
     end
+  end
+
+  defp handle_registered_command(state, connection, %{
+         command: "AWAY",
+         params: params
+       }) do
+    client = state.connections[connection]
+    away = List.first(params)
+    channels = client.channels
+
+    recipients =
+      Enum.reduce(channels, MapSet.new(), fn channel, recipients ->
+        MapSet.union(recipients, Map.get(state.channels, channel, MapSet.new()))
+      end)
+
+    message = %Ircxd.Message{
+      source: source_for(client, state.server_name),
+      command: "AWAY",
+      params: if(is_nil(away), do: [], else: [away])
+    }
+
+    state = broadcast(state, recipients, message, connection)
+    connections = Map.put(state.connections, connection, %{client | away: away})
+    state = %{state | connections: connections}
+
+    {command, text} =
+      if is_nil(away),
+        do: {"305", "You are no longer marked as being away"},
+        else: {"306", "You have been marked as being away"}
+
+    status = %Ircxd.Message{
+      source: state.server_name,
+      command: command,
+      params: [client.nick, text]
+    }
+
+    broadcast(state, MapSet.new([connection]), status, connection)
   end
 
   defp handle_registered_command(state, connection, %{
