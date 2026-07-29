@@ -10,6 +10,7 @@ defmodule Ircxd.Server do
   use GenServer
 
   alias Ircxd.Server.Connection
+  alias Ircxd.Server.SubscriberWorker
 
   @default_server_name "ircxd.local"
 
@@ -180,6 +181,8 @@ defmodule Ircxd.Server do
     if Process.alive?(state.acceptor), do: Process.exit(state.acceptor, :shutdown)
     :gen_tcp.close(state.listener)
     Enum.each(Map.keys(state.connections), &Process.exit(&1, :shutdown))
+
+    if state.subscriber, do: GenServer.stop(state.subscriber.pid, :shutdown)
   end
 
   defp listen(port) do
@@ -189,8 +192,8 @@ defmodule Ircxd.Server do
   defp init_subscriber(nil), do: nil
 
   defp init_subscriber({module, arg}) do
-    {:ok, subscriber_state} = module.init(arg)
-    %{module: module, state: subscriber_state}
+    {:ok, pid} = SubscriberWorker.start(module, arg)
+    %{pid: pid}
   end
 
   defp init_authenticator(nil), do: nil
@@ -207,12 +210,8 @@ defmodule Ircxd.Server do
   defp dispatch_to_subscriber(%{subscriber: nil} = state, _message, _metadata), do: state
 
   defp dispatch_to_subscriber(%{subscriber: subscriber} = state, message, metadata) do
-    case subscriber.module.handle_publish(message, metadata, subscriber.state) do
-      {:ok, subscriber_state} -> %{state | subscriber: %{subscriber | state: subscriber_state}}
-      _other -> state
-    end
-  rescue
-    _error -> state
+    GenServer.cast(subscriber.pid, {:publish, message, metadata})
+    state
   end
 
   defp handle_client_command(state, connection, %{

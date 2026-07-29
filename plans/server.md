@@ -36,7 +36,9 @@ to listen on different (or independently configured) endpoints.
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
 6. [x] Add a configurable subscriber callback and test that published messages
-   reach the embedding application with connection metadata.
+   reach the embedding application with connection metadata. Callback state is
+   serialized in a dedicated worker so slow or failing persistence cannot block
+   the listener or command routing.
 7. [ ] Add configurable callbacks/handler hooks and test callback failures and
    connection cleanup without taking down the listener.
 8. [x] Add an authentication contract for SASL and test database-backed host
@@ -69,3 +71,4 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Added channel-target validation and `403 ERR_NOSUCHCHANNEL` | `test/ircxd/server_validation_test.exs` |
 | 2026-07-29 | Added configured server-password registration with `PASS`/`464` tests | `test/ircxd/server_password_test.exs` |
 | 2026-07-29 | Full ExUnit suite and irssi 1.4.5 connection smoke check pass; registered the server matrix as ExDoc extra | `mix test`, `mix run` irssi check, `mix.exs` |
+| 2026-07-29 | Isolated subscriber callbacks in a serialized worker and covered slow/failing callback behavior | `Ircxd.Server.SubscriberWorker`, `test/ircxd/server_subscriber_test.exs` |

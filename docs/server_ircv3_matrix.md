@@ -20,7 +20,7 @@ Status values:
 | Core connection commands (`PING`, `PONG`, `QUIT`) | partial | `server_connection_test.exs`, `server_quit_test.exs`; explicit QUIT exists, add malformed/disconnect cases |
 | Channels (`JOIN`, `PART`, `NAMES`, `TOPIC`) | partial | `server_channels_test.exs`, `server_topic_test.exs`, `server_validation_test.exs`; core state and basic target validation exist, add modes/policy |
 | Published messages (`PRIVMSG`, `NOTICE`, `TAGMSG`) | partial | `server_messaging_test.exs`, `server_isolation_test.exs`, `server_direct_message_test.exs`, `server_tagmsg_test.exs`; channel/direct routing and tagged TAGMSG exist, add validation |
-| Subscriber callback contract and failure isolation | partial | `server_subscriber_test.exs`; add explicit crash/slow-callback isolation tests |
+| Subscriber callback contract and failure isolation | implemented | `server_subscriber_test.exs`; callback state is serialized in a worker and slow/raising callbacks do not block server routing |
 | Application-owned SASL authentication | partial | `server_authentication_test.exs`; PLAIN success/failure exist, add mechanisms and policy cases |
 | Capability negotiation and `CAP LS/REQ/END` | partial | `server_tagmsg_test.exs`, `server_authentication_test.exs`; message-tags and SASL advertisement/ACK exist, add unsupported-request/error cases |
 | Message tags, server-time, and message IDs | planned | `server_message_tags_test.exs` |
@@ -39,8 +39,9 @@ options. The subscriber receives every message the server publishes to clients,
 along with server/channel metadata, so an embedding application can persist
 messages or trigger other effects without the server owning a database.
 
-The callback must be isolated from connection processes: a subscriber failure
-must be observable and must not take down the listener or unrelated clients.
+The callback runs in a dedicated serialized worker owned by the server. A slow
+or failing subscriber cannot block connection processes, take down the
+listener, or affect unrelated clients.
 
 ## Authentication contract
 
