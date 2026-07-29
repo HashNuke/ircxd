@@ -21,7 +21,7 @@ to listen on different (or independently configured) endpoints.
 
 ## TDD tasks
 
-1. [ ] Define the public server lifecycle API and child spec with tests for
+1. [x] Define the public server lifecycle API and child spec with tests for
    starting/stopping one server and two isolated server instances.
 2. [ ] Add a TCP listener/acceptor boundary with tests using an ephemeral port,
    clean shutdown, and port-bind failure behavior.
@@ -45,4 +45,4 @@ to listen on different (or independently configured) endpoints.
 | Date | Change | Evidence |
 |---|---|---|
 | 2026-07-29 | Plan created on `server`; implementation not started | `plans/server.md` |
-
+| 2026-07-29 | Added `Ircxd.Server` listener, connection registration, and two lifecycle tests | `lib/ircxd/server.ex`, `lib/ircxd/server/connection.ex`, `test/ircxd/server_test.exs` |

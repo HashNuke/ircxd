@@ -1,0 +1,104 @@
+defmodule Ircxd.Server do
+  @moduledoc """
+  Embeddable IRC server.
+
+  Add `{Ircxd.Server, port: 6667}` to an application's supervision tree. Each
+  server owns its listener and connections, so multiple instances can run in
+  the same VM.
+  """
+
+  use GenServer
+
+  alias Ircxd.Server.Connection
+
+  @default_server_name "ircxd.local"
+
+  def start_link(opts) when is_list(opts) do
+    GenServer.start_link(__MODULE__, opts, Keyword.take(opts, [:name]))
+  end
+
+  def port(server), do: GenServer.call(server, :port)
+
+  @impl true
+  def init(opts) do
+    port = Keyword.get(opts, :port, 6667)
+    server_name = Keyword.get(opts, :server_name, @default_server_name)
+
+    with {:ok, listener} <- listen(port) do
+      {:ok, {_address, actual_port}} = :inet.sockname(listener)
+      owner = self()
+      {:ok, acceptor} = Task.start(fn -> accept_loop(listener, owner) end)
+
+      {:ok,
+       %{
+         listener: listener,
+         acceptor: acceptor,
+         port: actual_port,
+         server_name: server_name,
+         connections: %{}
+       }}
+    end
+  end
+
+  @impl true
+  def handle_call(:port, _from, state), do: {:reply, state.port, state}
+
+  @impl true
+  def handle_info({:accepted, socket}, state) do
+    case Connection.start(socket: socket, server: self(), server_name: state.server_name) do
+      {:ok, connection} ->
+        case :gen_tcp.controlling_process(socket, connection) do
+          :ok ->
+            send(connection, :activate)
+            ref = Process.monitor(connection)
+            connection_state = %{socket: socket, ref: ref}
+
+            {:noreply,
+             %{state | connections: Map.put(state.connections, connection, connection_state)}}
+
+          {:error, reason} ->
+            Process.exit(connection, :shutdown)
+            :gen_tcp.close(socket)
+            {:stop, reason, state}
+        end
+
+      {:error, reason} ->
+        :gen_tcp.close(socket)
+        {:stop, reason, state}
+    end
+  end
+
+  def handle_info({:server_client_registered, connection, nick}, state) do
+    {:noreply, update_in(state.connections[connection], &Map.put(&1, :nick, nick))}
+  end
+
+  def handle_info({:DOWN, _ref, :process, connection, _reason}, state) do
+    {:noreply, %{state | connections: Map.delete(state.connections, connection)}}
+  end
+
+  @impl true
+  def terminate(_reason, state) do
+    if Process.alive?(state.acceptor), do: Process.exit(state.acceptor, :shutdown)
+    :gen_tcp.close(state.listener)
+    Enum.each(Map.keys(state.connections), &Process.exit(&1, :shutdown))
+  end
+
+  defp listen(port) do
+    :gen_tcp.listen(port, [:binary, packet: :line, active: false, reuseaddr: true])
+  end
+
+  defp accept_loop(listener, owner) do
+    case :gen_tcp.accept(listener) do
+      {:ok, socket} ->
+        :ok = :gen_tcp.controlling_process(socket, owner)
+        send(owner, {:accepted, socket})
+        accept_loop(listener, owner)
+
+      {:error, :closed} ->
+        :ok
+
+      {:error, reason} ->
+        send(owner, {:accept_error, reason})
+    end
+  end
+end
