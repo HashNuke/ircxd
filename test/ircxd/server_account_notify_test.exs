@@ -4,7 +4,7 @@ defmodule Ircxd.ServerAccountNotifyTest do
   alias Ircxd.{Client, Server}
 
   defmodule Authenticator do
-    @behaviour Ircxd.Server.Authenticator
+    @behaviour Ircxd.Server.Adapter
 
     @impl true
     def init(test_pid), do: {:ok, test_pid}
@@ -34,7 +34,7 @@ defmodule Ircxd.ServerAccountNotifyTest do
       Server.start_link(
         port: 0,
         allow_insecure_auth: true,
-        authenticator: {Authenticator, self()}
+        adapter: {Authenticator, self()}
       )
 
     on_exit(fn -> stop_if_alive(server) end)
@@ -63,7 +63,7 @@ defmodule Ircxd.ServerAccountNotifyTest do
       Server.start_link(
         port: 0,
         allow_insecure_auth: true,
-        authenticator: {Authenticator, self()}
+        adapter: {Authenticator, self()}
       )
 
     on_exit(fn -> stop_if_alive(server) end)

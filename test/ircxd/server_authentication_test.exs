@@ -10,7 +10,7 @@ defmodule Ircxd.ServerAuthenticationTest do
   @client_keyfile Path.expand("../support/tls/client.key", __DIR__)
 
   defmodule Authenticator do
-    @behaviour Ircxd.Server.Authenticator
+    @behaviour Ircxd.Server.Adapter
 
     @impl true
     def init(test_pid), do: {:ok, test_pid}
@@ -28,7 +28,7 @@ defmodule Ircxd.ServerAuthenticationTest do
   end
 
   defmodule ExternalAuthenticator do
-    @behaviour Ircxd.Server.Authenticator
+    @behaviour Ircxd.Server.Adapter
 
     @impl true
     def init({test_pid, expected_fingerprint}),
@@ -53,7 +53,7 @@ defmodule Ircxd.ServerAuthenticationTest do
   end
 
   defmodule RaisingAuthenticator do
-    @behaviour Ircxd.Server.Authenticator
+    @behaviour Ircxd.Server.Adapter
 
     @impl true
     def init(test_pid), do: {:ok, test_pid}
@@ -66,7 +66,7 @@ defmodule Ircxd.ServerAuthenticationTest do
   end
 
   defmodule RejectingAuthenticator do
-    @behaviour Ircxd.Server.Authenticator
+    @behaviour Ircxd.Server.Adapter
 
     @impl true
     def init(:reject), do: {:error, :database_unavailable}
@@ -76,7 +76,7 @@ defmodule Ircxd.ServerAuthenticationTest do
   end
 
   defmodule BlockingAuthenticator do
-    @behaviour Ircxd.Server.Authenticator
+    @behaviour Ircxd.Server.Adapter
 
     @impl true
     def init({test_pid, delay}), do: {:ok, %{test_pid: test_pid, delay: delay}}
@@ -95,7 +95,7 @@ defmodule Ircxd.ServerAuthenticationTest do
         port: 0,
         server_name: "ircxd.test",
         allow_insecure_auth: true,
-        authenticator: {Authenticator, self()}
+        adapter: {Authenticator, self()}
       )
 
     on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
@@ -138,7 +138,7 @@ defmodule Ircxd.ServerAuthenticationTest do
       Server.start_link(
         port: 0,
         authentication_timeout: 25,
-        authenticator: {BlockingAuthenticator, {self(), 500}}
+        adapter: {BlockingAuthenticator, {self(), 500}}
       )
 
     on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
@@ -153,13 +153,12 @@ defmodule Ircxd.ServerAuthenticationTest do
     assert Process.alive?(server)
   end
 
-  test "rejects authentication attempts when the bounded queue is full" do
+  test "serializes authentication attempts through the adapter" do
     {:ok, server} =
       Server.start_link(
         port: 0,
         authentication_timeout: 100,
-        max_authentication_attempts: 1,
-        authenticator: {BlockingAuthenticator, {self(), 500}}
+        adapter: {BlockingAuthenticator, {self(), 500}}
       )
 
     on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
@@ -171,10 +170,15 @@ defmodule Ircxd.ServerAuthenticationTest do
 
     assert_receive :authentication_started, 1_000
 
-    assert {:error, :authentication_overloaded} =
-             Server.authenticate(server, "second-user", "secret", %{connection: self()})
+    second_task =
+      Task.async(fn ->
+        Server.authenticate(server, "second-user", "secret", %{connection: self()})
+      end)
+
+    refute_receive :authentication_started, 50
 
     assert {:error, :authentication_timeout} = Task.await(result_task, 1_000)
+    assert {:error, :authentication_timeout} = Task.await(second_task, 1_000)
   end
 
   test "does not register clients when the authenticator rejects credentials" do
@@ -183,7 +187,7 @@ defmodule Ircxd.ServerAuthenticationTest do
         port: 0,
         server_name: "ircxd.test",
         allow_insecure_auth: true,
-        authenticator: {Authenticator, self()}
+        adapter: {Authenticator, self()}
       )
 
     on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
@@ -212,7 +216,7 @@ defmodule Ircxd.ServerAuthenticationTest do
         port: 0,
         server_name: "ircxd.test",
         allow_insecure_auth: true,
-        authenticator: {Authenticator, self()}
+        adapter: {Authenticator, self()}
       )
 
     on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
@@ -253,7 +257,7 @@ defmodule Ircxd.ServerAuthenticationTest do
           cacertfile: @cacertfile
         ],
         external_auth: true,
-        authenticator: {ExternalAuthenticator, {self(), expected_fingerprint}}
+        adapter: {ExternalAuthenticator, {self(), expected_fingerprint}}
       )
 
     on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
@@ -297,7 +301,7 @@ defmodule Ircxd.ServerAuthenticationTest do
     {:ok, server} =
       Server.start_link(
         port: 0,
-        authenticator: {ExternalAuthenticator, {self(), "unused"}}
+        adapter: {ExternalAuthenticator, {self(), "unused"}}
       )
 
     on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
@@ -326,7 +330,7 @@ defmodule Ircxd.ServerAuthenticationTest do
              Server.start_link(
                port: 0,
                external_auth: true,
-               authenticator: {ExternalAuthenticator, {self(), "unused"}}
+               adapter: {ExternalAuthenticator, {self(), "unused"}}
              )
 
     assert {:error, :external_auth_requires_verified_client_certificates} =
@@ -335,7 +339,7 @@ defmodule Ircxd.ServerAuthenticationTest do
                tls: true,
                tls_options: [certfile: @server_certfile, keyfile: @server_keyfile],
                external_auth: true,
-               authenticator: {ExternalAuthenticator, {self(), "unused"}}
+               adapter: {ExternalAuthenticator, {self(), "unused"}}
              )
   end
 
@@ -344,7 +348,7 @@ defmodule Ircxd.ServerAuthenticationTest do
       Server.start_link(
         port: 0,
         allow_insecure_auth: true,
-        authenticator: {RaisingAuthenticator, self()}
+        adapter: {RaisingAuthenticator, self()}
       )
 
     on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
@@ -375,15 +379,15 @@ defmodule Ircxd.ServerAuthenticationTest do
     result =
       Server.start_link(
         port: 0,
-        authenticator: {RejectingAuthenticator, :reject}
+        adapter: {RejectingAuthenticator, :reject}
       )
 
     Process.flag(:trap_exit, previous_trap_exit)
 
-    assert {:error, {:authenticator_init_failed, :database_unavailable}} = result
+    assert {:error, {:adapter_init_failed, :database_unavailable}} = result
   end
 
-  test "rejects SASL mechanisms when no authenticator is configured" do
+  test "does not advertise SASL when no authentication callback is configured" do
     {:ok, server} = Server.start_link(port: 0)
     on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
 
@@ -410,7 +414,7 @@ defmodule Ircxd.ServerAuthenticationTest do
       Server.start_link(
         port: 0,
         allow_insecure_auth: true,
-        authenticator: {Authenticator, self()}
+        adapter: {Authenticator, self()}
       )
 
     on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)

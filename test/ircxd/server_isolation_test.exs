@@ -4,7 +4,7 @@ defmodule Ircxd.ServerIsolationTest do
   alias Ircxd.{Client, Message, Server}
 
   defmodule Recorder do
-    @behaviour Ircxd.Server.Subscriber
+    @behaviour Ircxd.Server.Adapter
 
     @impl true
     def init({test_pid, label}), do: {:ok, {test_pid, label}}
@@ -21,14 +21,14 @@ defmodule Ircxd.ServerIsolationTest do
       Server.start_link(
         port: 0,
         server_name: "first.test",
-        subscriber: {Recorder, {self(), :first}}
+        adapter: {Recorder, {self(), :first}}
       )
 
     {:ok, second} =
       Server.start_link(
         port: 0,
         server_name: "second.test",
-        subscriber: {Recorder, {self(), :second}}
+        adapter: {Recorder, {self(), :second}}
       )
 
     on_exit(fn ->

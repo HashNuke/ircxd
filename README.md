@@ -106,19 +106,19 @@ children = [
 Supervisor.start_link(children, strategy: :one_for_one)
 ```
 
-The server accepts `subscriber: {Module, init_arg}` for application-owned
-message persistence or side effects, and `authenticator: {Module, init_arg}`
-for application-owned SASL credential checks. See
+The server accepts one `adapter: {Module, init_arg}` for application-owned
+message persistence, side effects, and SASL credential checks. See
 `docs/server_ircv3_matrix.md` and `plans/server.md` for the current protocol
 coverage and boundaries.
 
-Subscribers implement `Ircxd.Server.Subscriber`. The callback state is kept
-inside a serialized worker, and each published message includes server and
-connection metadata:
+Adapters implement `Ircxd.Server.Adapter`. The callback state is shared by a
+serialized worker, so message and authentication callbacks can coordinate
+application-owned state such as authentication attempt tracking. Each
+published message includes server and connection metadata:
 
 ```elixir
-defmodule MyApp.IrcSubscriber do
-  @behaviour Ircxd.Server.Subscriber
+defmodule MyApp.IrcAdapter do
+  @behaviour Ircxd.Server.Adapter
 
   @impl true
   def init(db), do: {:ok, db}
@@ -133,12 +133,14 @@ end
 {Ircxd.Server,
  id: :public_irc,
  port: 6667,
- subscriber: {MyApp.IrcSubscriber, MyApp.Repo}}
+ adapter: {MyApp.IrcAdapter, MyApp.Repo}}
 ```
 
-Subscriber callbacks should return `{:ok, state}`. Callback exceptions are
-contained by the server worker; persistence remains owned by the embedding
-application.
+Adapters may implement `handle_publish/3` and `authenticate/4`; both callbacks
+return updated adapter state. Authentication callbacks return
+`{:ok, account, state}` or `{:error, reason, state}`. Callback exceptions are
+contained by the worker; persistence and authentication policy remain owned by
+the embedding application.
 
 Server information can be configured with `motd: ["Welcome"]`,
 `info: ["Ircxd.Server"]`, and `isupport: ["CHANTYPES=#&", "NICKLEN=30"]`.
@@ -150,9 +152,8 @@ handshake timeout. These can be changed with `max_connections`,
 `command_rate_limit`, `max_handshakes`, and `handshake_timeout`.
 
 Authentication callbacks run in a supervised, serialized worker with a
-five-second timeout and a maximum queue of 16 attempts by default. Configure
-these per server with `authentication_timeout` and
-`max_authentication_attempts`; application configuration under
+five-second timeout. Configure this per server with
+`authentication_timeout`; application configuration under
 `config :ircxd, Ircxd.Server, ...` supplies defaults when per-server options
 are not provided.
 
@@ -175,7 +176,7 @@ verifies client certificates:
  port: 6697,
  tls: true,
  external_auth: true,
- authenticator: {MyApp.IrcAuthenticator, MyApp.Repo},
+ adapter: {MyApp.IrcAdapter, MyApp.Repo},
  tls_options: [
    certfile: "/path/to/server.crt",
    keyfile: "/path/to/server.key",

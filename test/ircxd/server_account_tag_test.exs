@@ -4,7 +4,7 @@ defmodule Ircxd.ServerAccountTagTest do
   alias Ircxd.{Client, Message, Server}
 
   defmodule Authenticator do
-    @behaviour Ircxd.Server.Authenticator
+    @behaviour Ircxd.Server.Adapter
 
     @impl true
     def init(_arg), do: {:ok, nil}
@@ -19,7 +19,7 @@ defmodule Ircxd.ServerAccountTagTest do
 
   test "adds account tags to messages from authenticated users" do
     {:ok, server} =
-      Server.start_link(port: 0, allow_insecure_auth: true, authenticator: {Authenticator, nil})
+      Server.start_link(port: 0, allow_insecure_auth: true, adapter: {Authenticator, nil})
 
     on_exit(fn -> stop_if_alive(server) end)
 

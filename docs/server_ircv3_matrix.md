@@ -22,8 +22,8 @@ Status values:
 | Channels and identity (`JOIN`, `PART`, `INVITE`, `KICK`, `NAMES`, `WHO`, `WHOIS`, `TOPIC`, `MODE`, `LIST`) | partial | Existing focused channel tests plus `server_casemapping_test.exs`; core state, channel modes, visibility, authorization, and advertised `CASEMAPPING` normalization for nicknames, channels, mode parameters, masks, and command targets exist; add remaining channel policy/modes |
 | Published messages (`PRIVMSG`, `NOTICE`, `TAGMSG`) | partial | `server_messaging_test.exs`, `server_isolation_test.exs`, `server_direct_message_test.exs`, `server_multi_target_message_test.exs`, `server_tagmsg_test.exs`, `server_tagmsg_policy_test.exs`, `server_message_tags_test.exs`, `server_message_errors_test.exs`, `server_message_target_test.exs`, `server_echo_message_test.exs`, `server_account_tag_test.exs`; channel/direct and comma-separated multi-target routing, negotiated sender echo, per-recipient account tags, tag preservation, shared membership/moderation/`+n` policy for `TAGMSG`, malformed policy, and target/membership errors exist, add remaining command validation |
 | Input limits and malformed wire handling | partial | `server_limits_test.exs`, `server_transport_security_test.exs`, and protocol-validation tests; sockets use bounded line packets and `active: :once`, commands are synchronously backpressured, connection/rate limits close excess clients, oversized complete IRC messages return 417, oversized unterminated input is closed by the transport, and malformed command numerics are covered; add remaining malformed parameter policy |
-| Subscriber callback contract and failure isolation | implemented | `server_subscriber_test.exs`; callback state is serialized in a worker, slow/raising callbacks do not block server routing, and subscriber initialization failures return structured startup errors without leaving the listener active |
-| Application-owned SASL authentication | partial | `server_authentication_test.exs`; structured authenticator initialization failures, immediate `904` rejection when SASL is not configured, unsupported-mechanism `904` responses, mechanism-state reset after credential attempts, PLAIN success/failure, serialized authenticator state, raised/malformed authenticator failure isolation, account propagation through WHOIS `330`, standard `900 RPL_LOGGEDIN` metadata, and `AUTHENTICATE *` abort handling with `906` exist, add mechanisms and policy cases |
+| Adapter callback contract and failure isolation | implemented | `server_adapter_test.exs`, `server_subscriber_test.exs`; shared adapter state is serialized in a worker, slow/raising callbacks do not block server routing, and adapter initialization failures return structured startup errors without leaving the listener active |
+| Application-owned SASL authentication | partial | `server_authentication_test.exs`; structured adapter initialization failures, no SASL advertisement when no callback is configured, unsupported-mechanism `904` responses, mechanism-state reset after credential attempts, PLAIN success/failure, serialized adapter state, raised/malformed callback failure isolation, account propagation through WHOIS `330`, standard `900 RPL_LOGGEDIN` metadata, and `AUTHENTICATE *` abort handling with `906` exist, add mechanisms and policy cases |
 | Capability negotiation and `CAP LS/REQ/LIST/END` | partial | `server_tagmsg_test.exs`, `server_authentication_test.exs`, `server_capability_test.exs`, `server_server_time_test.exs`, `server_extended_join_test.exs`, `server_away_notify_test.exs`, `server_account_notify_test.exs`, `server_echo_message_test.exs`, `server_account_tag_test.exs`, `server_multi_prefix_test.exs`, `server_userhost_names_test.exs`, `server_implicit_names_test.exs`, `server_setname_test.exs`, `server_capability_disable_test.exs`, `server_capability_list_test.exs`, `server_invite_notify_test.exs`, `server_labeled_response_test.exs`, `server_batch_test.exs`; LS/ACK/NAK/LIST/END, positive and negative capability requests, missing `CAP REQ` parameter `461` handling, active-capability listing, message-tags/SASL/server-time/extended-join/away-notify/account-notify/account-tag/echo-message/multi-prefix/userhost-in-names/no-implicit-names/setname/invite-notify/labeled-response/batch advertisement, recipient-aware client batch framing, capability-gated invite notifications, labeled WHOIS replies, and negotiated per-connection capability state exist, add capability state policy cases |
 | Message tags, server-time, and message IDs | partial | `server_message_tags_test.exs`, `server_server_time_test.exs`, `server_message_id_test.exs`, `server_account_tag_test.exs`; client-only tag relay, negotiated `time=YYYY-MM-DDThh:mm:ss.sssZ` server tags, per-recipient account tags, and shared server-generated `msgid` values for tagged recipients exist, add message-ID policy cases |
 | SASL mechanisms beyond PLAIN | partial | `server_authentication_test.exs`; opt-in SASL `EXTERNAL` requires mutual TLS with a verified client certificate and supplies the certificate and SHA-256 fingerprint to application-owned identity policy; SCRAM remains |
@@ -31,28 +31,27 @@ Status values:
 | Batches, multiline, history, and redaction | partial | `server_batch_test.exs`, `server_multiline_test.exs`, `server_chat_history_test.exs`, `server_chat_history_targets_test.exs`, `server_redaction_test.exs`; client-originated `BATCH` start/end framing and `draft/multiline` messages are relayed to actual recipients, bounded member-only `CHATHISTORY LATEST`/`BEFORE`/`AFTER`/`AROUND`/`BETWEEN` replies and visible `TARGETS` discovery are served from in-memory channel history, authors/operators can redact stored channel messages with capability-gated relay, and unauthorized members receive `REDACT_FORBIDDEN`, while broader moderation policy remains |
 | Standard replies and labeled responses | partial | `server_labeled_response_test.exs`, `server_standard_reply_test.exs`; labeled WHOIS and PING/PONG response sequences preserve request labels and negotiated clients receive `FAIL ... UNKNOWN_COMMAND` alongside `421`, while broader labeled-command and standard-reply coverage remains |
 | TLS listener and STS policy | partial | `server_tls_test.exs`; implicit TLS listeners use bounded concurrent handshakes with a configurable timeout, can require trusted client certificates for EXTERNAL, and share the normal protocol path; certificate provisioning and STS policy remain host-owned |
-| Persistence, moderation policy, and application side effects | host | subscriber/callback contract |
+| Persistence, moderation policy, and application side effects | host | adapter callback contract |
 | irssi interoperability | partial | `scripts/run_irssi_server_check.sh`; irssi connects to a disposable `Ircxd.Server` in a named tmux session and receives a message sent by `Ircxd.Client`, while the existing `scripts/run_irssi_manual_check.sh` covers the external InspIRCd gate |
 
 Private channel mode `+p` is covered by `server_private_mode_test.exs`: it
 uses the private `*` NAMES symbol and hides non-member LIST results while
 remaining distinguishable from secret mode `+s`.
 
-## Subscriber contract
+## Adapter contract
 
-The server accepts a subscriber module and initialization argument in its
-options. The subscriber receives every message the server publishes to clients,
-along with server/channel metadata, so an embedding application can persist
-messages or trigger other effects without the server owning a database.
+The server accepts one adapter module and initialization argument in its
+options. The adapter receives every message the server publishes to clients,
+along with server/channel metadata, and may also authenticate SASL credentials.
+Its callback state is shared, so applications can keep message handling and
+authentication attempt policy together without the server owning a database.
 
-The callback runs in a dedicated serialized worker owned by the server. A slow
-or failing subscriber cannot block connection processes, take down the
-listener, or affect unrelated clients.
+Callbacks run in a dedicated worker owned by the server. A slow or failing
+callback cannot block connection processes or take down the listener.
 
 ## Authentication contract
 
-The server accepts an `authenticator: {module, init_arg}` option. The module
-implements `Ircxd.Server.Authenticator`; its `authenticate/4` callback receives
+The adapter implements `Ircxd.Server.Adapter`; its `authenticate/4` callback receives
 the decoded SASL PLAIN username and password, connection metadata, and its own
 state. The callback may query the embedding application's database and returns
 an account value on success or a reason on failure. The server does not own

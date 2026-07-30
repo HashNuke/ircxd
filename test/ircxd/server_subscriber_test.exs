@@ -4,7 +4,7 @@ defmodule Ircxd.ServerSubscriberTest do
   alias Ircxd.{Client, Message, Server}
 
   defmodule Recorder do
-    @behaviour Ircxd.Server.Subscriber
+    @behaviour Ircxd.Server.Adapter
 
     @impl true
     def init(test_pid), do: {:ok, test_pid}
@@ -17,7 +17,7 @@ defmodule Ircxd.ServerSubscriberTest do
   end
 
   defmodule SlowSubscriber do
-    @behaviour Ircxd.Server.Subscriber
+    @behaviour Ircxd.Server.Adapter
 
     @impl true
     def init(test_pid), do: {:ok, test_pid}
@@ -31,7 +31,7 @@ defmodule Ircxd.ServerSubscriberTest do
   end
 
   defmodule FailingSubscriber do
-    @behaviour Ircxd.Server.Subscriber
+    @behaviour Ircxd.Server.Adapter
 
     @impl true
     def init(test_pid), do: {:ok, test_pid}
@@ -44,7 +44,7 @@ defmodule Ircxd.ServerSubscriberTest do
   end
 
   defmodule RejectingSubscriber do
-    @behaviour Ircxd.Server.Subscriber
+    @behaviour Ircxd.Server.Adapter
 
     @impl true
     def init(:reject), do: {:error, :subscriber_unavailable}
@@ -58,7 +58,7 @@ defmodule Ircxd.ServerSubscriberTest do
       Server.start_link(
         port: 0,
         server_name: "ircxd.test",
-        subscriber: {Recorder, self()}
+        adapter: {Recorder, self()}
       )
 
     on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
@@ -86,7 +86,7 @@ defmodule Ircxd.ServerSubscriberTest do
   end
 
   test "a slow subscriber does not block server command routing" do
-    {:ok, server} = Server.start_link(port: 0, subscriber: {SlowSubscriber, self()})
+    {:ok, server} = Server.start_link(port: 0, adapter: {SlowSubscriber, self()})
     on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
 
     {:ok, client} =
@@ -107,7 +107,7 @@ defmodule Ircxd.ServerSubscriberTest do
   end
 
   test "a subscriber exception does not take down the server" do
-    {:ok, server} = Server.start_link(port: 0, subscriber: {FailingSubscriber, self()})
+    {:ok, server} = Server.start_link(port: 0, adapter: {FailingSubscriber, self()})
     on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
 
     {:ok, client} =
@@ -134,10 +134,10 @@ defmodule Ircxd.ServerSubscriberTest do
 
     previous_trap_exit = Process.flag(:trap_exit, true)
 
-    result = Server.start_link(port: port, subscriber: {RejectingSubscriber, :reject})
+    result = Server.start_link(port: port, adapter: {RejectingSubscriber, :reject})
 
     Process.flag(:trap_exit, previous_trap_exit)
-    assert {:error, {:subscriber_init_failed, :subscriber_unavailable}} = result
+    assert {:error, {:adapter_init_failed, :subscriber_unavailable}} = result
 
     assert {:ok, socket} = :gen_tcp.listen(port, [:binary, active: false, reuseaddr: true])
     :ok = :gen_tcp.close(socket)

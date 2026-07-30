@@ -12,7 +12,7 @@ defmodule Ircxd.Server do
   alias Ircxd.Casemapping
   alias Ircxd.ISupport
   alias Ircxd.Server.Connection
-  alias Ircxd.Server.SubscriberWorker
+  alias Ircxd.Server.AdapterWorker
 
   @default_server_name "ircxd.local"
 
@@ -35,8 +35,20 @@ defmodule Ircxd.Server do
   def publish(server, message, metadata),
     do: GenServer.cast(server, {:publish, message, metadata})
 
-  def authenticate(server, username, password, metadata),
-    do: GenServer.call(server, {:authenticate, username, password, metadata}, :infinity)
+  def authenticate(server, username, password, metadata) do
+    result =
+      case GenServer.call(server, :adapter) do
+        nil -> {:error, :authentication_not_configured}
+        adapter -> AdapterWorker.authenticate(adapter, username, password, metadata)
+      end
+
+    case {result, Map.get(metadata, :connection)} do
+      {{:ok, account}, connection} when is_pid(connection) -> account(server, connection, account)
+      _ -> :ok
+    end
+
+    result
+  end
 
   def command(server, connection, message) do
     GenServer.call(server, {:client_command, connection, message})
@@ -50,6 +62,9 @@ defmodule Ircxd.Server do
 
   def identity(server, connection, username, realname),
     do: GenServer.cast(server, {:client_identity, connection, username, realname})
+
+  def account(server, connection, account),
+    do: GenServer.cast(server, {:client_account, connection, account})
 
   def register(server, connection, nick),
     do: GenServer.call(server, {:register, connection, nick})
@@ -76,12 +91,15 @@ defmodule Ircxd.Server do
     admin = normalize_admin(Keyword.get(opts, :admin))
 
     with :ok <- validate_external_auth(external_auth?, tls?, tls_options),
-         {:ok, authenticator} <- init_authenticator(Keyword.get(opts, :authenticator)),
          {:ok, {transport, listener}} <- listen(port, tls?, tls_options),
          {:ok, {_address, actual_port}} <- socket_name(transport, listener) do
-      case init_subscriber(Keyword.get(opts, :subscriber)) do
-        {:ok, subscriber} ->
-          {:ok, authentication_supervisor} = Task.Supervisor.start_link(max_children: 1)
+      case init_adapter(
+             Keyword.get(opts, :adapter),
+             configured_option(opts, :authentication_timeout, 5_000)
+           ) do
+        {:ok, adapter} ->
+          authentication_enabled? =
+            not is_nil(adapter) and AdapterWorker.authentication_enabled?(adapter)
 
           {:ok, handshake_supervisor} =
             Task.Supervisor.start_link(
@@ -110,21 +128,10 @@ defmodule Ircxd.Server do
              transport: transport,
              acceptor: acceptor,
              handshake_supervisor: handshake_supervisor,
-             authentication_supervisor: authentication_supervisor,
              port: actual_port,
              server_name: server_name,
              password: password,
              allow_insecure_auth?: Keyword.get(opts, :allow_insecure_auth, false),
-             authentication_timeout:
-               normalize_authentication_timeout(
-                 configured_option(opts, :authentication_timeout, 5_000)
-               ),
-             max_authentication_attempts:
-               normalize_max_authentication_attempts(
-                 configured_option(opts, :max_authentication_attempts, 16)
-               ),
-             authentication_queue: [],
-             authentication_task: nil,
              motd: motd,
              info: info,
              help: help,
@@ -156,10 +163,10 @@ defmodule Ircxd.Server do
              monitors: %{},
              connection_capabilities: %{},
              message_id: 0,
-             capabilities: capabilities(not is_nil(authenticator)),
+             capabilities: capabilities(authentication_enabled?),
+             authentication_enabled?: authentication_enabled?,
              external_auth?: external_auth?,
-             subscriber: subscriber,
-             authenticator: authenticator
+             adapter: adapter
            }}
 
         {:error, reason} ->
@@ -171,6 +178,8 @@ defmodule Ircxd.Server do
 
   @impl true
   def handle_call(:port, _from, state), do: {:reply, state.port, state}
+
+  def handle_call(:adapter, _from, state), do: {:reply, state.adapter, state}
 
   def handle_call({:register, connection, nick}, _from, state) do
     nick_key = fold_name(state, nick)
@@ -263,33 +272,13 @@ defmodule Ircxd.Server do
     {:reply, reply, state}
   end
 
-  def handle_call({:authenticate, username, password, metadata}, from, state) do
-    cond do
-      is_nil(state.authenticator) ->
-        {:reply, {:error, :authentication_not_configured}, state}
-
-      authentication_queue_size(state) >= state.max_authentication_attempts ->
-        {:reply, {:error, :authentication_overloaded}, state}
-
-      true ->
-        request = %{from: from, username: username, password: password, metadata: metadata}
-        state = %{state | authentication_queue: state.authentication_queue ++ [request]}
-
-        if is_nil(state.authentication_task) do
-          {:noreply, maybe_start_authentication(state)}
-        else
-          {:noreply, state}
-        end
-    end
-  end
-
   def handle_call({:client_command, connection, message}, _from, state) do
     {:reply, :ok, handle_client_command(state, connection, message)}
   end
 
   @impl true
   def handle_cast({:publish, message, metadata}, state) do
-    {:noreply, dispatch_to_subscriber(state, message, metadata)}
+    {:noreply, dispatch_to_adapter(state, message, metadata)}
   end
 
   def handle_cast({:client_identity, connection, username, realname}, state) do
@@ -303,6 +292,28 @@ defmodule Ircxd.Server do
           })
 
         {:noreply, %{state | connections: connections}}
+
+      :error ->
+        {:noreply, state}
+    end
+  end
+
+  def handle_cast({:client_account, connection, account}, state) do
+    case Map.fetch(state.connections, connection) do
+      {:ok, client} ->
+        state = %{
+          state
+          | connections: Map.put(state.connections, connection, %{client | account: account})
+        }
+
+        state =
+          if client.registered? and client.account != account do
+            notify_account(state, connection, account)
+          else
+            state
+          end
+
+        {:noreply, state}
 
       :error ->
         {:noreply, state}
@@ -338,7 +349,7 @@ defmodule Ircxd.Server do
            allow_insecure_auth?: state.allow_insecure_auth?,
            registration_timeout: state.registration_timeout,
            command_rate_limit: state.command_rate_limit,
-           auth_required?: not is_nil(state.authenticator),
+           auth_required?: state.authentication_enabled?,
            external_auth?: state.external_auth?,
            capabilities: state.capabilities
          ) do
@@ -390,40 +401,10 @@ defmodule Ircxd.Server do
     {:noreply, remove_connection(state, connection)}
   end
 
+  def handle_info({:DOWN, _ref, :process, _connection, _reason}, state), do: {:noreply, state}
+
   def handle_info({:tls_handshake_error, _reason}, state), do: {:noreply, state}
   def handle_info({:accept_error, reason}, state), do: {:stop, {:accept_error, reason}, state}
-
-  def handle_info({ref, result}, %{authentication_task: %{ref: ref} = task} = state) do
-    Process.cancel_timer(task.timer)
-    Process.demonitor(ref, [:flush])
-    {request, state} = finish_authentication(state, result)
-    GenServer.reply(request.from, authentication_reply(result))
-    {:noreply, maybe_start_authentication(state)}
-  end
-
-  def handle_info(
-        {:authentication_timeout, ref},
-        %{authentication_task: %{ref: ref} = task} = state
-      ) do
-    Task.Supervisor.terminate_child(state.authentication_supervisor, task.pid)
-    Process.demonitor(ref, [:flush])
-    {request, state} = finish_authentication(state, {:error, :authentication_timeout, nil})
-    GenServer.reply(request.from, {:error, :authentication_timeout})
-    {:noreply, maybe_start_authentication(state)}
-  end
-
-  def handle_info(
-        {:DOWN, ref, :process, _pid, reason},
-        %{authentication_task: %{ref: ref} = task} = state
-      ) do
-    Process.cancel_timer(task.timer)
-    {request, state} = finish_authentication(state, {:error, :authentication_failed, nil})
-    GenServer.reply(request.from, {:error, {:authentication_task_failed, reason}})
-    {:noreply, maybe_start_authentication(state)}
-  end
-
-  def handle_info({ref, _result}, state) when is_reference(ref), do: {:noreply, state}
-  def handle_info({:authentication_timeout, _ref}, state), do: {:noreply, state}
 
   @impl true
   def terminate(_reason, state) do
@@ -431,11 +412,8 @@ defmodule Ircxd.Server do
     close_socket(state.transport, state.listener)
     Enum.each(Map.keys(state.connections), &Process.exit(&1, :shutdown))
 
-    if state.subscriber, do: GenServer.stop(state.subscriber.pid, :shutdown)
     if Process.alive?(state.handshake_supervisor), do: Supervisor.stop(state.handshake_supervisor)
-
-    if Process.alive?(state.authentication_supervisor),
-      do: Supervisor.stop(state.authentication_supervisor)
+    if state.adapter, do: GenServer.stop(state.adapter, :shutdown)
   end
 
   defp listen(port, false, _tls_options) do
@@ -484,133 +462,14 @@ defmodule Ircxd.Server do
   defp close_socket(:gen_tcp, socket), do: :gen_tcp.close(socket)
   defp close_socket(:ssl, socket), do: :ssl.close(socket)
 
-  defp init_subscriber(nil), do: {:ok, nil}
+  defp init_adapter(nil, _authentication_timeout), do: {:ok, nil}
 
-  defp init_subscriber({module, arg}) do
-    case SubscriberWorker.start(module, arg) do
-      {:ok, pid} -> {:ok, %{pid: pid}}
-      {:error, reason} -> {:error, reason}
-    end
+  defp init_adapter({module, arg}, authentication_timeout) when is_atom(module) do
+    AdapterWorker.start(module, arg, normalize_authentication_timeout(authentication_timeout))
   end
 
-  defp init_authenticator(nil), do: {:ok, nil}
-
-  defp init_authenticator({module, arg}) do
-    result =
-      try do
-        module.init(arg)
-      rescue
-        _error -> {:error, :initialization_failed}
-      catch
-        _kind, _reason -> {:error, :initialization_failed}
-      end
-
-    case result do
-      {:ok, authenticator_state} -> {:ok, %{module: module, state: authenticator_state}}
-      {:error, reason} -> {:error, {:authenticator_init_failed, reason}}
-      _other -> {:error, {:authenticator_init_failed, :invalid_return}}
-    end
-  end
-
-  defp invoke_authenticator(authenticator, username, password, metadata) do
-    result =
-      try do
-        authenticator.module.authenticate(
-          username,
-          password,
-          metadata,
-          authenticator.state
-        )
-      rescue
-        _error -> {:error, :authentication_failed, authenticator.state}
-      catch
-        _kind, _reason -> {:error, :authentication_failed, authenticator.state}
-      end
-
-    case result do
-      {:ok, _account, _authenticator_state} -> result
-      {:error, _reason, _authenticator_state} -> result
-      _other -> {:error, :authentication_failed, authenticator.state}
-    end
-  end
-
-  defp maybe_start_authentication(%{authentication_task: nil, authentication_queue: []} = state),
-    do: state
-
-  defp maybe_start_authentication(%{authentication_task: nil} = state) do
-    [request | queue] = state.authentication_queue
-    authenticator = state.authenticator
-
-    task =
-      Task.Supervisor.async_nolink(state.authentication_supervisor, fn ->
-        invoke_authenticator(authenticator, request.username, request.password, request.metadata)
-      end)
-
-    timer =
-      Process.send_after(
-        self(),
-        {:authentication_timeout, task.ref},
-        state.authentication_timeout
-      )
-
-    %{
-      state
-      | authentication_queue: queue,
-        authentication_task: %{
-          task: task,
-          ref: task.ref,
-          pid: task.pid,
-          timer: timer,
-          request: request
-        }
-    }
-  end
-
-  defp finish_authentication(state, result) do
-    task = state.authentication_task
-    state = %{state | authentication_task: nil}
-
-    case result do
-      {:ok, account, authenticator_state} ->
-        authenticator = %{state.authenticator | state: authenticator_state}
-        state = %{state | authenticator: authenticator}
-        state = update_authenticated_connection(state, task.request.metadata, account)
-        {task.request, state}
-
-      {:error, _reason, authenticator_state} when not is_nil(authenticator_state) ->
-        {task.request,
-         %{state | authenticator: %{state.authenticator | state: authenticator_state}}}
-
-      _ ->
-        {task.request, state}
-    end
-  end
-
-  defp update_authenticated_connection(state, metadata, account) do
-    case Map.fetch(state.connections, metadata.connection) do
-      {:ok, client} ->
-        state = %{
-          state
-          | connections:
-              Map.put(state.connections, metadata.connection, %{client | account: account})
-        }
-
-        if client.registered?,
-          do: notify_account(state, metadata.connection, account),
-          else: state
-
-      :error ->
-        state
-    end
-  end
-
-  defp authentication_reply({:ok, account, _authenticator_state}), do: {:ok, account}
-  defp authentication_reply({:error, reason, _authenticator_state}), do: {:error, reason}
-  defp authentication_reply(_result), do: {:error, :authentication_failed}
-
-  defp authentication_queue_size(state) do
-    length(state.authentication_queue) + if(state.authentication_task, do: 1, else: 0)
-  end
+  defp init_adapter(_adapter, _authentication_timeout),
+    do: {:error, {:adapter_init_failed, :invalid_adapter}}
 
   defp capabilities(auth_required?) do
     if auth_required?,
@@ -673,11 +532,6 @@ defmodule Ircxd.Server do
     do: timeout
 
   defp normalize_authentication_timeout(_timeout), do: 5_000
-
-  defp normalize_max_authentication_attempts(limit) when is_integer(limit) and limit > 0,
-    do: limit
-
-  defp normalize_max_authentication_attempts(_limit), do: 16
 
   defp configured_option(opts, key, default) do
     app_config = Application.get_env(:ircxd, __MODULE__, [])
@@ -792,10 +646,10 @@ defmodule Ircxd.Server do
 
   defp normalize_admin(_admin), do: normalize_admin(nil)
 
-  defp dispatch_to_subscriber(%{subscriber: nil} = state, _message, _metadata), do: state
+  defp dispatch_to_adapter(%{adapter: nil} = state, _message, _metadata), do: state
 
-  defp dispatch_to_subscriber(%{subscriber: subscriber} = state, message, metadata) do
-    GenServer.cast(subscriber.pid, {:publish, message, metadata})
+  defp dispatch_to_adapter(%{adapter: adapter} = state, message, metadata) do
+    AdapterWorker.publish(adapter, message, metadata)
     state
   end
 
@@ -2911,7 +2765,7 @@ defmodule Ircxd.Server do
 
     message = add_account_tag(state, recipients, message, sender)
     {state, message} = add_message_id(state, recipients, message)
-    state = dispatch_to_subscriber(state, message, metadata)
+    state = dispatch_to_adapter(state, message, metadata)
     Enum.each(recipients, &send(&1, {:server_send, message}))
     state
   end

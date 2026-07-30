@@ -227,22 +227,19 @@ Remediation:
 - Document that a TLS-terminating proxy must preserve a trustworthy indication
   of the authenticated transport.
 
-### SEC-007 — Medium — Authentication can block the entire server
+### SEC-007 — Medium — Authentication can consume adapter capacity
 
-Every credential attempt makes a synchronous `GenServer.call` to the central
-server process, which invokes the application authenticator directly
-([server.ex](../lib/ircxd/server.ex#L200),
-[server.ex](../lib/ircxd/server.ex#L404)). A slow database query therefore
-blocks registration, routing, mode changes, and all other server state work.
-There is no authentication rate limit, attempt limit, callback timeout, or
-source address in the metadata. The server-password comparison also uses
-ordinary equality
-([server.ex](../lib/ircxd/server.ex#L189)).
+Authentication runs through a supervised adapter worker with a configurable
+timeout and one callback at a time. The adapter owns its callback state and may
+reject attempts using application-specific account or source tracking. The
+server does not impose a rate or attempt limit; the metadata includes the peer
+address for that policy. The server-password comparison also uses ordinary
+equality ([server.ex](../lib/ircxd/server.ex#L189)).
 
 Remediation:
 
-- Execute authentication in supervised tasks with a strict timeout and return
-  the result asynchronously to the originating connection.
+- Keep authentication policy, including any rate or attempt tracking, in the
+  application adapter.
 - Add per-IP and per-account attempt limits and progressive backoff.
 - Include peer IP/port, transport, TLS properties, and mechanism in metadata.
 - Keep database pools and authentication concurrency bounded.
@@ -281,9 +278,8 @@ Several cumulative structures have no quota or expiry:
   ([server.ex](../lib/ircxd/server.ex#L2410)).
 - Connections, channels per user, channel bans, and concurrent users have no
   configured maxima.
-- The subscriber uses unbounded asynchronous casts, so a slow persistence
-  callback can accumulate an arbitrarily large mailbox
-  ([subscriber_worker.ex](../lib/ircxd/server/subscriber_worker.ex#L24)).
+- Adapter callbacks are serialized in one worker; applications should keep
+  callback work bounded and apply their own persistence backpressure.
 - A malicious upstream server can leave arbitrary client batch references open
   and grow multiline and metadata buffers
   ([client.ex](../lib/ircxd/client.ex#L1754),
@@ -300,8 +296,8 @@ Remediation:
   specification defines numeric 734 for overflow.
 - Expire unfinished batches and bound buffered batch bytes/messages.
 - Bound WHOWAS globally by count and/or age.
-- Replace the subscriber's unbounded mailbox with bounded demand, explicit
-  overflow policy, or a durable queue owned by the host application.
+- Keep adapter callback work bounded and apply explicit application-level
+  backpressure or a durable queue owned by the host application.
 
 Reference: [IRCv3 MONITOR specification](https://ircv3.net/specs/extensions/monitor).
 
@@ -359,7 +355,7 @@ The following controls were present and effective within their stated scope:
   [server.ex](../lib/ircxd/server.ex#L2550)).
 - Redaction is limited to the original sender or a current channel operator
   ([server.ex](../lib/ircxd/server.ex#L2653)).
-- Subscriber callback exceptions are contained in a dedicated worker.
+- Adapter callback exceptions are contained in a dedicated worker.
 - DCC support only parses negotiation data and does not open sockets or write
   files. The documentation assigns consent, path validation, transfer limits,
   and endpoint policy to the host application.
