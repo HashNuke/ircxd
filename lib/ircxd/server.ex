@@ -81,6 +81,7 @@ defmodule Ircxd.Server do
     server_name = Keyword.get(opts, :server_name, @default_server_name)
     password = Keyword.get(opts, :password)
     tls? = Keyword.get(opts, :tls, false)
+    ip = Keyword.get(opts, :ip, {127, 0, 0, 1})
     tls_options = Keyword.get(opts, :tls_options, [])
     external_auth? = Keyword.get(opts, :external_auth, false)
     motd = normalize_motd(Keyword.get(opts, :motd, []))
@@ -91,7 +92,7 @@ defmodule Ircxd.Server do
     admin = normalize_admin(Keyword.get(opts, :admin))
 
     with :ok <- validate_external_auth(external_auth?, tls?, tls_options),
-         {:ok, {transport, listener}} <- listen(port, tls?, tls_options),
+         {:ok, {transport, listener}} <- listen(port, tls?, tls_options, ip),
          {:ok, {_address, actual_port}} <- socket_name(transport, listener) do
       case init_adapter(
              Keyword.get(opts, :adapter),
@@ -416,7 +417,7 @@ defmodule Ircxd.Server do
     if state.adapter, do: GenServer.stop(state.adapter, :shutdown)
   end
 
-  defp listen(port, false, _tls_options) do
+  defp listen(port, false, _tls_options, ip) do
     case :gen_tcp.listen(
            port,
            [
@@ -424,7 +425,8 @@ defmodule Ircxd.Server do
              packet: :line,
              packet_size: Ircxd.Message.max_received_wire_bytes(),
              active: false,
-             reuseaddr: true
+             reuseaddr: true,
+             ip: ip
            ]
          ) do
       {:ok, listener} -> {:ok, {:gen_tcp, listener}}
@@ -432,7 +434,7 @@ defmodule Ircxd.Server do
     end
   end
 
-  defp listen(port, true, tls_options) do
+  defp listen(port, true, tls_options, ip) do
     :ssl.start()
 
     options =
@@ -443,6 +445,7 @@ defmodule Ircxd.Server do
         reuseaddr: true
       ]
       |> Keyword.merge(tls_options)
+      |> Keyword.put(:ip, ip)
       |> then(&[:binary | &1])
 
     case :ssl.listen(port, options) do

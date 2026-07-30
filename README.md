@@ -111,6 +111,10 @@ message persistence, side effects, and SASL credential checks. See
 `docs/server_ircv3_matrix.md` and `plans/server.md` for the current protocol
 coverage and boundaries.
 
+Listeners bind to localhost (`{127, 0, 0, 1}`) by default. Set `ip: {0, 0, 0,
+0}` to expose a server on all IPv4 interfaces, or provide another IPv4 bind
+address per server.
+
 Adapters implement `Ircxd.Server.Adapter`. The callback state is shared by a
 serialized worker, so message and authentication callbacks can coordinate
 application-owned state such as authentication attempt tracking. Each

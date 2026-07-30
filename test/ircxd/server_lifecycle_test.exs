@@ -18,6 +18,20 @@ defmodule Ircxd.ServerLifecycleTest do
     assert Server.port(first) != Server.port(second)
   end
 
+  test "binds plain TCP to localhost by default" do
+    {:ok, server} = Server.start_link(port: 0)
+    on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
+
+    assert {:ok, {{127, 0, 0, 1}, _port}} = :inet.sockname(:sys.get_state(server).listener)
+  end
+
+  test "allows the server bind address to be configured" do
+    {:ok, server} = Server.start_link(port: 0, ip: {127, 0, 0, 2})
+    on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
+
+    assert {:ok, {{127, 0, 0, 2}, _port}} = :inet.sockname(:sys.get_state(server).listener)
+  end
+
   test "supports multiple servers as children of one supervisor" do
     {:ok, supervisor} =
       Supervisor.start_link(

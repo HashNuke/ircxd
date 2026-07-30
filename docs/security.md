@@ -302,24 +302,15 @@ Remediation:
 
 Reference: [IRCv3 MONITOR specification](https://ircv3.net/specs/extensions/monitor).
 
-### SEC-010 — Medium — The server always listens on every IPv4 interface
+### SEC-010 — Medium — The server always listens on every IPv4 interface — Resolved
 
-The plain TCP listener does not accept bind/socket options and calls
-`:gen_tcp.listen/2` without an `ip` option
-([server.ex](../lib/ircxd/server.ex#L344)). A runtime check during this review
-confirmed an address of `0.0.0.0`. The `tls_options` list can affect the TLS
-listener, but is discarded by the plain listener.
+The server now binds to `{127, 0, 0, 1}` by default and accepts a per-server
+`ip` option for an explicit IPv4 bind address. The TLS and plain TCP listeners
+use the same setting.
 
-This default can unintentionally expose a development or embedded server to a
-container network, LAN, or public interface.
-
-Remediation:
-
-- Add a common `listen_options`/`ip` option for both TCP and TLS.
-- Consider loopback as the default for a library, requiring an explicit
-  wildcard bind for network service deployments.
-- Document proxy-aware deployment and do not trust forwarded addresses unless
-  the proxy itself is authenticated and restricted.
+Applications exposing a wildcard bind should still apply firewall and proxy
+policy, and must not trust forwarded addresses unless the proxy itself is
+authenticated and restricted.
 
 ### SEC-011 — Medium — Client-side event processing is not isolated
 
