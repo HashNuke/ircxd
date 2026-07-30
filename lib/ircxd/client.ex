@@ -12,6 +12,8 @@ defmodule Ircxd.Client do
       the peer certificate and hostname against the system trust store by
       default. Development-only callers may explicitly set `verify: :verify_none`.
     * `:password` - optional server password sent with `PASS` before registration.
+    * `:allow_insecure_auth` - allow credential-bearing commands over cleartext TCP.
+      Defaults to `false`.
     * `:nick` - desired nickname.
     * `:username` - username sent in registration.
     * `:realname` - realname sent in registration.
@@ -389,6 +391,7 @@ defmodule Ircxd.Client do
       tls: Keyword.get(opts, :tls, false),
       sni: Keyword.get(opts, :sni, Keyword.fetch!(opts, :host)),
       tls_options: Keyword.get(opts, :tls_options, []),
+      allow_insecure_auth?: Keyword.get(opts, :allow_insecure_auth, false),
       password: Keyword.get(opts, :password),
       nick: Keyword.fetch!(opts, :nick),
       username: Keyword.get(opts, :username, Keyword.fetch!(opts, :nick)),
@@ -640,12 +643,15 @@ defmodule Ircxd.Client do
 
   defp maybe_send_webirc(%{webirc: nil}), do: :ok
 
+  defp maybe_send_webirc(%{tls: false, allow_insecure_auth?: false}), do: :ok
+
   defp maybe_send_webirc(%{webirc: webirc} = state) do
     send_message(state, "WEBIRC", WebIRC.params(webirc))
   end
 
   defp maybe_send_pass(%{password: nil}), do: :ok
   defp maybe_send_pass(%{password: ""}), do: :ok
+  defp maybe_send_pass(%{tls: false, allow_insecure_auth?: false}), do: :ok
   defp maybe_send_pass(%{password: password} = state), do: send_message(state, "PASS", [password])
 
   defp handle_disconnect(state) do
@@ -2352,6 +2358,13 @@ defmodule Ircxd.Client do
     end
   end
 
+  defp validate_outbound_command(
+         %{tls: false, allow_insecure_auth?: false},
+         %Message{command: command}
+       )
+       when command in ["AUTHENTICATE", "OPER", "PASS", "REGISTER", "VERIFY", "WEBIRC"],
+       do: {:error, :insecure_authentication}
+
   defp validate_outbound_command(state, %Message{command: "MARKREAD"}),
     do: require_active_cap(state, "draft/read-marker")
 
@@ -2459,6 +2472,8 @@ defmodule Ircxd.Client do
   end
 
   defp maybe_include_sasl(caps, %{sasl: nil}), do: caps
+
+  defp maybe_include_sasl(caps, %{tls: false, allow_insecure_auth?: false}), do: caps
 
   defp maybe_include_sasl(caps, state) do
     if available_sasl_mechanisms(state) == [] do

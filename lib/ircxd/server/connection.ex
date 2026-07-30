@@ -24,6 +24,7 @@ defmodule Ircxd.Server.Connection do
        active_capabilities: MapSet.new(),
        password: Keyword.get(opts, :password),
        password_authenticated?: is_nil(Keyword.get(opts, :password)),
+       allow_insecure_auth?: Keyword.get(opts, :allow_insecure_auth?, false),
        registration_timer: registration_timer(registration_timeout),
        command_rate_limit: Keyword.get(opts, :command_rate_limit, 100),
        command_window_started: System.monotonic_time(:millisecond),
@@ -185,9 +186,20 @@ defmodule Ircxd.Server.Connection do
   end
 
   defp handle_message(%Message{command: "AUTHENTICATE", params: ["PLAIN"]}, state)
-       when state.auth_required? do
+       when state.auth_required? and
+              (state.transport == :ssl or state.allow_insecure_auth?) do
     send_message(state, "AUTHENTICATE", ["+"])
     {:noreply, %{state | sasl_mechanism: :plain}}
+  end
+
+  defp handle_message(%Message{command: "AUTHENTICATE", params: ["PLAIN"]}, state)
+       when state.auth_required? do
+    send_message(state, "904", [
+      state.nick || "*",
+      "Insecure authentication is disabled"
+    ])
+
+    {:noreply, %{state | sasl_mechanism: nil}}
   end
 
   defp handle_message(%Message{command: "AUTHENTICATE", params: [mechanism]}, state)
@@ -249,6 +261,12 @@ defmodule Ircxd.Server.Connection do
         send_message(state, "904", [state.nick, "Invalid SASL credentials"])
         {:noreply, state}
     end
+  end
+
+  defp handle_message(%Message{command: "PASS", params: [_password]}, state)
+       when state.transport != :ssl and not state.allow_insecure_auth? do
+    send_message(state, "464", [state.nick || "*", "Insecure authentication is disabled"])
+    {:noreply, state}
   end
 
   defp handle_message(%Message{command: "PASS", params: [password]}, state) do
