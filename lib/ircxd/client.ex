@@ -8,7 +8,9 @@ defmodule Ircxd.Client do
     * `:port` - IRC server port.
     * `:tls` - true for implicit TLS.
     * `:sni` - TLS Server Name Indication hostname, defaults to `:host`.
-    * `:tls_options` - additional Erlang `:ssl.connect/4` options.
+    * `:tls_options` - additional Erlang `:ssl.connect/4` options. TLS verifies
+      the peer certificate and hostname against the system trust store by
+      default. Development-only callers may explicitly set `verify: :verify_none`.
     * `:password` - optional server password sent with `PASS` before registration.
     * `:nick` - desired nickname.
     * `:username` - username sent in registration.
@@ -41,8 +43,6 @@ defmodule Ircxd.Client do
   alias Ircxd.WebIRC
   alias Ircxd.Who
   alias Ircxd.Whois
-
-  @tcp_opts [:binary, packet: :line, active: true]
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, Keyword.take(opts, [:name]))
@@ -444,6 +444,7 @@ defmodule Ircxd.Client do
       send_message(state, "CAP", ["LS", "302"])
       send_message(state, "NICK", [state.nick])
       send_message(state, "USER", [state.username, "0", "*", state.realname])
+      :ok = activate_socket(state)
       state = emit(state, {:connected, %{host: state.host, port: state.port, tls: state.tls}})
       {:noreply, state}
     else
@@ -453,8 +454,12 @@ defmodule Ircxd.Client do
     end
   end
 
-  def handle_info({:tcp, socket, line}, %{socket: socket} = state), do: handle_line(line, state)
-  def handle_info({:ssl, socket, line}, %{socket: socket} = state), do: handle_line(line, state)
+  def handle_info({:tcp, socket, line}, %{socket: socket} = state),
+    do: handle_active_line(line, state)
+
+  def handle_info({:ssl, socket, line}, %{socket: socket} = state),
+    do: handle_active_line(line, state)
+
   def handle_info({:tcp_closed, _socket}, state), do: handle_disconnect(state)
   def handle_info({:ssl_closed, _socket}, state), do: handle_disconnect(state)
   def handle_info({:tcp_error, _socket, reason}, state), do: {:stop, reason, state}
@@ -591,14 +596,27 @@ defmodule Ircxd.Client do
 
   @doc false
   def __tls_connect_options__(state) do
-    default_sni = [
+    tls_options = Map.get(state, :tls_options, [])
+
+    defaults = [
+      verify: :verify_peer,
       server_name_indication:
         state
         |> Map.get(:sni, Map.fetch!(state, :host))
-        |> String.to_charlist()
+        |> String.to_charlist(),
+      customize_hostname_check: [
+        match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+      ]
     ]
 
-    Keyword.merge(default_sni, Map.get(state, :tls_options, []))
+    defaults =
+      if Enum.any?([:cacerts, :cacertfile], &Keyword.has_key?(tls_options, &1)) do
+        defaults
+      else
+        Keyword.put(defaults, :cacerts, :public_key.cacerts_get())
+      end
+
+    Keyword.merge(defaults, tls_options)
   end
 
   defp connect(%{tls: true} = state) do
@@ -606,7 +624,7 @@ defmodule Ircxd.Client do
            :ssl.connect(
              String.to_charlist(state.host),
              state.port,
-             @tcp_opts ++ __tls_connect_options__(state),
+             tcp_options() ++ __tls_connect_options__(state),
              10_000
            ) do
       {:ok, :ssl, socket}
@@ -615,7 +633,7 @@ defmodule Ircxd.Client do
 
   defp connect(state) do
     with {:ok, socket} <-
-           :gen_tcp.connect(String.to_charlist(state.host), state.port, @tcp_opts, 10_000) do
+           :gen_tcp.connect(String.to_charlist(state.host), state.port, tcp_options(), 10_000) do
       {:ok, :gen_tcp, socket}
     end
   end
@@ -890,6 +908,7 @@ defmodule Ircxd.Client do
         handle_batch(message, state)
 
       {:ok, %Message{} = message} ->
+        state = update_current_nick(state, message)
         state = emit_event(state, event_for(message), message)
         state = emit(state, {:message, message})
         {:noreply, state}
@@ -899,6 +918,46 @@ defmodule Ircxd.Client do
         {:noreply, state}
     end
   end
+
+  defp handle_active_line(line, state) do
+    case handle_line(line, state) do
+      {:noreply, next_state} ->
+        case activate_socket(next_state) do
+          :ok -> {:noreply, next_state}
+          {:error, reason} -> {:stop, reason, next_state}
+        end
+
+      other ->
+        other
+    end
+  end
+
+  defp tcp_options do
+    [
+      :binary,
+      packet: :line,
+      packet_size: Message.max_received_wire_bytes(),
+      active: false
+    ]
+  end
+
+  defp activate_socket(%{transport: :gen_tcp, socket: socket}),
+    do: :inet.setopts(socket, active: :once)
+
+  defp activate_socket(%{transport: :ssl, socket: socket}),
+    do: :ssl.setopts(socket, active: :once)
+
+  defp update_current_nick(
+         %{current_nick: current_nick} = state,
+         %Message{command: "NICK", source: source, params: [new_nick]}
+       ) do
+    case Source.parse(source) do
+      %Source{nick: ^current_nick} -> %{state | current_nick: new_nick}
+      _ -> state
+    end
+  end
+
+  defp update_current_nick(state, _message), do: state
 
   defp collect_caps(state, caps) do
     %{state | available_caps: Map.merge(state.available_caps, parse_caps(caps))}

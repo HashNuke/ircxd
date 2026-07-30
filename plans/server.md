@@ -22,31 +22,181 @@ to listen on different (or independently configured) endpoints.
 ## TDD tasks
 
 1. [x] Define the public server lifecycle API and child spec with tests for
-   starting/stopping one server and two isolated server instances.
+   starting/stopping one server, two isolated instances, and multiple
+   independently identified children in one supervisor.
 2. [x] Add a TCP listener/acceptor boundary with tests using an ephemeral port,
    clean shutdown, and port-bind failure behavior.
-3. [ ] Implement per-connection registration (`NICK`, `USER`, `PASS`, `CAP`)
+3. [x] Implement per-connection registration (`NICK`, `USER`, `PASS`, `CAP`)
    and test the complete handshake through `Ircxd.Client`. Basic handshake,
    SASL gating, duplicate-nick rejection, and configured server-password
    acceptance/rejection are covered; add remaining validation and timeout cases.
-4. [ ] Implement identity and channel state with tests for `JOIN`, `PART`,
+   Nickname grammar and configurable registration timeouts are now covered.
+   Repeated `USER` commands after registration now return `462` without changing identity.
+   The baseline registration contract is complete; broader capability and
+   authentication mechanisms remain tracked in the IRCv3 matrix.
+4. [x] Implement identity and channel state with tests for `JOIN`, `PART`,
    `PRIVMSG`, `NOTICE`, `TOPIC`, `NAMES`, `PING`, and `QUIT`. JOIN/PART/NAMES,
    PRIVMSG/NOTICE/TOPIC, PING/PONG, and explicit QUIT cleanup slices are covered.
+   Read-only user and channel MODE queries and unexpected-disconnect QUIT
+   cleanup are now covered as interoperability slices.
+   Tagged `PRIVMSG`/`NOTICE` fan-out now preserves IRCv3 message tags.
+   `LIST` now reports channel membership counts and topics.
+   `LIST` channel masks now support `*` and `?` wildcard matching while
+   preserving member-aware secret/private-channel visibility.
+   Comma-separated JOIN targets are now processed independently.
+   Comma-separated PART targets now share the supplied part reason.
+   `JOIN 0` now parts a client from every joined channel through the normal
+   membership cleanup path.
+   Empty channels are now removed from `LIST`, and their modes, topics, keys,
+   limits, bans, voices, invites, and operators are discarded.
+   Configured MOTD delivery is now covered with standard numerics.
+   NAMES without a target now enumerates all known channels.
+   LUSERS now reports registered-user and channel counts.
+   VERSION now returns configured server identity and implementation details.
+   Registration now advertises configurable ISUPPORT tokens via `005`.
+   The default ISUPPORT set now advertises the implemented channel prefixes
+   and mode classes with `PREFIX=(ov)@+` and `CHANMODES=b,k,l,imnpst`.
+   TIME now returns a parseable UTC timestamp.
+   ADMIN now returns configurable location and email information.
+   INFO now returns configurable server description lines with `371`/`374`.
+   HELP now serves a configurable subject-to-lines catalog with `704`/`705`/`706`.
+   LINKS now reports the standalone server with `364`/`365` and supports
+   server/mask filtering without inventing remote topology.
+   `STATS u` now reports server uptime with `242`/`219`; unsupported STATS
+   queries complete without fabricating counters.
+   WHOWAS now retains a bounded in-memory history for nick changes and
+   disconnects and returns `314`/`369` responses; durable history remains
+   application-owned.
+   WHO now reports tracked username and realname identity for channel members.
+   WHO now also resolves online nicknames with `*` as the channel field.
+   Registered clients can change nicknames; the server broadcasts `NICK` to
+   channel peers and preserves direct nickname routing, while rejecting
+   collisions with `433`. The client also synchronizes its current nickname
+   from the self-originated `NICK` event.
+   WHO without a mask now enumerates registered users and terminates with `315 *`.
+   WHOIS now returns tracked user and server identity details.
+   Successful SASL authentication now tracks the application account and exposes it through WHOIS `330`.
+   Successful SASL authentication now also returns standard `900 RPL_LOGGEDIN` account metadata.
+   Clients can abort an in-progress SASL exchange with `AUTHENTICATE *` and
+   receive `906` without invoking the application authenticator.
+   SASL `EXTERNAL` now delegates its authorization identity to the application
+   authenticator with an empty password; certificate identity remains
+   transport/application-owned.
+   Repeated JOIN requests are idempotent and do not publish duplicate JOIN events.
+   `KICK` now broadcasts removal and updates channel membership state.
+   `INVITE` now sends `341` to the inviter and an INVITE event to the target.
+   Channel mode `+i` now blocks uninvited JOIN with `473` and consumes invites on JOIN.
+   INVITE requests for `+i` channels now require channel-operator authority and
+   return `482` to non-operators.
+   The first channel member is an operator, shown as `@` in NAMES; MODE and KICK now require operator authority.
+   Channel operators can delegate and revoke authority with `MODE +o/-o`,
+   with the resulting operator state reflected in KICK authorization and NAMES.
+   Channel mode `+t` now restricts topic changes to operators with `482` enforcement.
+   Topic changes from non-members now return `442` instead of being silently ignored.
+   Channel mode `+m` now restricts channel messages to operators and voiced
+   members with `404` enforcement.
+   Channel mode `+k` now stores a channel key and rejects incorrect JOIN keys with `475`.
+   Channel mode `+l` now rejects JOINs at capacity with `471` and supports removing the limit.
+   Channel modes `+v`/`-v` now grant and revoke moderated-channel speaking rights; voiced users appear as `+` in NAMES.
+   Channel mode `+s` now hides secret channels from non-members in `LIST` and
+   `NAMES`/`WHO` while preserving visibility for members.
+   Channel mode `+p` now hides private channels from non-member `LIST` and
+   no-target `NAMES` enumeration and uses the private `*` NAMES symbol.
+   Channel mode `+b` now tracks nick masks with `*`/`?` wildcards, rejects
+   matching JOINs with `474`, supports `-b`, and returns `367`/`368` ban-list
+   numerics.
+   New channels now explicitly start with `+n`; `-n` permits external channel
+   messages while `+n` restores the `404` restriction.
+   `AWAY` now tracks per-connection presence, broadcasts updates, and returns `305`/`306` status numerics.
+   `MONITOR` now supports add/remove/clear/list/status and online/offline notifications.
+   WHOIS now includes `301 RPL_AWAY` when the target has an away message.
+   `ISON` and `USERHOST` now answer online-user and user-host queries with `303` and `302`.
+   The server now advertises `server-time`, tracks negotiated capabilities per
+   connection, and adds millisecond UTC `time` tags to outbound messages for
+   clients that request it.
+   Tagged recipients now receive shared server-generated `msgid` values for
+   each relayed message.
+   Negotiated `extended-join` clients now receive account and realname JOIN
+   parameters, while legacy clients retain the one-parameter form.
+   `away-notify` is now advertised and AWAY fan-out is limited to clients that
+   negotiated the capability.
+   `account-notify` now reports the authenticated client’s account after SASL
+   registration and on post-registration account changes to common-channel
+   clients.
+   `echo-message` is now negotiated per connection; senders only receive
+   their own `PRIVMSG`, `NOTICE`, or `TAGMSG` when they request it.
+   `account-tag` now adds authenticated account metadata to relayed messages
+   for opted-in recipients and removes it for recipients without the feature.
+   Comma-separated `PRIVMSG` and `NOTICE` targets are split and routed
+   independently, with each target retaining its own policy validation.
+   `TAGMSG` now applies the same channel membership, moderation, and `+n`
+   policy as text messages before relaying tags.
+   `multi-prefix` now exposes simultaneous operator and voice prefixes in
+   NAMES replies while retaining legacy output for other clients.
+   `userhost-in-names` now exposes full `nick!user@host` entries to opted-in
+   NAMES clients while retaining nick-only output for legacy clients.
+   JOIN now sends implicit `353`/`366` NAMES replies by default, with
+   `no-implicit-names` available for clients that opt out.
+   Negotiated `setname` clients can change their realname, receive the
+   capability-gated fan-out, and observe the updated value through WHOIS.
+   `CAP REQ -capability` now disables an active capability per connection and
+   synchronizes the server-side capability state.
+   `CAP LIST` now returns the sorted active capability set for the connection.
+   `invite-notify` is advertised and sends capability-gated INVITE notices to
+   current channel members while preserving the normal target notification.
+   The listener supports implicit TLS through `tls: true` and application-
+   supplied `tls_options`; TLS connections share the normal protocol state.
+   `labeled-response` is advertised and labeled WHOIS replies preserve the
+   request label through the client’s labeled-response lifecycle.
+   `standard-replies` is advertised and negotiated clients receive a typed
+   `FAIL ... UNKNOWN_COMMAND` alongside the compatibility `421` numeric.
+   `batch` is advertised; client-originated batch frames are tracked and
+   relayed around their tagged messages to the actual recipients.
+   `draft/multiline` is advertised and client-originated multiline batches are
+   relayed so `Ircxd.Client` can combine them into typed multiline events.
+   `draft/message-redaction` is advertised; message authors and channel
+   operators can redact stored channel messages, remove them from history, and
+   notify opted-in recipients.
+   `draft/chathistory` now serves bounded in-memory `CHATHISTORY LATEST`,
+   `BEFORE`, `AFTER`, `AROUND`, and `BETWEEN` results to channel members in
+   `chathistory` batches; durable history stays application-owned.
+   `CHATHISTORY TARGETS` now reports visible channels with their latest
+   history timestamp, and default ISUPPORT advertises `CHATHISTORY=100` and
+   `MSGREFTYPES=msgid,timestamp`.
 5. [x] Implement initial server-to-client event fan-out and isolation tests
    proving clients on different server instances cannot observe one another.
    Continue extending the command surface.
 6. [x] Add a configurable subscriber callback and test that published messages
-   reach the embedding application with connection metadata.
-7. [ ] Add configurable callbacks/handler hooks and test callback failures and
-   connection cleanup without taking down the listener.
+   reach the embedding application with connection metadata. Callback state is
+   serialized in a dedicated worker so slow or failing persistence cannot block
+   the listener or command routing.
+7. [x] Add configurable callbacks/handler hooks and test callback failures and
+   connection cleanup without taking down the listener. The subscriber
+   contract is isolated in a worker; initialization failures now return a
+   structured startup error before the acceptor starts, while callback
+   failures preserve the listener.
 8. [x] Add an authentication contract for SASL and test database-backed host
    callbacks, success, failure, and account metadata without embedding a DB.
-9. [ ] Add protocol limits and malformed-input tests, including line size,
+9. [x] Add protocol limits and malformed-input tests, including line size,
    registration timeouts, unknown commands, and nick/channel validation.
+   Registration timeouts, nickname validation, unknown commands, and the
+   pre-registration command gate are now covered. Oversized wire lines now
+   return `417` and are covered with a focused transport test.
+   Malformed `PRIVMSG` now returns `411`/`412`; malformed `NOTICE` remains silent.
+   PART membership validation now returns `442` for non-members.
+   Malformed `PART` without a channel now returns `461`.
+   Malformed `JOIN`, `INVITE`, and `KICK` commands now return `461`.
+   Missing `NICK` now returns `431`; missing `PASS`, `AUTHENTICATE`, `TOPIC`,
+   `USER`, `WHOIS`, and `PING` parameters now return `461` with client-driven
+   coverage.
+   PRIVMSG target validation now returns `401`, `403`, or `404` as appropriate.
+   The named limits and malformed-input baseline is complete; remaining
+   command-specific policy is tracked in the IRCv3 matrix.
 10. [x] Run the full ExUnit suite, then run an irssi manual/integration check;
    document supported behavior and known boundaries.
-11. [ ] Commit each coherent TDD slice with a detailed rationale and push every
-   commit to the configured remote.
+11. [x] Commit each coherent TDD slice with a detailed rationale and push every
+   commit to the configured remote. Pushnotify was unavailable in this
+   environment, so commit progress was reported in the collaboration log.
 
 The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 
@@ -69,3 +219,219 @@ The server-side protocol matrix is maintained in `docs/server_ircv3_matrix.md`.
 | 2026-07-29 | Added channel-target validation and `403 ERR_NOSUCHCHANNEL` | `test/ircxd/server_validation_test.exs` |
 | 2026-07-29 | Added configured server-password registration with `PASS`/`464` tests | `test/ircxd/server_password_test.exs` |
 | 2026-07-29 | Full ExUnit suite and irssi 1.4.5 connection smoke check pass; registered the server matrix as ExDoc extra | `mix test`, `mix run` irssi check, `mix.exs` |
+| 2026-07-29 | Isolated subscriber callbacks in a serialized worker and covered slow/failing callback behavior | `Ircxd.Server.SubscriberWorker`, `test/ircxd/server_subscriber_test.exs` |
+| 2026-07-29 | Re-ran full tests, irssi compatibility, and protocol microbenchmarks after subscriber isolation | `mix test`, `mix run` irssi check, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added nickname grammar validation (`432`) and configurable incomplete-registration timeouts | `test/ircxd/server_registration_test.exs` |
+| 2026-07-29 | Made repeated JOIN requests idempotent and added a regression test for duplicate event suppression | `test/ircxd/server_join_idempotency_test.exs` |
+| 2026-07-29 | Rejected post-registration `USER` changes with `462 ERR_ALREADYREGISTERED` and preserved connection identity | `test/ircxd/server_registration_test.exs` |
+| 2026-07-29 | Added channel `KICK` handling with broadcast/removal and a client-driven membership regression test | `test/ircxd/server_kick_test.exs` |
+| 2026-07-29 | Added member-authorized channel `INVITE` delivery with `341` and a client-driven target notification test | `test/ircxd/server_invite_test.exs` |
+| 2026-07-29 | Added invite-only channel mode `+i`, invitation tracking, and `473` JOIN policy coverage | `test/ircxd/server_channel_modes_test.exs` |
+| 2026-07-29 | Added first-member channel operators, `@` NAMES prefixes, `482` enforcement for MODE/KICK, and deterministic operator-order tests | `test/ircxd/server_operator_test.exs` |
+| 2026-07-29 | Added topic-lock mode `+t` and verified non-operator topic changes receive `482` | `test/ircxd/server_topic_mode_test.exs` |
+| 2026-07-29 | Added moderated channel mode `+m` and verified non-operator message rejection while preserving operator fan-out | `test/ircxd/server_moderated_mode_test.exs` |
+| 2026-07-29 | Added keyed channel mode `+k`, key-aware JOIN handling, and `475` rejection coverage | `test/ircxd/server_key_mode_test.exs` |
+| 2026-07-29 | Added limited channel mode `+l`, numeric limit tracking, and `471` capacity rejection coverage | `test/ircxd/server_limit_mode_test.exs` |
+| 2026-07-29 | Added voice grants for moderated channels, `+` NAMES prefixes, and voice cleanup on membership removal | `test/ircxd/server_voice_mode_test.exs` |
+| 2026-07-29 | Added server AWAY state, channel presence fan-out, and standard away/unaway status replies | `test/ircxd/server_away_test.exs` |
+| 2026-07-29 | Added MONITOR tracking with `730`/`731` notifications, `732`/`733` list replies, and connect/disconnect tests | `test/ircxd/server_monitor_test.exs` |
+| 2026-07-29 | Added away-state WHOIS replies with `301 RPL_AWAY` coverage | `test/ircxd/server_away_test.exs` |
+| 2026-07-29 | Revalidated away-aware WHOIS with 62 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Revalidated MONITOR presence behavior with 62 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Revalidated AWAY presence behavior with 60 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added `ISON` and `USERHOST` online-user query replies with focused client event coverage | `test/ircxd/server_user_queries_test.exs` |
+| 2026-07-29 | Revalidated `ISON`/`USERHOST` with 63 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added negotiated IRCv3 `server-time` support with per-connection outbound timestamp tags | `test/ircxd/server_server_time_test.exs` |
+| 2026-07-29 | Revalidated `server-time` with 64 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 capability negotiation against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added shared server-generated IRCv3 `msgid` tags for relayed messages with focused client-driven coverage | `test/ircxd/server_message_id_test.exs` |
+| 2026-07-29 | Revalidated message-ID routing with 65 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 receiving a live relayed message after `message-tags` negotiation | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added negotiated `extended-join` JOIN parameters with legacy-client compatibility coverage | `test/ircxd/server_extended_join_test.exs` |
+| 2026-07-29 | Revalidated `extended-join` with 67 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 joining a live channel after capability negotiation | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added negotiated `away-notify` fan-out with opt-in and legacy-client coverage | `test/ircxd/server_away_notify_test.exs`, `test/ircxd/server_away_test.exs` |
+| 2026-07-29 | Revalidated `away-notify` with 68 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 capability negotiation plus live AWAY state | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added negotiated self `ACCOUNT` notifications after application-owned SASL authentication | `test/ircxd/server_account_notify_test.exs` |
+| 2026-07-29 | Revalidated `account-notify` with 69 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 capability negotiation against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added common-channel `ACCOUNT` fan-out when a registered user changes accounts, with client-driven re-authentication coverage | `test/ircxd/server_account_notify_test.exs` |
+| 2026-07-29 | Revalidated common-channel account-notify behavior with 70 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 negotiating the capability and joining a live channel | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added capability-correct sender echo behavior for `PRIVMSG`, `NOTICE`, and `TAGMSG` with opt-in/out coverage | `test/ircxd/server_echo_message_test.exs` |
+| 2026-07-29 | Revalidated `echo-message` with 71 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 receiving a live relayed message after capability negotiation | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added positive and negative capability requests so clients can disable negotiated extensions and covered the resulting `echo-message` routing change | `lib/ircxd/server/connection.ex`, `test/ircxd/server_capability_disable_test.exs` |
+| 2026-07-29 | Revalidated capability disabling with 78 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the protocol microbenchmarks; tagged `PRIVMSG` parsing measured 642.65 ms median for 100k iterations | `mix test`, `mix format --check-formatted`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added `CAP LIST` active-capability responses with client event coverage | `test/ircxd/server_capability_list_test.exs` |
+| 2026-07-29 | Revalidated `CAP LIST` with 79 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the named-tmux irssi cross-client gate | `mix test`, `mix format --check-formatted`, `scripts/run_irssi_manual_check.sh` |
+| 2026-07-29 | Added secret channel mode `+s` with member-aware `LIST` visibility and client-driven policy coverage | `test/ircxd/server_secret_mode_test.exs` |
+| 2026-07-29 | Revalidated secret-channel policy with 80 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the named-tmux irssi cross-client gate | `mix test`, `mix format --check-formatted`, `scripts/run_irssi_manual_check.sh` |
+| 2026-07-29 | Extended secret-channel privacy to explicit `NAMES` queries for non-members, returning only the end marker while preserving member names | `test/ircxd/server_secret_mode_test.exs` |
+| 2026-07-29 | Revalidated secret-channel LIST/NAMES privacy with 80 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the named-tmux irssi cross-client gate | `mix test`, `mix format --check-formatted`, `scripts/run_irssi_manual_check.sh` |
+| 2026-07-29 | Prevented no-target `NAMES` enumeration from revealing secret channel names to non-members | `test/ircxd/server_secret_mode_test.exs` |
+| 2026-07-29 | Revalidated secret-channel enumeration privacy with 80 focused server tests, the full ExUnit suite, formatting/whitespace checks, and irssi 1.4.5 connected directly to a disposable named-tmux `Ircxd.Server` | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
+| 2026-07-29 | Added exact nick-mask channel bans with `+b`/`-b`, `474` JOIN rejection, and `367`/`368` ban-list coverage | `test/ircxd/server_ban_mode_test.exs` |
+| 2026-07-29 | Revalidated ban-mode behavior with 81 focused server tests, the full ExUnit suite, formatting/whitespace checks, and irssi 1.4.5 receiving live `+b` and ban-list numerics from a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
+| 2026-07-29 | Extended ban matching to support `*` and `?` nick-mask wildcards with client-driven regression coverage | `test/ircxd/server_ban_mode_test.exs` |
+| 2026-07-29 | Revalidated wildcard ban matching with 82 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the existing direct irssi server interoperability coverage | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
+| 2026-07-29 | Added explicit default `+n` channel state and `-n` external-message policy coverage; revalidated with 83 focused server tests, the full suite, formatting checks, and direct irssi mode queries | `test/ircxd/server_no_external_mode_test.exs`, `mix test`, named-tmux irssi check |
+| 2026-07-29 | Routed `TAGMSG` through shared channel policy checks and covered external tag-message suppression/allowance | `test/ircxd/server_tagmsg_policy_test.exs` |
+| 2026-07-29 | Revalidated TAGMSG policy with 84 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the existing direct named-tmux irssi interoperability gate | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
+| 2026-07-29 | Added operator-only INVITE enforcement for `+i` channels with client-driven `482` regression coverage | `test/ircxd/server_invite_policy_test.exs` |
+| 2026-07-29 | Added `JOIN 0` all-channel PART behavior with client-driven cleanup coverage | `test/ircxd/server_join_zero_test.exs` |
+| 2026-07-29 | Revalidated JOIN/PART behavior with 86 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the existing direct named-tmux irssi interoperability gate | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
+| 2026-07-29 | Extended secret-channel privacy to `WHO` queries for non-members with client-driven `315` end-list coverage | `test/ircxd/server_secret_mode_test.exs` |
+| 2026-07-29 | Revalidated secret-channel LIST/NAMES/WHO privacy with 86 focused server tests, the full ExUnit suite, and formatting/whitespace checks | `mix test`, `mix format --check-formatted` |
+| 2026-07-29 | Added `442` membership validation for topic changes with client-driven regression coverage | `test/ircxd/server_topic_test.exs` |
+| 2026-07-29 | Revalidated topic authorization with 87 focused server tests, the full ExUnit suite, and formatting/whitespace checks | `mix test`, `mix format --check-formatted` |
+| 2026-07-29 | Added empty-channel lifecycle cleanup with client-driven LIST and fresh-state coverage; revalidated with 88 focused server tests and the full suite | `test/ircxd/server_channel_lifecycle_test.exs`, `mix test` |
+| 2026-07-29 | Added nickname-targeted WHO replies with client-driven `352`/`315` coverage | `test/ircxd/server_who_test.exs` |
+| 2026-07-29 | Revalidated WHO channel and nickname queries with 89 focused server tests, the full ExUnit suite, and formatting/whitespace checks | `mix test`, `mix format --check-formatted` |
+| 2026-07-29 | Added no-mask WHO enumeration with client-driven `352`/`315` coverage | `test/ircxd/server_who_test.exs` |
+| 2026-07-29 | Revalidated WHO channel, nickname, and no-mask enumeration with 90 focused server tests, the full ExUnit suite, and formatting/whitespace checks | `mix test`, `mix format --check-formatted` |
+| 2026-07-29 | Added malformed `PART` parameter validation with client-driven `461` coverage | `test/ircxd/server_protocol_errors_test.exs` |
+| 2026-07-29 | Revalidated malformed-command handling with 91 focused server tests, the full ExUnit suite, and formatting/whitespace checks | `mix test`, `mix format --check-formatted` |
+| 2026-07-29 | Revalidated invite policy with 85 focused server tests, the full ExUnit suite, formatting/whitespace checks, and the existing direct named-tmux irssi interoperability gate | `mix test`, `mix format --check-formatted`, named-tmux irssi server/client check |
+| 2026-07-29 | Added per-recipient IRCv3 `account-tag` routing for authenticated messages with tagged and untagged client coverage | `test/ircxd/server_account_tag_test.exs` |
+| 2026-07-29 | Revalidated `account-tag` with 72 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 authenticating, joining, and sending a live message through the disposable server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added negotiated `multi-prefix` NAMES output with simultaneous operator/voice prefix coverage | `test/ircxd/server_multi_prefix_test.exs` |
+| 2026-07-29 | Revalidated `multi-prefix` with 73 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 negotiating the capability and querying live voiced-channel names | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added negotiated `userhost-in-names` hostmask output with client-driven NAMES coverage | `test/ircxd/server_userhost_names_test.exs` |
+| 2026-07-29 | Revalidated `userhost-in-names` with 74 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 capability negotiation plus live NAMES queries | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added implicit JOIN NAMES replies and negotiated `no-implicit-names` suppression with compatibility coverage | `test/ircxd/server_implicit_names_test.exs` |
+| 2026-07-29 | Revalidated implicit JOIN NAMES with 76 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 displaying the live post-JOIN user list | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Added negotiated `SETNAME` realname changes with fan-out and WHOIS identity coverage | `test/ircxd/server_setname_test.exs` |
+| 2026-07-29 | Revalidated `SETNAME` with 77 focused server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 negotiating the capability, joining, and issuing a live realname change | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Revalidated voice and moderated-channel policy with 59 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Revalidated limited-channel policy with 58 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Revalidated keyed-channel policy with 57 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Revalidated moderated-mode routing with 56 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Revalidated topic-lock policy with 55 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Revalidated operator permissions with 54 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Revalidated `+i` channel policy with 53 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Revalidated INVITE with 52 server tests, the full ExUnit suite, formatting checks, and the existing irssi 1.4.5 smoke gate | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Revalidated KICK with 51 server tests, the full ExUnit suite, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, named tmux irssi check |
+| 2026-07-29 | Revalidated registration identity protection with 50 server tests, formatting checks, and the full ExUnit suite | `mix format --check-formatted`, `mix test test/ircxd/server_*_test.exs`, `mix test` |
+| 2026-07-29 | Propagated successful authenticator account values into server identity state and WHOIS `330` replies | `test/ircxd/server_authentication_test.exs` |
+| 2026-07-29 | Added `900 RPL_LOGGEDIN` for successful application-owned SASL authentication | `test/ircxd/server_authentication_test.exs` |
+| 2026-07-29 | Revalidated SASL login metadata with 62 server tests, the full ExUnit suite, formatting checks, and irssi 1.4.5 against a disposable named-tmux server | `mix test`, `mix format --check-formatted`, named tmux irssi check |
+| 2026-07-29 | Revalidated authenticated-account propagation with formatting checks, 50 server tests, and the full ExUnit suite | `mix format --check-formatted`, `mix test test/ircxd/server_*_test.exs`, `mix test` |
+| 2026-07-29 | Revalidated registration hardening with 23 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added `CAP NAK` responses for unsupported capability requests | `test/ircxd/server_capability_test.exs` |
+| 2026-07-29 | Revalidated capability handling with 24 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added distinct child IDs for multiple supervised servers and documented the embedding API | `test/ircxd/server_lifecycle_test.exs`, `README.md` |
+| 2026-07-29 | Revalidated the supervised-server embedding change with 25 server tests and the full suite | `mix format --check-formatted`, `mix test` |
+| 2026-07-29 | Added `421` unknown-command and `451` pre-registration command errors | `test/ircxd/server_protocol_errors_test.exs` |
+| 2026-07-29 | Revalidated protocol errors with 27 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added read-only `MODE` query replies (`221` user modes and `324` channel modes) | `test/ircxd/server_mode_test.exs` |
+| 2026-07-29 | Revalidated MODE interoperability with 28 server tests, the full suite, and irssi; stabilized asynchronous TAGMSG capability setup | `mix test`, `mix run` irssi check, `test/ircxd/server_tagmsg_test.exs` |
+| 2026-07-29 | Added `417` handling for oversized IRC wire lines | `test/ircxd/server_limits_test.exs` |
+| 2026-07-29 | Revalidated input limits with 29 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Broadcast synthetic QUIT messages for unexpected disconnects and prevent duplicate explicit QUIT cleanup | `test/ircxd/server_quit_test.exs` |
+| 2026-07-29 | Revalidated disconnect cleanup with 30 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Preserved IRCv3 tags while routing channel `PRIVMSG` and `NOTICE` messages | `test/ircxd/server_message_tags_test.exs` |
+| 2026-07-29 | Accepted `CAP END` and made socket-send failures terminate connections cleanly | `test/ircxd/server_capability_test.exs`, `Ircxd.Server.Connection` |
+| 2026-07-29 | Revalidated tagged message routing and capability/transport hardening with 32 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added `LIST` channel discovery with `321`/`322`/`323` numerics | `test/ircxd/server_list_test.exs` |
+| 2026-07-29 | Added comma-separated multi-target `JOIN` handling | `test/ircxd/server_multi_join_test.exs` |
+| 2026-07-29 | Added comma-separated multi-target `PART` handling with reason preservation | `test/ircxd/server_multi_part_test.exs` |
+| 2026-07-29 | Revalidated multi-target PART with 35 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added configurable MOTD delivery with `375`/`372`/`376` numerics | `test/ircxd/server_motd_test.exs` |
+| 2026-07-29 | Revalidated MOTD support with 36 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added no-target `NAMES` enumeration for all known channels | `test/ircxd/server_names_all_test.exs` |
+| 2026-07-29 | Added live `LUSERS` counts with `251`–`255` replies | `test/ircxd/server_lusers_test.exs` |
+| 2026-07-29 | Revalidated LUSERS with 38 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added `VERSION` support with the standard `351` reply | `test/ircxd/server_version_test.exs` |
+| 2026-07-29 | Revalidated VERSION with 39 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added configurable registration ISUPPORT tokens with `005` | `test/ircxd/server_isupport_test.exs`, `README.md` |
+| 2026-07-29 | Added standard malformed-message handling for `PRIVMSG` and `NOTICE` | `test/ircxd/server_message_errors_test.exs` |
+| 2026-07-29 | Revalidated message validation with 42 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added `442 ERR_NOTONCHANNEL` for PART membership validation | `test/ircxd/server_validation_test.exs` |
+| 2026-07-29 | Revalidated channel membership validation with 47 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added target-aware `PRIVMSG` errors for missing nicks/channels and non-members | `test/ircxd/server_message_target_test.exs` |
+| 2026-07-29 | Revalidated message target policy with 48 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Revalidated JOIN idempotency with 49 server tests, the full suite, irssi 1.4.5, and refreshed protocol benchmarks; tagged `PRIVMSG` parsing measured 669.19 ms per 100k iterations (149,434 ops/s, p95 752.58 ms) | `mix test`, named tmux irssi check, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Revalidated ISUPPORT registration with 40 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added `TIME` support with standard `391` replies | `test/ircxd/server_time_test.exs` |
+| 2026-07-29 | Revalidated TIME with 43 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added configurable `ADMIN` information with `256`–`259` replies | `test/ircxd/server_admin_test.exs`, `README.md` |
+| 2026-07-29 | Revalidated ADMIN with 44 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added channel `WHO` identity replies with `352`/`315` | `test/ircxd/server_who_test.exs` |
+| 2026-07-29 | Revalidated WHO identity handling with 45 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added `WHOIS` identity replies with `311`/`312`/`318` | `test/ircxd/server_whois_test.exs` |
+| 2026-07-29 | Made message-tags tests order-independent when registration and CAP ACK events race | `test/ircxd/server_tagmsg_test.exs`, `test/ircxd/server_message_tags_test.exs` |
+| 2026-07-29 | Revalidated WHOIS and capability-test stability with 46 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Revalidated all-channel NAMES with 37 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Revalidated multi-target JOIN with 34 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Revalidated LIST support with 33 server tests, the full suite, and irssi connectivity | `mix test`, `mix run` irssi check |
+| 2026-07-29 | Added `461 ERR_NEEDMOREPARAMS` validation for parameterless `JOIN`, incomplete `INVITE`, and incomplete `KICK` commands | `test/ircxd/server_protocol_errors_test.exs` |
+| 2026-07-29 | Revalidated malformed channel-command handling with 92 focused server tests, the full suite, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 638.97 ms median per 100k iterations (156,503 ops/s, p95 742.37 ms) | `mix test`, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added registered nickname changes with channel-wide `NICK` fan-out, direct routing after rename, `433` collision coverage, and client current-nickname synchronization | `lib/ircxd/client.ex`, `test/ircxd/server_nick_change_test.exs` |
+| 2026-07-29 | Revalidated nickname changes with 94 focused server tests, the full suite, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 610.2 ms median per 100k iterations (163,881 ops/s, p95 678.46 ms) | `mix test`, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added IRCv3 `invite-notify` advertisement and capability-gated INVITE fan-out to channel members, with legacy-client isolation coverage | `test/ircxd/server_invite_notify_test.exs` |
+| 2026-07-29 | Revalidated `invite-notify` with 95 focused server tests, the full suite, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 632.48 ms median per 100k iterations (158,108 ops/s, p95 695.6 ms) | `mix test`, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added implicit TLS listener support with transport-aware accept, handshake, connection, and shutdown paths; verified registration and PING/PONG over TLS with `Ircxd.Client` | `test/ircxd/server_tls_test.exs`, `test/support/tls/server.crt`, `test/support/tls/server.key` |
+| 2026-07-29 | Revalidated TLS transport support with 96 focused server tests, the full suite, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 623.87 ms median per 100k iterations (160,290 ops/s, p95 724.05 ms) | `mix test`, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added a dedicated direct irssi interoperability script that starts `Ircxd.Server` in a named tmux session, joins an irssi channel, and verifies an `Ircxd.Client` message is visible there | `scripts/run_irssi_server_check.sh` |
+| 2026-07-29 | Added `labeled-response` capability support for WHOIS reply sequences, preserving request labels through `311`/`301`/`330`/`312`/`318` responses | `test/ircxd/server_labeled_response_test.exs` |
+| 2026-07-29 | Revalidated labeled WHOIS responses with 97 focused server tests, 353 non-external tests, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 665.15 ms median per 100k iterations (150,342 ops/s, p95 738.42 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | A repository-wide `mix test` attempt remained environment-gated by the existing InspIRCd integration test timing out during CAP LS on `127.0.0.1:6667`; the local/non-external suite passed independently | `test/ircxd/client_integration_test.exs` |
+| 2026-07-29 | Added private channel mode `+p` with mutual exclusion against `+s`, non-member LIST privacy, no-target NAMES privacy, and the standard `*` NAMES symbol | `test/ircxd/server_private_mode_test.exs` |
+| 2026-07-29 | Revalidated private mode with 98 focused server tests, 354 non-external tests, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 640.67 ms median per 100k iterations (156,087 ops/s, p95 720.49 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added negotiated `standard-replies` support for unknown commands, emitting `FAIL <command> UNKNOWN_COMMAND` without removing the established `421` response | `test/ircxd/server_standard_reply_test.exs` |
+| 2026-07-29 | Revalidated standard replies with 99 focused server tests, 355 non-external tests, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 623.99 ms median per 100k iterations (160,260 ops/s, p95 699.98 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added standard channel operator delegation and revocation with `MODE +o/-o`, including authority regression coverage after delegation and revocation | `test/ircxd/server_operator_mode_test.exs` |
+| 2026-07-29 | Revalidated operator delegation with 100 focused server tests, 356 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 663.42 ms median per 100k iterations (150,735 ops/s, p95 754.33 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added regression coverage and default `005` metadata for implemented channel prefixes and mode classes (`PREFIX=(ov)@+`, `CHANMODES=b,k,l,imnpst`) | `test/ircxd/server_isupport_test.exs` |
+| 2026-07-29 | Revalidated ISUPPORT discovery with 101 focused server tests, 357 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 604.57 ms median per 100k iterations (165,407 ops/s, p95 726.2 ms) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added `AUTHENTICATE *` SASL abort handling with `906` and verified the application authenticator is not invoked when a client cancels | `test/ircxd/server_authentication_test.exs` |
+| 2026-07-29 | Revalidated SASL abort behavior with 102 focused server tests, 358 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 630.55 ms median per 100k iterations (158,592 ops/s, p95 714.29 ms) and serialization measured 250.0 ms (400,006 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added SASL `EXTERNAL` identity delegation with application-owned authorization and revalidated it with 116 focused server tests, 372 non-external tests, irssi interoperability, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 647.08 ms median per 100k iterations (154,540 ops/s, p95 751.37 ms), serialization 249.73 ms (400,439 ops/s), tag escaping 175.65 ms (569,311 ops/s), styled-text parsing 204.6 ms (488,747 ops/s), and ISUPPORT parsing 598.66 ms (167,039 ops/s) | `test/ircxd/server_authentication_test.exs`, focused/non-integration suites, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Grouped connection message clauses so the server compiles without the recurring `handle_message/2` clause-order warning | `lib/ircxd/server/connection.ex`, `mix test test/ircxd/server_authentication_test.exs` |
+| 2026-07-29 | Added bounded in-memory `WHOWAS` history for nickname changes and disconnects with `314`/`369` replies and client-driven query coverage | `test/ircxd/server_whowas_test.exs` |
+| 2026-07-29 | Stabilized capability and membership assertions in the server regression suite, then revalidated WHOWAS with 103 focused server tests, 359 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 621.29 ms median per 100k iterations (160,955 ops/s, p95 700.81 ms) and serialization measured 238.25 ms (419,736 ops/s) | `test/ircxd/server_tagmsg_policy_test.exs`, `test/ircxd/server_kick_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added comma-separated `PRIVMSG` and `NOTICE` target routing with independent per-target policy checks and client-driven coverage | `test/ircxd/server_multi_target_message_test.exs` |
+| 2026-07-29 | Revalidated multi-target messaging with 104 focused server tests, 360 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 635.64 ms median per 100k iterations (157,322 ops/s, p95 704.65 ms) and serialization measured 279.49 ms (357,796 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added configurable `INFO` responses with `371` text lines and `374` completion, using the existing typed `Ircxd.Client` query events | `test/ircxd/server_info_test.exs` |
+| 2026-07-29 | Revalidated INFO with 105 focused server tests, 361 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 651.62 ms median per 100k iterations (153,465 ops/s, p95 766.63 ms), serialization 250.61 ms (399,030 ops/s), tag escaping 174.69 ms (572,436 ops/s), and styled-text parsing 211.31 ms (473,250 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added configurable HELP subjects with standard `704`/`705`/`706` start, text, and completion replies, plus embedding documentation | `test/ircxd/server_help_test.exs`, `README.md` |
+| 2026-07-29 | Revalidated HELP with 106 focused server tests, 362 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 685.3 ms median per 100k iterations (145,922 ops/s, p95 779.94 ms), serialization 234.71 ms (426,060 ops/s), tag escaping 169.25 ms (590,859 ops/s), and styled-text parsing 201.48 ms (496,325 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added standalone-server `LINKS` responses with `364`/`365` and server/mask filtering through the existing client query API | `test/ircxd/server_links_test.exs` |
+| 2026-07-29 | Revalidated LINKS with 107 focused server tests, 363 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 632.86 ms median per 100k iterations (158,013 ops/s, p95 727.46 ms), serialization 241.84 ms (413,491 ops/s), tag escaping 184.37 ms (542,388 ops/s), and styled-text parsing 195.43 ms (511,705 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added standalone-server `STATS u` uptime responses with `242`/`219`, while unsupported query types return an honest completion response | `test/ircxd/server_stats_test.exs` |
+| 2026-07-29 | Stabilized invite-notify capability readiness, then revalidated STATS with 108 focused server tests, 364 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 606.63 ms median per 100k iterations (164,845 ops/s, p95 704.4 ms), serialization 230.41 ms (434,016 ops/s), tag escaping 164.05 ms (609,559 ops/s), styled-text parsing 192.16 ms (520,394 ops/s), and ISUPPORT parsing 556.17 ms (179,801 ops/s) | `test/ircxd/server_invite_notify_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added wildcard channel masks to `LIST` with client-driven coverage; existing visibility checks remain applied to every match | `test/ircxd/server_list_filter_test.exs` |
+| 2026-07-29 | Revalidated wildcard LIST and stabilized invite-notify mailbox ordering with 109 focused server tests, 365 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 610.56 ms median per 100k iterations (163,785 ops/s, p95 720.25 ms), serialization 248.64 ms (402,185 ops/s), tag escaping 169.57 ms (589,710 ops/s), styled-text parsing 201.89 ms (495,317 ops/s), and ISUPPORT parsing 584.06 ms (171,214 ops/s) | `test/ircxd/server_list_filter_test.exs`, `test/ircxd/server_invite_notify_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added server-side client batch framing with capability advertisement and recipient-aware `BATCH` start/end relay around tagged messages | `test/ircxd/server_batch_test.exs` |
+| 2026-07-29 | Revalidated client batch framing with 110 focused server tests, 366 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 602.5 ms median per 100k iterations (165,976 ops/s, p95 701.65 ms), serialization 261.41 ms (382,544 ops/s), tag escaping 172.18 ms (580,784 ops/s), styled-text parsing 203.51 ms (491,381 ops/s), and ISUPPORT parsing 545.62 ms (183,276 ops/s) | `test/ircxd/server_batch_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added bounded in-memory `CHATHISTORY LATEST` responses with member privacy and `msgid`/`time` metadata | `test/ircxd/server_chat_history_test.exs` |
+| 2026-07-29 | Extended bounded chat history with message-ID based `BEFORE` and `AFTER` selectors | `test/ircxd/server_chat_history_test.exs` |
+| 2026-07-29 | Revalidated selector-aware chat history with 111 focused server tests, 367 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 616.12 ms median per 100k iterations (162,305 ops/s, p95 695.78 ms), serialization 264.61 ms (377,922 ops/s), tag escaping 170.89 ms (585,168 ops/s), styled-text parsing 204.02 ms (490,153 ops/s), and ISUPPORT parsing 589.25 ms (169,708 ops/s) | `test/ircxd/server_chat_history_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added `AROUND` and `BETWEEN` history selectors with message-ID boundary semantics; both selectors exclude their boundary message(s) as specified | `test/ircxd/server_chat_history_test.exs` |
+| 2026-07-29 | Added member-visible `CHATHISTORY TARGETS` discovery with batched responses and history-related ISUPPORT tokens | `test/ircxd/server_chat_history_targets_test.exs`, `test/ircxd/server_isupport_test.exs` |
+| 2026-07-29 | Revalidated chat-history target discovery with 112 focused server tests, 368 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 637.69 ms median per 100k iterations (156,817 ops/s, p95 812.76 ms), serialization 251.08 ms (398,281 ops/s), tag escaping 171.53 ms (582,999 ops/s), styled-text parsing 204.56 ms (488,854 ops/s), and ISUPPORT parsing 568.5 ms (175,901 ops/s) | `test/ircxd/server_chat_history_targets_test.exs`, `test/ircxd/server_isupport_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added `draft/multiline` capability advertisement and client-driven multiline relay coverage over the server batch path | `test/ircxd/server_multiline_test.exs` |
+| 2026-07-29 | Revalidated multiline relay with 113 focused server tests, 369 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 635.97 ms median per 100k iterations (157,240 ops/s, p95 741.03 ms), serialization 238.48 ms (419,321 ops/s), tag escaping 172.65 ms (579,203 ops/s), styled-text parsing 195.07 ms (512,644 ops/s), and ISUPPORT parsing 550.26 ms (181,733 ops/s) | `test/ircxd/server_multiline_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added capability-gated `REDACT` handling for message authors and channel operators, removing redacted channel messages from bounded history and relaying to opted-in clients | `test/ircxd/server_redaction_test.exs` |
+| 2026-07-29 | Added regression coverage proving non-authors and non-operators receive `REDACT_FORBIDDEN` and cannot remove channel history | `test/ircxd/server_redaction_test.exs` |
+| 2026-07-29 | Revalidated redaction authorization coverage with 115 focused server tests and 371 non-external tests | `test/ircxd/server_redaction_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite |
+| 2026-07-29 | Revalidated redaction with 114 focused server tests, 370 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 666.33 ms median per 100k iterations (150,075 ops/s, p95 743.82 ms), serialization 242.29 ms (412,720 ops/s), tag escaping 168.76 ms (592,565 ops/s), styled-text parsing 198.76 ms (503,114 ops/s), and ISUPPORT parsing 571.28 ms (175,044 ops/s) | `test/ircxd/server_redaction_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Revalidated complete bounded history selectors with 111 focused server tests, 367 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 661.14 ms median per 100k iterations (151,255 ops/s, p95 729.67 ms), serialization 248.52 ms (402,379 ops/s), tag escaping 171.97 ms (581,497 ops/s), styled-text parsing 194.39 ms (514,427 ops/s), and ISUPPORT parsing 607.18 ms (164,695 ops/s) | `test/ircxd/server_chat_history_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Revalidated chat history with 111 focused server tests, 367 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 624.48 ms median per 100k iterations (160,133 ops/s, p95 680.88 ms), serialization 254.72 ms (392,583 ops/s), tag escaping 172.62 ms (579,324 ops/s), styled-text parsing 193.14 ms (517,754 ops/s), and ISUPPORT parsing 553.09 ms (180,804 ops/s) | `test/ircxd/server_chat_history_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added client-driven missing-parameter validation for registration and user queries: `431` for empty `NICK` and `461` for empty `PASS`, `AUTHENTICATE`, `TOPIC`, and `WHOIS` | `test/ircxd/server_registration_query_validation_test.exs`, `lib/ircxd/server/connection.ex`, `lib/ircxd/server.ex` |
+| 2026-07-29 | Revalidated malformed registration/query handling with 117 focused server tests, 373 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 624.92 ms median per 100k iterations (160,021 ops/s, p95 709.49 ms), serialization 240.64 ms (415,552 ops/s), tag escaping 169.18 ms (591,086 ops/s), styled-text parsing 195.33 ms (511,954 ops/s), and ISUPPORT parsing 563.61 ms (177,428 ops/s) | `test/ircxd/server_registration_query_validation_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added connection-level validation for incomplete pre-registration `USER` and empty `PING`, returning `461` instead of `451`/empty `PONG`; revalidated with 118 focused server tests, 374 non-external tests, the direct irssi server gate, formatting/whitespace checks, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 630.53 ms median per 100k iterations (158,596 ops/s, p95 700.31 ms), serialization 248.81 ms (401,916 ops/s), tag escaping 177.19 ms (564,350 ops/s), styled-text parsing 194.79 ms (513,384 ops/s), and ISUPPORT parsing 603.21 ms (165,780 ops/s) | `test/ircxd/server_registration_query_validation_test.exs`, `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Accepted client `PONG` replies without emitting `421 Unknown command`, with a client-driven interoperability regression test | `test/ircxd/server_connection_test.exs`, `lib/ircxd/server/connection.ex` |
+| 2026-07-29 | Revalidated client PONG handling with 119 focused server tests, 375 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 657.27 ms median per 100k iterations (152,145 ops/s, p95 748.03 ms), serialization 238.87 ms (418,631 ops/s), tag escaping 167.94 ms (595,437 ops/s), styled-text parsing 192.16 ms (520,400 ops/s), and ISUPPORT parsing 574.47 ms (174,074 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Made subscriber initialization transactional: invalid callback startup returns a structured error, closes the listener, and prevents the acceptor from starting; added port-reuse regression coverage | `lib/ircxd/server.ex`, `lib/ircxd/server/subscriber_worker.ex`, `test/ircxd/server_subscriber_test.exs` |
+| 2026-07-29 | Revalidated subscriber lifecycle hardening with 120 focused server tests, 376 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 611.09 ms median per 100k iterations (163,642 ops/s, p95 688.55 ms), serialization 249.59 ms (400,655 ops/s), tag escaping 184.66 ms (541,545 ops/s), styled-text parsing 195.56 ms (511,347 ops/s), and ISUPPORT parsing 578.73 ms (172,793 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added client-driven `CAP REQ` missing-parameter validation with standard `461 ERR_NEEDMOREPARAMS` handling | `test/ircxd/server_capability_test.exs`, `lib/ircxd/server/connection.ex` |
+| 2026-07-29 | Revalidated CAP parameter handling with 121 focused server tests, 377 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 639.91 ms median per 100k iterations (156,271 ops/s, p95 713.18 ms), serialization 272.82 ms (366,542 ops/s), tag escaping 184.99 ms (540,579 ops/s), styled-text parsing 201.85 ms (495,410 ops/s), and ISUPPORT parsing 581.33 ms (172,020 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added authentication-boundary failure isolation: raised or malformed application authenticator results now become `904` SASL failures without taking down the server; covered with a client-driven regression test | `lib/ircxd/server.ex`, `test/ircxd/server_authentication_test.exs` |
+| 2026-07-29 | Revalidated authentication failure isolation with 122 focused server tests, 378 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 655.95 ms median per 100k iterations (152,450 ops/s, p95 753.51 ms), serialization 246.66 ms (405,425 ops/s), tag escaping 181.65 ms (550,506 ops/s), styled-text parsing 201.73 ms (495,702 ops/s), and ISUPPORT parsing 597.2 ms (167,448 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Made authenticator initialization return structured errors before listener startup, including provider `{:error, reason}`, invalid returns, and raised initialization failures; added startup regression coverage | `lib/ircxd/server.ex`, `test/ircxd/server_authentication_test.exs` |
+| 2026-07-29 | Revalidated authenticator startup handling with 123 focused server tests, 379 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 662.79 ms median per 100k iterations (150,878 ops/s, p95 720.8 ms), serialization 237.36 ms (421,301 ops/s), tag escaping 183.79 ms (544,111 ops/s), styled-text parsing 200.12 ms (499,690 ops/s), and ISUPPORT parsing 577.03 ms (173,300 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Marked the subscriber callback/handler-hook task complete and documented the `Ircxd.Server.Subscriber` contract, metadata, serialized state, and embedding example; revalidated 11 focused callback/authentication tests, 379 non-external tests, irssi interoperability, and protocol microbenchmarks with tagged parsing at 627.62 ms per 100k iterations (159,331 ops/s, p95 758.57 ms) | `README.md`, `plans/server.md`, `mix test`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added immediate `904` SASL failure responses when clients request PLAIN or EXTERNAL without a configured authenticator, with client-driven coverage | `lib/ircxd/server/connection.ex`, `test/ircxd/server_authentication_test.exs` |
+| 2026-07-29 | Added explicit `904 Unsupported SASL mechanism` handling and reset the connection’s SASL mechanism state after each credential attempt, with configured PLAIN/EXTERNAL regression coverage | `lib/ircxd/server/connection.ex`, `test/ircxd/server_authentication_test.exs` |
+| 2026-07-29 | Revalidated unsupported-mechanism handling with 125 focused server tests, 381 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 640.05 ms median per 100k iterations (156,238 ops/s, p95 726.34 ms), serialization 245.48 ms (407,372 ops/s), tag escaping 170.87 ms (585,227 ops/s), styled-text parsing 207.66 ms (481,552 ops/s), and ISUPPORT parsing 579.33 ms (172,614 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Completed the baseline-plan audit: registration, identity/channel state, subscriber hooks, authentication contract, and named malformed-input requirements are now marked complete; stabilized kick-test mailbox ordering with negotiated `no-implicit-names`, then revalidated 381 non-external tests, irssi interoperability, and benchmarks at 619.58 ms tagged parsing per 100k (p95 697.49 ms) | `plans/server.md`, `test/ircxd/server_kick_test.exs`, `mix test`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Added labeled-response propagation for client `PING`/server `PONG`, preserving the request label through the existing outbound tag policy and client lifecycle | `lib/ircxd/server/connection.ex`, `test/ircxd/server_labeled_response_test.exs` |
+| 2026-07-29 | Revalidated labeled PING/PONG response correlation with 126 focused server tests, 382 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 609.34 ms median per 100k iterations (164,111 ops/s, p95 709.17 ms), serialization 231.28 ms (432,374 ops/s), tag escaping 165.72 ms (603,413 ops/s), styled-text parsing 196.42 ms (509,121 ops/s), and ISUPPORT parsing 590.96 ms (169,217 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |
+| 2026-07-29 | Finalized the original server-objective audit: all eleven plan tasks are now evidenced as complete; broader IRCv3 items remain explicitly documented as partial in `docs/server_ircv3_matrix.md` for future extension | `plans/server.md`, `docs/server_ircv3_matrix.md`, pushed `server` branch history |
+| 2026-07-29 | Revalidated no-authenticator SASL handling with 124 focused server tests, 380 non-external tests, formatting/whitespace checks, the direct irssi server gate, and protocol microbenchmarks; tagged `PRIVMSG` parsing measured 605.02 ms median per 100k iterations (165,284 ops/s, p95 699.21 ms), serialization 239.57 ms (417,420 ops/s), tag escaping 171.13 ms (584,348 ops/s), styled-text parsing 207.16 ms (482,723 ops/s), and ISUPPORT parsing 587.42 ms (170,237 ops/s) | `mix test test/ircxd/server*_test.exs`, non-integration test suite, `mix format --check-formatted`, `git diff --check`, `scripts/run_irssi_server_check.sh`, `mix run bench/ircxd.exs` |

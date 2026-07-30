@@ -43,6 +43,46 @@ defmodule Ircxd.ServerRegistrationTest do
     assert_receive {:ircxd, :registered}, 2_000
   end
 
+  test "rejects an invalid nickname without registering the client" do
+    {:ok, server} = Server.start_link(port: 0, server_name: "ircxd.test")
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, client} =
+      start_client(server, "bad*nick")
+
+    on_exit(fn -> stop_if_alive(client) end)
+
+    assert_receive {:ircxd, {:irc_error, %{code: "432", reason: "Erroneous nickname"}}}, 2_000
+    refute_receive {:ircxd, :registered}, 500
+  end
+
+  test "rejects USER changes after registration" do
+    {:ok, server} = Server.start_link(port: 0, server_name: "ircxd.test")
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, client} = start_client(server, "registered-user")
+    on_exit(fn -> stop_if_alive(client) end)
+    wait_registered()
+
+    assert :ok = Client.raw(client, "USER", ["changed", "0", "*", "Changed identity"])
+
+    assert_receive {:ircxd, {:irc_error, %{code: "462", reason: "You may not reregister"}}},
+                   2_000
+  end
+
+  test "closes a connection that does not complete registration before the timeout" do
+    {:ok, server} = Server.start_link(port: 0, registration_timeout: 50)
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, socket} =
+      :gen_tcp.connect(~c"127.0.0.1", Server.port(server), [:binary, packet: :line, active: false])
+
+    on_exit(fn -> :gen_tcp.close(socket) end)
+
+    assert {:ok, "ERROR :Registration timeout\r\n"} = :gen_tcp.recv(socket, 0, 1_000)
+    assert {:error, :closed} = :gen_tcp.recv(socket, 0, 1_000)
+  end
+
   defp start_client(server, nick, extra \\ []) do
     Client.start_link(
       [

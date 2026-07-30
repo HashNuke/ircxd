@@ -28,6 +28,30 @@ defmodule Ircxd.ServerValidationTest do
                    2_000
   end
 
+  test "rejects PART for a channel the client has not joined" do
+    {:ok, server} = Server.start_link(port: 0, server_name: "ircxd.test")
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, client} =
+      Client.start_link(
+        host: "127.0.0.1",
+        port: Server.port(server),
+        nick: "part-validation",
+        username: "part-validation",
+        realname: "Ircxd part validation client",
+        notify: self()
+      )
+
+    on_exit(fn -> stop_if_alive(client) end)
+    wait_registered()
+    assert :ok = Client.part(client, "#not-joined")
+
+    assert_receive {:ircxd,
+                    {:irc_error,
+                     %{code: "442", target: "#not-joined", reason: "You're not on that channel"}}},
+                   2_000
+  end
+
   defp wait_registered do
     receive do
       {:ircxd, :registered} -> :ok
@@ -35,5 +59,11 @@ defmodule Ircxd.ServerValidationTest do
     after
       2_000 -> flunk("client did not register")
     end
+  end
+
+  defp stop_if_alive(pid) do
+    GenServer.stop(pid)
+  catch
+    :exit, _reason -> :ok
   end
 end

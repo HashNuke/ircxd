@@ -4,9 +4,13 @@ defmodule Ircxd.ClientTLSTest do
   alias Ircxd.Client
 
   test "uses the IRC host as the default TLS SNI hostname" do
-    assert Client.__tls_connect_options__(%{host: "irc.example.test"})[
-             :server_name_indication
-           ] == ~c"irc.example.test"
+    options = Client.__tls_connect_options__(%{host: "irc.example.test"})
+
+    assert options[:server_name_indication] == ~c"irc.example.test"
+    assert options[:verify] == :verify_peer
+    assert is_list(options[:cacerts])
+    assert options[:cacerts] != []
+    assert is_function(options[:customize_hostname_check][:match_fun], 2)
   end
 
   test "allows overriding the TLS SNI hostname" do
@@ -26,5 +30,26 @@ defmodule Ircxd.ClientTLSTest do
     assert options[:server_name_indication] == ~c"irc.example.test"
     assert options[:verify] == :verify_peer
     assert options[:depth] == 3
+  end
+
+  test "uses a caller supplied CA file instead of the system trust store" do
+    options =
+      Client.__tls_connect_options__(%{
+        host: "irc.example.test",
+        tls_options: [cacertfile: "/custom/ca.pem"]
+      })
+
+    assert options[:cacertfile] == "/custom/ca.pem"
+    refute Keyword.has_key?(options, :cacerts)
+  end
+
+  test "requires an explicit override to disable certificate verification" do
+    options =
+      Client.__tls_connect_options__(%{
+        host: "localhost",
+        tls_options: [verify: :verify_none]
+      })
+
+    assert options[:verify] == :verify_none
   end
 end

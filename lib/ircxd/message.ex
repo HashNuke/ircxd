@@ -13,6 +13,7 @@ defmodule Ircxd.Message do
   @max_message_bytes_without_crlf @max_message_bytes - 2
   @max_client_tag_data_bytes 4094
   @max_received_tag_section_bytes 8191
+  @max_received_wire_bytes @max_received_tag_section_bytes + @max_message_bytes
   @max_params 15
 
   @type t :: %__MODULE__{
@@ -133,6 +134,7 @@ defmodule Ircxd.Message do
   def max_message_bytes_without_crlf, do: @max_message_bytes_without_crlf
   def max_client_tag_data_bytes, do: @max_client_tag_data_bytes
   def max_received_tag_section_bytes, do: @max_received_tag_section_bytes
+  def max_received_wire_bytes, do: @max_received_wire_bytes
   def max_params, do: @max_params
 
   def escape_tag_value(value) when is_binary(value) do
