@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+tls_dir="$repo_root/test/support/tls"
+work_dir=$(mktemp -d "${TMPDIR:-/tmp}/ircxd-tls.XXXXXX")
+
+cleanup() {
+  rm -rf "$work_dir"
+}
+trap cleanup EXIT
+
+if ! command -v openssl >/dev/null 2>&1; then
+  echo "bin/setup-tests requires openssl" >&2
+  exit 1
+fi
+
+mkdir -p "$tls_dir"
+
+if [[ -f "$tls_dir/ca.crt" &&
+      -f "$tls_dir/server.crt" &&
+      -f "$tls_dir/server.key" &&
+      -f "$tls_dir/client.crt" &&
+      -f "$tls_dir/client.key" ]]; then
+  echo "TLS test certificates already exist in $tls_dir"
+  exit 0
+fi
+
+openssl genrsa -out "$work_dir/ca.key" 2048 >/dev/null 2>&1
+openssl req -x509 -new -sha256 -days 3650 \
+  -key "$work_dir/ca.key" \
+  -subj "/CN=ircxd test CA" \
+  -out "$work_dir/ca.crt" >/dev/null 2>&1
+
+openssl req -new -newkey rsa:2048 -nodes \
+  -keyout "$work_dir/server.key" \
+  -out "$work_dir/server.csr" \
+  -subj "/CN=localhost" >/dev/null 2>&1
+cat >"$work_dir/server.ext" <<'EOF'
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature,keyEncipherment
+extendedKeyUsage=serverAuth
+subjectAltName=DNS:localhost
+EOF
+openssl x509 -req -sha256 -days 3650 \
+  -in "$work_dir/server.csr" \
+  -CA "$work_dir/ca.crt" \
+  -CAkey "$work_dir/ca.key" \
+  -CAcreateserial \
+  -extfile "$work_dir/server.ext" \
+  -out "$work_dir/server.crt" >/dev/null 2>&1
+
+openssl req -new -newkey rsa:2048 -nodes \
+  -keyout "$work_dir/client.key" \
+  -out "$work_dir/client.csr" \
+  -subj "/CN=certificate-user" >/dev/null 2>&1
+cat >"$work_dir/client.ext" <<'EOF'
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature,keyEncipherment
+extendedKeyUsage=clientAuth
+EOF
+openssl x509 -req -sha256 -days 3650 \
+  -in "$work_dir/client.csr" \
+  -CA "$work_dir/ca.crt" \
+  -CAkey "$work_dir/ca.key" \
+  -CAcreateserial \
+  -extfile "$work_dir/client.ext" \
+  -out "$work_dir/client.crt" >/dev/null 2>&1
+
+install -m 0644 "$work_dir/ca.crt" "$tls_dir/ca.crt"
+install -m 0644 "$work_dir/server.crt" "$tls_dir/server.crt"
+install -m 0600 "$work_dir/server.key" "$tls_dir/server.key"
+install -m 0644 "$work_dir/client.crt" "$tls_dir/client.crt"
+install -m 0600 "$work_dir/client.key" "$tls_dir/client.key"
+
+echo "Generated TLS test certificates in $tls_dir"

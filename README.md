@@ -222,6 +222,13 @@ More boundary guidance is available in:
 
 ## Testing
 
+Set up the locally generated TLS fixtures once after checking out the
+repository. This requires `openssl`:
+
+```bash
+bin/setup-tests
+```
+
 Run the default automated suite:
 
 ```bash
@@ -284,6 +291,9 @@ scripts/run_irssi_server_check.sh
 Development expects Elixir 1.19, Erlang/OTP, InspIRCd on `127.0.0.1:6667`,
 and optional `atheme-services`, `irssi`, `tmux`, and `sudo` for the opt-in
 integration checks.
+
+Run `bin/setup-tests` once after checkout to generate the TLS fixtures used by
+the TLS integration tests.
 
 ```bash
 mix deps.get

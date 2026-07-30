@@ -21,7 +21,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y inspircd
+          sudo apt-get install -y inspircd openssl
 
       - name: Install Hex and Rebar
         run: |
@@ -40,6 +40,9 @@ jobs:
 
       - name: Fetch dependencies
         run: mix deps.get
+
+      - name: Set up TLS test certificates
+        run: bin/setup-tests
 
       - name: Start InspIRCd fixture
         run: |
@@ -63,7 +66,7 @@ jobs:
 
           <connect allow="*"
                    timeout="60"
-                   threshold="20"
+                   threshold="1000"
                    pingfreq="120"
                    hardsendq="262144"
                    softsendq="8192"
