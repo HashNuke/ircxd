@@ -33,6 +33,7 @@ defmodule Ircxd.ServerAccountNotifyTest do
     {:ok, server} =
       Server.start_link(
         port: 0,
+        allow_insecure_auth: true,
         authenticator: {Authenticator, self()}
       )
 
@@ -47,6 +48,7 @@ defmodule Ircxd.ServerAccountNotifyTest do
         realname: "Account Notify Client",
         caps: ["account-notify"],
         sasl: {:plain, "account-user", "secret"},
+        allow_insecure_auth: true,
         notify: self()
       )
 
@@ -60,6 +62,7 @@ defmodule Ircxd.ServerAccountNotifyTest do
     {:ok, server} =
       Server.start_link(
         port: 0,
+        allow_insecure_auth: true,
         authenticator: {Authenticator, self()}
       )
 
@@ -98,6 +101,7 @@ defmodule Ircxd.ServerAccountNotifyTest do
       username: nick,
       realname: "Ircxd #{nick} client",
       caps: caps,
+      allow_insecure_auth: true,
       notify: self()
     ]
 

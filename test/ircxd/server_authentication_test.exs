@@ -75,11 +75,26 @@ defmodule Ircxd.ServerAuthenticationTest do
     def authenticate(_username, _password, _metadata, state), do: {:error, :unavailable, state}
   end
 
+  defmodule BlockingAuthenticator do
+    @behaviour Ircxd.Server.Authenticator
+
+    @impl true
+    def init({test_pid, delay}), do: {:ok, %{test_pid: test_pid, delay: delay}}
+
+    @impl true
+    def authenticate(_username, _password, _metadata, state) do
+      send(state.test_pid, :authentication_started)
+      Process.sleep(state.delay)
+      {:ok, "slow-account", state}
+    end
+  end
+
   test "authenticator controls SASL registration using application-owned state" do
     {:ok, server} =
       Server.start_link(
         port: 0,
         server_name: "ircxd.test",
+        allow_insecure_auth: true,
         authenticator: {Authenticator, self()}
       )
 
@@ -93,6 +108,7 @@ defmodule Ircxd.ServerAuthenticationTest do
         username: "client-user",
         realname: "Ircxd auth client",
         sasl: {:plain, "db-user", "secret"},
+        allow_insecure_auth: true,
         notify: self()
       )
 
@@ -117,11 +133,56 @@ defmodule Ircxd.ServerAuthenticationTest do
     assert_receive {:ircxd, {:whois_account, %{nick: "auth-test", account: "account-123"}}}, 2_000
   end
 
+  test "times out a blocking authenticator and keeps the server available" do
+    {:ok, server} =
+      Server.start_link(
+        port: 0,
+        authentication_timeout: 25,
+        authenticator: {BlockingAuthenticator, {self(), 500}}
+      )
+
+    on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
+
+    result_task =
+      Task.async(fn ->
+        Server.authenticate(server, "slow-user", "secret", %{connection: self()})
+      end)
+
+    assert_receive :authentication_started, 1_000
+    assert {:error, :authentication_timeout} = Task.await(result_task, 1_000)
+    assert Process.alive?(server)
+  end
+
+  test "rejects authentication attempts when the bounded queue is full" do
+    {:ok, server} =
+      Server.start_link(
+        port: 0,
+        authentication_timeout: 100,
+        max_authentication_attempts: 1,
+        authenticator: {BlockingAuthenticator, {self(), 500}}
+      )
+
+    on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
+
+    result_task =
+      Task.async(fn ->
+        Server.authenticate(server, "slow-user", "secret", %{connection: self()})
+      end)
+
+    assert_receive :authentication_started, 1_000
+
+    assert {:error, :authentication_overloaded} =
+             Server.authenticate(server, "second-user", "secret", %{connection: self()})
+
+    assert {:error, :authentication_timeout} = Task.await(result_task, 1_000)
+  end
+
   test "does not register clients when the authenticator rejects credentials" do
     {:ok, server} =
       Server.start_link(
         port: 0,
         server_name: "ircxd.test",
+        allow_insecure_auth: true,
         authenticator: {Authenticator, self()}
       )
 
@@ -135,6 +196,7 @@ defmodule Ircxd.ServerAuthenticationTest do
         username: "client-user",
         realname: "Ircxd auth client",
         sasl: {:plain, "db-user", "wrong"},
+        allow_insecure_auth: true,
         notify: self()
       )
 
@@ -149,6 +211,7 @@ defmodule Ircxd.ServerAuthenticationTest do
       Server.start_link(
         port: 0,
         server_name: "ircxd.test",
+        allow_insecure_auth: true,
         authenticator: {Authenticator, self()}
       )
 
@@ -161,6 +224,7 @@ defmodule Ircxd.ServerAuthenticationTest do
         nick: "auth-abort",
         username: "client-user",
         realname: "Ircxd auth abort client",
+        allow_insecure_auth: true,
         notify: self()
       )
 
@@ -246,6 +310,7 @@ defmodule Ircxd.ServerAuthenticationTest do
         username: "certificate-user",
         realname: "Unsafe external auth",
         sasl: {:external, "certificate-user"},
+        allow_insecure_auth: true,
         notify: self()
       )
 
@@ -278,6 +343,7 @@ defmodule Ircxd.ServerAuthenticationTest do
     {:ok, server} =
       Server.start_link(
         port: 0,
+        allow_insecure_auth: true,
         authenticator: {RaisingAuthenticator, self()}
       )
 
@@ -291,6 +357,7 @@ defmodule Ircxd.ServerAuthenticationTest do
         username: "db-user",
         realname: "Ircxd raising auth client",
         sasl: {:plain, "db-user", "secret"},
+        allow_insecure_auth: true,
         notify: self()
       )
 
@@ -327,6 +394,7 @@ defmodule Ircxd.ServerAuthenticationTest do
         nick: "no-authenticator",
         username: "user",
         realname: "Ircxd no authenticator client",
+        allow_insecure_auth: true,
         notify: self()
       )
 
@@ -341,6 +409,7 @@ defmodule Ircxd.ServerAuthenticationTest do
     {:ok, server} =
       Server.start_link(
         port: 0,
+        allow_insecure_auth: true,
         authenticator: {Authenticator, self()}
       )
 
@@ -354,6 +423,7 @@ defmodule Ircxd.ServerAuthenticationTest do
         username: "user",
         realname: "Ircxd unsupported SASL client",
         sasl: {:plain, "db-user", "secret"},
+        allow_insecure_auth: true,
         notify: self()
       )
 

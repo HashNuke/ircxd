@@ -18,7 +18,9 @@ defmodule Ircxd.ServerAccountTagTest do
   end
 
   test "adds account tags to messages from authenticated users" do
-    {:ok, server} = Server.start_link(port: 0, authenticator: {Authenticator, nil})
+    {:ok, server} =
+      Server.start_link(port: 0, allow_insecure_auth: true, authenticator: {Authenticator, nil})
+
     on_exit(fn -> stop_if_alive(server) end)
 
     {:ok, sender} = start_client(server, "tagged-user", ["account-tag"], "secret")
@@ -68,6 +70,7 @@ defmodule Ircxd.ServerAccountTagTest do
       realname: "Ircxd #{nick} client",
       caps: caps,
       sasl: {:plain, nick, password},
+      allow_insecure_auth: true,
       notify: self()
     )
   end

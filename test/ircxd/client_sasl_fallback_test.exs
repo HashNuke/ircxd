@@ -46,6 +46,7 @@ defmodule Ircxd.ClientSASLFallbackTest do
         username: "nick",
         realname: "Nick",
         sasl: [{:external, "nick"}, {:plain, "nick", "secret"}],
+        allow_insecure_auth: true,
         notify: self()
       )
 
@@ -102,6 +103,7 @@ defmodule Ircxd.ClientSASLFallbackTest do
         username: "nick",
         realname: "Nick",
         sasl: [{:external, "nick"}, {:plain, "nick", "secret"}],
+        allow_insecure_auth: true,
         notify: self()
       )
 
@@ -140,6 +142,7 @@ defmodule Ircxd.ClientSASLFallbackTest do
         username: "nick",
         realname: "Nick",
         sasl: {:plain, "nick", "secret"},
+        allow_insecure_auth: true,
         notify: self()
       )
 

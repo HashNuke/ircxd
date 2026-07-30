@@ -62,6 +62,7 @@ defmodule Ircxd.ClientSASLScramTest do
         username: "nick",
         realname: "Nick",
         sasl: {:scram_sha_256, "user", "pencil", nonce: nonce},
+        allow_insecure_auth: true,
         notify: self()
       )
 
@@ -131,6 +132,7 @@ defmodule Ircxd.ClientSASLScramTest do
           username: "nick",
           realname: "Nick",
           sasl: {:scram_sha_256, "user", "pencil", nonce: nonce},
+          allow_insecure_auth: true,
           notify: self()
         )
 

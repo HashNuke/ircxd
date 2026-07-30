@@ -37,6 +37,7 @@ defmodule Ircxd.ClientWebIRCTest do
           ip: "198.51.100.3",
           options: [{"secure", true}]
         ],
+        allow_insecure_auth: true,
         notify: self()
       )
 

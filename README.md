@@ -149,6 +149,13 @@ per connection per second, 128 concurrent TLS handshakes, and a five-second TLS
 handshake timeout. These can be changed with `max_connections`,
 `command_rate_limit`, `max_handshakes`, and `handshake_timeout`.
 
+Authentication callbacks run in a supervised, serialized worker with a
+five-second timeout and a maximum queue of 16 attempts by default. Configure
+these per server with `authentication_timeout` and
+`max_authentication_attempts`; application configuration under
+`config :ircxd, Ircxd.Server, ...` supplies defaults when per-server options
+are not provided.
+
 For an implicit TLS listener, set `tls: true` and provide standard Erlang SSL
 options such as `certfile` and `keyfile` through `tls_options`:
 

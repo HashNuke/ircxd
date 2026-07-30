@@ -6,6 +6,32 @@ defmodule Ircxd.ClientSASLTest do
   alias Ircxd.SASL
   alias Ircxd.ScriptedIrcServer
 
+  test "does not send PASS over cleartext by default" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state -> [":irc.test CAP * LS :"]
+           "CAP END", _state -> [":irc.test 001 nick :Welcome"]
+           _line, _state -> []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+    assert {:error, :insecure_authentication} = Ircxd.Client.pass(client, "secret")
+  end
+
   test "performs SASL PLAIN negotiation before ending CAP" do
     server =
       start_supervised!(
@@ -43,6 +69,7 @@ defmodule Ircxd.ClientSASLTest do
         username: "nick",
         realname: "Nick",
         sasl: {:plain, "nick", "secret"},
+        allow_insecure_auth: true,
         notify: self()
       )
 
@@ -100,6 +127,7 @@ defmodule Ircxd.ClientSASLTest do
         username: "nick",
         realname: "Nick",
         sasl: {:plain, "nick", "secret"},
+        allow_insecure_auth: true,
         notify: self()
       )
 
@@ -142,6 +170,7 @@ defmodule Ircxd.ClientSASLTest do
         username: "nick",
         realname: "Nick",
         sasl: {:plain, "nick", "bad-secret"},
+        allow_insecure_auth: true,
         notify: self()
       )
 
@@ -183,6 +212,7 @@ defmodule Ircxd.ClientSASLTest do
         username: "nick",
         realname: "Nick",
         sasl: {:plain, "nick", "bad-secret"},
+        allow_insecure_auth: true,
         sasl_failure: :abort,
         notify: self()
       )

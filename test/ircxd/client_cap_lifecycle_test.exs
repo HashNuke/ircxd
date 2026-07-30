@@ -158,6 +158,7 @@ defmodule Ircxd.ClientCapLifecycleTest do
         username: "nick",
         realname: "Nick",
         sasl: {:external, "nick"},
+        allow_insecure_auth: true,
         notify: self()
       )
 
@@ -200,6 +201,7 @@ defmodule Ircxd.ClientCapLifecycleTest do
         username: "nick",
         realname: "Nick",
         sasl: {:external, "nick"},
+        allow_insecure_auth: true,
         notify: self()
       )
 
@@ -389,6 +391,7 @@ defmodule Ircxd.ClientCapLifecycleTest do
         realname: "Nick",
         caps: ["sasl", "server-time", "echo-message"],
         sasl: {:plain, "nick", "secret"},
+        allow_insecure_auth: true,
         notify: self()
       )
 
