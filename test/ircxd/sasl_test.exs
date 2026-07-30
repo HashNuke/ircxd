@@ -49,6 +49,20 @@ defmodule Ircxd.SASLTest do
     assert final.server_signature == "6rriTRBi23WpRR/wtup+mMhUZUn/dB5nLTJRsjl95G4="
   end
 
+  test "uses 4096 as the default SCRAM iteration floor" do
+    server_first = "r=nonce,s=c2FsdA==,i=4095"
+
+    assert {:error, :invalid_scram_iterations} =
+             SASL.scram_sha256_client_final("n=user,r=nonce", server_first, "password")
+  end
+
+  test "rejects excessive SCRAM iteration counts" do
+    server_first = "r=nonce,s=c2FsdA==,i=1000001"
+
+    assert {:error, :invalid_scram_iterations} =
+             SASL.scram_sha256_client_final("n=user,r=nonce", server_first, "password")
+  end
+
   test "verifies SCRAM-SHA-256 server-final signatures" do
     assert :ok =
              SASL.verify_scram_sha256_server_final(

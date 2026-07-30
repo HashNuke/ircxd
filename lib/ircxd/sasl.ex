@@ -9,6 +9,8 @@ defmodule Ircxd.SASL do
   """
 
   @max_authenticate_payload_bytes 400
+  @min_scram_iterations 4_096
+  @max_scram_iterations 1_000_000
   @gs2_header "n,,"
 
   def plain_payload(username, password, authzid \\ "") do
@@ -106,7 +108,9 @@ defmodule Ircxd.SASL do
 
   defp fetch_scram_iterations(attrs) do
     with {:ok, value} <- fetch_scram_attr(attrs, "i"),
-         {iterations, ""} when iterations > 0 <- Integer.parse(value) do
+         {iterations, ""}
+         when iterations >= @min_scram_iterations and iterations <= @max_scram_iterations <-
+           Integer.parse(value) do
       {:ok, iterations}
     else
       _ -> {:error, :invalid_scram_iterations}

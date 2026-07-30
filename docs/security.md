@@ -248,16 +248,17 @@ Remediation:
 
 ### SEC-008 — Medium — SCRAM iteration count can exhaust client CPU
 
-The client accepts any positive server-supplied SCRAM iteration count and calls
-PBKDF2 synchronously in the client process
+The client must reject server-supplied SCRAM iteration counts outside its
+safe range before calling PBKDF2. PBKDF2 currently runs synchronously in the
+client process
 ([sasl.ex](../lib/ircxd/sasl.ex#L31),
 [sasl.ex](../lib/ircxd/sasl.ex#L107)). A malicious or impersonated server can
 send an extremely large value and consume a scheduler for a prolonged period.
 
 Remediation:
 
-- Reject values below the protocol minimum and above a configurable,
-  benchmark-derived maximum.
+- Use 4,096 as the minimum and 1,000,000 as the maximum; deployments with
+  stricter CPU requirements can later choose a tighter application setting.
 - Perform expensive derivation in a bounded worker with a timeout.
 - Add tests for zero, below-minimum, excessive, and integer-overflow values.
 
