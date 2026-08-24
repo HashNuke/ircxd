@@ -19,7 +19,9 @@ defmodule Ircxd.Client do
     * `:realname` - realname sent in registration.
     * `:caps` - IRCv3 capabilities to request.
     * `:notify` - pid to receive `{:ircxd, event}` messages.
-    * `:handler` - `{module, init_arg}` implementing `Ircxd.Handler`.
+    * `:adapter` - `{module, init_arg}` implementing `Ircxd.Client.Adapter`.
+    * `:handler` - legacy `{module, init_arg}` implementing `Ircxd.Handler`.
+      Prefer `:adapter` for new integrations.
   """
 
   use GenServer
@@ -420,8 +422,9 @@ defmodule Ircxd.Client do
       transport: nil,
       registered?: false,
       notify: Keyword.get(opts, :notify),
-      handler: nil,
-      handler_state: nil,
+      adapter: nil,
+      adapter_state: nil,
+      adapter_style: nil,
       active_batches: %{},
       cap_list_buffer: %{},
       multiline_batches: %{},
@@ -433,9 +436,14 @@ defmodule Ircxd.Client do
       multiline_ref: 0
     }
 
-    {:ok, state} = init_handler(state, Keyword.get(opts, :handler))
-    send(self(), :connect)
-    {:ok, state}
+    case init_adapter(state, Keyword.get(opts, :adapter), Keyword.get(opts, :handler)) do
+      {:ok, state} ->
+        send(self(), :connect)
+        {:ok, state}
+
+      {:error, reason} ->
+        {:stop, {:adapter_init_failed, reason}}
+    end
   end
 
   @impl true
@@ -2905,26 +2913,65 @@ defmodule Ircxd.Client do
     end
   end
 
-  defp init_handler(state, nil), do: {:ok, state}
+  defp init_adapter(state, nil, nil), do: {:ok, state}
 
-  defp init_handler(state, {module, arg}) do
-    with {:ok, handler_state} <- module.init(arg) do
-      {:ok, %{state | handler: module, handler_state: handler_state}}
+  defp init_adapter(_state, adapter, handler)
+       when not is_nil(adapter) and not is_nil(handler),
+       do: {:error, :conflicting_adapter_and_handler}
+
+  defp init_adapter(state, {module, arg}, nil) when is_atom(module),
+    do: initialize_adapter(state, module, arg, :adapter)
+
+  defp init_adapter(state, nil, {module, arg}) when is_atom(module),
+    do: initialize_adapter(state, module, arg, :handler)
+
+  defp init_adapter(_state, _adapter, _handler), do: {:error, :invalid_adapter}
+
+  defp initialize_adapter(state, module, arg, style) do
+    case module.init(arg) do
+      {:ok, adapter_state} ->
+        {:ok, %{state | adapter: module, adapter_state: adapter_state, adapter_style: style}}
+
+      {:error, reason} ->
+        {:error, reason}
+
+      other ->
+        {:error, {:invalid_return, other}}
     end
+  rescue
+    error -> {:error, {:init_exception, error}}
+  catch
+    kind, reason -> {:error, {kind, reason}}
   end
 
   defp emit(state, event) do
     if state.notify, do: send(state.notify, {:ircxd, event})
 
-    case state.handler do
+    case state.adapter do
       nil ->
         state
 
       module ->
-        case module.handle_event(event, state.handler_state) do
-          {:ok, handler_state} -> %{state | handler_state: handler_state}
+        result =
+          case state.adapter_style do
+            :adapter -> module.handle_event(event, adapter_context(state), state.adapter_state)
+            :handler -> module.handle_event(event, state.adapter_state)
+          end
+
+        case result do
+          {:ok, adapter_state} -> %{state | adapter_state: adapter_state}
           _ -> state
         end
     end
+  end
+
+  defp adapter_context(state) do
+    %{
+      client: self(),
+      host: state.host,
+      port: state.port,
+      tls?: state.tls,
+      nick: state.current_nick
+    }
   end
 end

@@ -89,6 +89,27 @@ defmodule Ircxd.ServerAuthenticationTest do
     end
   end
 
+  defmodule ConcurrentStateAdapter do
+    @behaviour Ircxd.Server.Adapter
+
+    @impl true
+    def init(test_pid), do: {:ok, %{count: 0, test_pid: test_pid}}
+
+    @impl true
+    def authenticate(_username, _password, _metadata, state) do
+      send(state.test_pid, {:authentication_waiting, self()})
+      receive do: (:release_authentication -> :ok)
+      {:ok, "account", state}
+    end
+
+    @impl true
+    def handle_operation(:increment, _context, state),
+      do: {:ok, :incremented, %{state | count: state.count + 1}}
+
+    @impl true
+    def handle_query(:count, _context, state), do: {:ok, state.count, state}
+  end
+
   test "authenticator controls SASL registration using application-owned state" do
     {:ok, server} =
       Server.start_link(
@@ -179,6 +200,22 @@ defmodule Ircxd.ServerAuthenticationTest do
 
     assert {:error, :authentication_timeout} = Task.await(result_task, 1_000)
     assert {:error, :authentication_timeout} = Task.await(second_task, 1_000)
+  end
+
+  test "authentication completion does not overwrite concurrent adapter state" do
+    {:ok, server} =
+      Server.start_link(port: 0, adapter: {ConcurrentStateAdapter, self()})
+
+    on_exit(fn -> if Process.alive?(server), do: GenServer.stop(server) end)
+
+    authentication =
+      Task.async(fn -> Server.authenticate(server, "user", "secret", %{}) end)
+
+    assert_receive {:authentication_waiting, authentication_pid}, 1_000
+    assert {:ok, :incremented} = Server.execute(server, :increment)
+    send(authentication_pid, :release_authentication)
+    assert {:ok, "account"} = Task.await(authentication, 1_000)
+    assert {:ok, 1} = Server.query(server, :count)
   end
 
   test "does not register clients when the authenticator rejects credentials" do

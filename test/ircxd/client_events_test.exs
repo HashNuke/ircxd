@@ -3,16 +3,29 @@ defmodule Ircxd.ClientEventsTest do
 
   alias Ircxd.ScriptedIrcServer
 
-  defmodule TestHandler do
-    @behaviour Ircxd.Handler
+  defmodule TestAdapter do
+    @behaviour Ircxd.Client.Adapter
 
     @impl true
     def init(owner), do: {:ok, %{owner: owner, count: 0}}
 
     @impl true
-    def handle_event(event, %{owner: owner, count: count}) do
-      send(owner, {:handler_event, count, event})
+    def handle_event(event, context, %{owner: owner, count: count}) do
+      send(owner, {:adapter_event, count, event, context})
       {:ok, %{owner: owner, count: count + 1}}
+    end
+  end
+
+  defmodule LegacyHandler do
+    @behaviour Ircxd.Handler
+
+    @impl true
+    def init(owner), do: {:ok, owner}
+
+    @impl true
+    def handle_event(event, owner) do
+      send(owner, {:legacy_handler_event, event})
+      {:ok, owner}
     end
   end
 
@@ -70,7 +83,7 @@ defmodule Ircxd.ClientEventsTest do
     assert_event({:error, %{reason: "closing link"}})
   end
 
-  test "delivers events through a stateful handler callback" do
+  test "delivers events through a stateful client adapter" do
     server =
       start_supervised!(
         {ScriptedIrcServer,
@@ -97,15 +110,60 @@ defmodule Ircxd.ClientEventsTest do
         nick: "nick",
         username: "nick",
         realname: "Nick",
-        handler: {TestHandler, self()}
+        adapter: {TestAdapter, self()}
       )
 
-    assert_receive {:handler_event, 0, {:connected, %{host: "127.0.0.1"}}}, 1_000
-    assert_receive {:handler_event, _count, :registered}, 1_000
+    assert_receive {:adapter_event, 0, {:connected, %{host: "127.0.0.1"}}, context}, 1_000
+    assert context.host == "127.0.0.1"
+    assert context.nick == "nick"
+    assert context.tls? == false
 
-    assert_receive {:handler_event, _count,
-                    {:privmsg, %{nick: "alice", target: "nick", body: "hello through handler"}}},
+    assert_receive {:adapter_event, _count, :registered, _context}, 1_000
+
+    assert_receive {:adapter_event, _count,
+                    {:privmsg, %{nick: "alice", target: "nick", body: "hello through handler"}},
+                    _context},
                    1_000
+  end
+
+  test "keeps the legacy handler option working" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state -> [":irc.test CAP * LS :"]
+           "CAP END", _state -> [":irc.test 001 nick :Welcome"]
+           _line, _state -> []
+         end}
+      )
+
+    {:ok, _client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        handler: {LegacyHandler, self()}
+      )
+
+    assert_receive {:legacy_handler_event, {:connected, _context}}, 1_000
+    assert_receive {:legacy_handler_event, :registered}, 1_000
+  end
+
+  test "rejects configuring both client integration styles" do
+    previous_trap_exit = Process.flag(:trap_exit, true)
+
+    result =
+      Ircxd.Client.start_link(
+        host: "127.0.0.1",
+        port: 1,
+        nick: "nick",
+        adapter: {TestAdapter, self()},
+        handler: {LegacyHandler, self()}
+      )
+
+    Process.flag(:trap_exit, previous_trap_exit)
+    assert {:error, {:adapter_init_failed, :conflicting_adapter_and_handler}} = result
   end
 
   defp assert_event(expected) do

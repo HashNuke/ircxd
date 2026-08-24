@@ -52,40 +52,13 @@ defmodule Ircxd.MixProject do
       main: "readme",
       extras: [
         "README.md",
-        "docs/completion_audit.md",
-        "docs/spec_audit.md",
-        "docs/stable_spec_matrix.md",
-        "docs/ircv3_index_audit.md",
-        "docs/modern_irc_audit.md",
+        "docs/client-adapters.md",
         "docs/security.md",
-        "docs/conformance_workflow.md",
-        "docs/host_boundaries.md",
-        "docs/embedding_events.md",
-        "docs/dcc_boundaries.md",
-        "docs/sts_boundaries.md",
-        "docs/websocket_adapters.md",
-        "docs/specs.md",
-        "docs/server_ircv3_matrix.md"
+        "docs/server-adapters.md"
       ],
       groups_for_extras: [
-        Audits: [
-          "docs/completion_audit.md",
-          "docs/spec_audit.md",
-          "docs/stable_spec_matrix.md",
-          "docs/ircv3_index_audit.md",
-          "docs/modern_irc_audit.md",
-          "docs/security.md",
-          "docs/conformance_workflow.md"
-        ],
-        "Embedding Guides": [
-          "docs/host_boundaries.md",
-          "docs/embedding_events.md",
-          "docs/dcc_boundaries.md",
-          "docs/sts_boundaries.md",
-          "docs/websocket_adapters.md"
-        ],
-        Server: ["docs/server_ircv3_matrix.md"],
-        References: ["docs/specs.md"]
+        Guides: ["docs/client-adapters.md", "docs/server-adapters.md"],
+        Security: ["docs/security.md"]
       ]
     ]
   end
