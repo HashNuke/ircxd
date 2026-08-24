@@ -13,6 +13,7 @@ defmodule Ircxd.Server do
   alias Ircxd.ISupport
   alias Ircxd.Server.Connection
   alias Ircxd.Server.AdapterWorker
+  alias Ircxd.Server.Event
 
   @default_server_name "ircxd.local"
 
@@ -31,6 +32,16 @@ defmodule Ircxd.Server do
   end
 
   def port(server), do: GenServer.call(server, :port)
+
+  @doc """
+  Runs an application-state query against the configured server adapter.
+  """
+  def query(server, query), do: GenServer.call(server, {:adapter_query, query})
+
+  @doc """
+  Executes an application-owned state operation through the configured adapter.
+  """
+  def execute(server, operation), do: GenServer.call(server, {:adapter_execute, operation})
 
   def publish(server, message, metadata),
     do: GenServer.cast(server, {:publish, message, metadata})
@@ -94,11 +105,15 @@ defmodule Ircxd.Server do
     with :ok <- validate_external_auth(external_auth?, tls?, tls_options),
          {:ok, {transport, listener}} <- listen(port, tls?, tls_options, ip),
          {:ok, {_address, actual_port}} <- socket_name(transport, listener) do
+      adapter_option = Keyword.get(opts, :adapter)
+
       case init_adapter(
-             Keyword.get(opts, :adapter),
+             adapter_option,
              configured_option(opts, :authentication_timeout, 5_000)
            ) do
         {:ok, adapter} ->
+          adapter_module = adapter_module(adapter_option)
+
           authentication_enabled? =
             not is_nil(adapter) and AdapterWorker.authentication_enabled?(adapter)
 
@@ -130,6 +145,7 @@ defmodule Ircxd.Server do
              acceptor: acceptor,
              handshake_supervisor: handshake_supervisor,
              port: actual_port,
+             server_id: Keyword.get(opts, :id, __MODULE__),
              server_name: server_name,
              password: password,
              allow_insecure_auth?: Keyword.get(opts, :allow_insecure_auth, false),
@@ -167,7 +183,11 @@ defmodule Ircxd.Server do
              capabilities: capabilities(authentication_enabled?),
              authentication_enabled?: authentication_enabled?,
              external_auth?: external_auth?,
-             adapter: adapter
+             adapter: adapter,
+             adapter_authorizes?: adapter_exports?(adapter_module, :authorize, 3),
+             adapter_commands?: adapter_exports?(adapter_module, :handle_command, 3),
+             adapter_operations?: adapter_exports?(adapter_module, :handle_operation, 3),
+             adapter_queries?: adapter_exports?(adapter_module, :handle_query, 3)
            }}
 
         {:error, reason} ->
@@ -181,6 +201,28 @@ defmodule Ircxd.Server do
   def handle_call(:port, _from, state), do: {:reply, state.port, state}
 
   def handle_call(:adapter, _from, state), do: {:reply, state.adapter, state}
+
+  def handle_call({:adapter_query, _query}, _from, %{adapter: nil} = state),
+    do: {:reply, {:error, :adapter_not_configured}, state}
+
+  def handle_call({:adapter_query, _query}, _from, %{adapter_queries?: false} = state),
+    do: {:reply, {:error, :query_not_supported}, state}
+
+  def handle_call({:adapter_query, query}, _from, state) do
+    context = %{server_id: state.server_id, server_name: state.server_name}
+    {:reply, AdapterWorker.query(state.adapter, query, context), state}
+  end
+
+  def handle_call({:adapter_execute, _operation}, _from, %{adapter: nil} = state),
+    do: {:reply, {:error, :adapter_not_configured}, state}
+
+  def handle_call({:adapter_execute, _operation}, _from, %{adapter_operations?: false} = state),
+    do: {:reply, {:error, :operation_not_supported}, state}
+
+  def handle_call({:adapter_execute, operation}, _from, state) do
+    context = %{server_id: state.server_id, server_name: state.server_name}
+    {:reply, AdapterWorker.execute(state.adapter, operation, context), state}
+  end
 
   def handle_call({:register, connection, nick}, _from, state) do
     nick_key = fold_name(state, nick)
@@ -205,6 +247,18 @@ defmodule Ircxd.Server do
         | connections: connections,
           nick_index: Map.put(state.nick_index, nick_key, connection)
       }
+
+      client = state.connections[connection]
+
+      state =
+        dispatch_event(state, :session_registered, %{
+          id: connection,
+          nick: client.nick,
+          username: client.username,
+          realname: client.realname,
+          account: client.account,
+          registered_at: DateTime.utc_now()
+        })
 
       state = notify_monitors(state, nick, :online)
 
@@ -254,6 +308,7 @@ defmodule Ircxd.Server do
           }
 
           state = %{state | connections: connections, nick_index: nick_index}
+          state = dispatch_event(state, :session_nick_changed, %{id: connection, nick: nick})
           {:reply, :ok, broadcast(state, recipients, message, connection)}
         end
 
@@ -306,6 +361,9 @@ defmodule Ircxd.Server do
           state
           | connections: Map.put(state.connections, connection, %{client | account: account})
         }
+
+        state =
+          dispatch_event(state, :session_account_changed, %{id: connection, account: account})
 
         state =
           if client.registered? and client.account != account do
@@ -473,6 +531,12 @@ defmodule Ircxd.Server do
 
   defp init_adapter(_adapter, _authentication_timeout),
     do: {:error, {:adapter_init_failed, :invalid_adapter}}
+
+  defp adapter_module({module, _arg}) when is_atom(module), do: module
+  defp adapter_module(_adapter), do: nil
+
+  defp adapter_exports?(nil, _function, _arity), do: false
+  defp adapter_exports?(module, function, arity), do: function_exported?(module, function, arity)
 
   defp capabilities(auth_required?) do
     if auth_required?,
@@ -1269,7 +1333,7 @@ defmodule Ircxd.Server do
       nil ->
         error_reply(state, connection, "401", [requester, target, "No such nick/channel"])
 
-      {_pid, client} ->
+      {target_connection, client} ->
         username = client.username || client.nick
         realname = client.realname || client.nick
 
@@ -1312,6 +1376,22 @@ defmodule Ircxd.Server do
               }
 
               broadcast(state, MapSet.new([connection]), account_message, connection)
+          end
+
+        channels = whois_channels(state, connection, target_connection, client)
+
+        state =
+          if channels == [] do
+            state
+          else
+            channels_message = %Ircxd.Message{
+              tags: response_tags,
+              source: state.server_name,
+              command: "319",
+              params: [requester, client.nick, Enum.join(channels, " ")]
+            }
+
+            broadcast(state, MapSet.new([connection]), channels_message, connection)
           end
 
         server_message = %Ircxd.Message{
@@ -1476,10 +1556,13 @@ defmodule Ircxd.Server do
 
     if MapSet.member?(members, connection) do
       topic_locked? = MapSet.member?(Map.get(state.channel_modes, channel, MapSet.new()), "t")
+      adapter_authorization = authorize_action(state, {:set_topic, channel}, connection)
 
-      if topic_locked? and not channel_operator?(state, channel, connection) do
+      if match?({:error, _reason}, adapter_authorization) or
+           (topic_locked? and not channel_operator?(state, channel, connection)) do
         error_reply(state, connection, "482", [
           state.connections[connection].nick,
+          channel,
           "You're not channel operator"
         ])
       else
@@ -1492,7 +1575,14 @@ defmodule Ircxd.Server do
         }
 
         state = broadcast(state, members, message, connection)
-        %{state | topics: Map.put(state.topics, channel, topic)}
+        state = %{state | topics: Map.put(state.topics, channel, topic)}
+
+        dispatch_event(state, :channel_topic_changed, %{
+          channel: channel,
+          topic: topic,
+          actor_id: connection,
+          actor: client.nick
+        })
       end
     else
       error_reply(state, connection, "442", [
@@ -1651,6 +1741,17 @@ defmodule Ircxd.Server do
               }
 
               {state, message} = record_history(state, message)
+
+              state =
+                dispatch_event(state, :message_accepted, %{
+                  message: message,
+                  from: client.nick,
+                  actor_id: connection,
+                  target: target,
+                  recipients: MapSet.to_list(recipients),
+                  at: DateTime.utc_now()
+                })
+
               state = maybe_start_batch(state, connection, tags, recipients)
               broadcast(state, recipients, message, connection)
 
@@ -1831,7 +1932,25 @@ defmodule Ircxd.Server do
     handle_monitor_command(state, connection, subcommand, rest)
   end
 
-  defp handle_registered_command(state, connection, %{command: command, tags: tags}) do
+  defp handle_registered_command(state, connection, message) do
+    case adapter_command(state, connection, message) do
+      {:reply, messages} ->
+        Enum.reduce(messages, state, fn message, state ->
+          message =
+            if is_nil(message.source), do: %{message | source: state.server_name}, else: message
+
+          broadcast(state, MapSet.new([connection]), message, connection)
+        end)
+
+      :unhandled ->
+        unknown_command_reply(state, connection, message)
+
+      {:error, _reason} ->
+        unknown_command_reply(state, connection, message)
+    end
+  end
+
+  defp unknown_command_reply(state, connection, %{command: command, tags: tags}) do
     state =
       error_reply(state, connection, "421", [
         state.connections[connection].nick,
@@ -1992,6 +2111,37 @@ defmodule Ircxd.Server do
       MapSet.member?(members, connection)
   end
 
+  defp whois_channels(state, requester, target_connection, client) do
+    channels =
+      case {state.adapter, state.adapter_queries?} do
+        {_, false} ->
+          MapSet.to_list(client.channels)
+
+        {adapter, true} ->
+          context = %{server_id: state.server_id, server_name: state.server_name}
+
+          case AdapterWorker.query(adapter, {:channels_for, client.nick}, context) do
+            {:ok, channels} when is_list(channels) -> channels
+            _other -> MapSet.to_list(client.channels)
+          end
+      end
+
+    channels
+    |> Enum.filter(fn channel ->
+      members = Map.get(state.channels, channel, MapSet.new())
+      modes = Map.get(state.channel_modes, channel, MapSet.new())
+      not MapSet.member?(modes, "s") or MapSet.member?(members, requester)
+    end)
+    |> Enum.map(fn channel ->
+      cond do
+        channel_operator?(state, channel, target_connection) -> "@" <> channel
+        channel_voiced?(state, channel, target_connection) -> "+" <> channel
+        true -> channel
+      end
+    end)
+    |> Enum.sort()
+  end
+
   defp names_channel_visible(state, connection, channel) do
     members = Map.get(state.channels, channel, MapSet.new())
     channel_modes = Map.get(state.channel_modes, channel, MapSet.new())
@@ -2133,8 +2283,12 @@ defmodule Ircxd.Server do
             key_valid? = not key_required? or key == Map.get(state.channel_keys, channel)
             channel_limit = Map.get(state.channel_limits, channel)
             limit_reached? = is_integer(channel_limit) and MapSet.size(members) >= channel_limit
+            adapter_authorization = authorize_action(state, {:join, channel}, connection)
 
             cond do
+              match?({:error, _reason}, adapter_authorization) ->
+                error_reply(state, connection, "474", [nick, channel, "Cannot join channel"])
+
               banned? ->
                 error_reply(state, connection, "474", [nick, channel, "Cannot join channel (+b)"])
 
@@ -2186,6 +2340,15 @@ defmodule Ircxd.Server do
                     invites: invites
                 }
 
+                state =
+                  dispatch_event(state, :channel_joined, %{
+                    channel: channel,
+                    session_id: connection,
+                    nick: client.nick,
+                    account: client.account,
+                    operator?: MapSet.member?(channel_operators[channel], connection)
+                  })
+
                 maybe_implicit_names(state, connection, channel)
             end
           end
@@ -2227,6 +2390,14 @@ defmodule Ircxd.Server do
 
           state = %{state | channels: channels, connections: connections}
           state = remove_channel_voice(state, channel, connection)
+
+          state =
+            dispatch_event(state, :channel_parted, %{
+              channel: channel,
+              session_id: connection,
+              nick: client.nick,
+              reason: List.first(rest)
+            })
 
           state
           |> update_channel_operators(channel, Map.get(channels, channel, MapSet.new()))
@@ -2278,6 +2449,15 @@ defmodule Ircxd.Server do
 
           state = %{state | channels: channels, connections: connections}
           state = remove_channel_voice(state, channel, target_connection)
+
+          state =
+            dispatch_event(state, :channel_parted, %{
+              channel: channel,
+              session_id: target_connection,
+              nick: target_client.nick,
+              reason: List.first(rest),
+              kicked_by: requester
+            })
 
           state
           |> update_channel_operators(channel, Map.get(channels, channel, MapSet.new()))
@@ -3127,6 +3307,14 @@ defmodule Ircxd.Server do
         state
 
       {%{channels: client_channels, nick: nick} = client, connections} ->
+        state =
+          dispatch_event(state, :session_disconnected, %{
+            id: connection,
+            nick: nick,
+            account: client.account,
+            channels: MapSet.to_list(client_channels)
+          })
+
         state = record_whowas(state, nick, client)
 
         channels =
@@ -3197,6 +3385,56 @@ defmodule Ircxd.Server do
       _ ->
         state
     end
+  end
+
+  defp dispatch_event(%{adapter: nil} = state, _type, _data), do: state
+
+  defp dispatch_event(state, type, data) do
+    event = %Event{
+      type: type,
+      server_id: state.server_id,
+      server_name: state.server_name,
+      at: DateTime.utc_now(),
+      data: data
+    }
+
+    AdapterWorker.event(
+      state.adapter,
+      event,
+      %{server_id: state.server_id, server_name: state.server_name}
+    )
+
+    state
+  end
+
+  defp authorize_action(%{adapter_authorizes?: false}, _action, _connection), do: :ok
+
+  defp authorize_action(state, action, connection) do
+    client = Map.get(state.connections, connection, %{})
+
+    context = %{
+      server_id: state.server_id,
+      server_name: state.server_name,
+      connection: connection,
+      actor: Map.take(client, [:nick, :username, :realname, :account])
+    }
+
+    AdapterWorker.authorize(state.adapter, action, context)
+  end
+
+  defp adapter_command(%{adapter_commands?: false}, _connection, _message), do: :unhandled
+
+  defp adapter_command(state, connection, message) do
+    client = Map.get(state.connections, connection, %{})
+
+    context = %{
+      server_id: state.server_id,
+      server_name: state.server_name,
+      connection: connection,
+      actor: Map.take(client, [:nick, :username, :realname, :account])
+    }
+
+    AdapterWorker.command(state.adapter, message, context)
   end
 
   defp accept_loop(:gen_tcp, listener, owner, handshake_supervisor, handshake_timeout) do

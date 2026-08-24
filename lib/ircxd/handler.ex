@@ -1,9 +1,10 @@
 defmodule Ircxd.Handler do
   @moduledoc """
-  Optional callback behaviour for applications embedding `Ircxd.Client`.
+  Compatibility callback behaviour for applications embedding `Ircxd.Client`.
 
-  Returning storage effects to the application keeps this library independent of
-  any database or persistence model.
+  New integrations should implement `Ircxd.Client.Adapter` and configure the
+  client with `adapter: {Module, init_arg}`. The legacy `:handler` option and
+  two-argument event callback remain supported.
   """
 
   @callback init(term()) :: {:ok, term()}

@@ -4,12 +4,28 @@ defmodule Ircxd.Server.AdapterWorker do
   use GenServer
 
   alias Ircxd.Message
+  alias Ircxd.Server.Event
 
   def start(module, arg, authentication_timeout),
     do: GenServer.start(__MODULE__, {module, arg, authentication_timeout})
 
   def publish(pid, message, metadata),
     do: GenServer.cast(pid, {:publish, message, metadata})
+
+  def event(pid, %Event{} = event, context),
+    do: GenServer.cast(pid, {:event, event, context})
+
+  def query(pid, query, context),
+    do: GenServer.call(pid, {:query, query, context})
+
+  def execute(pid, operation, context),
+    do: GenServer.call(pid, {:execute, operation, context})
+
+  def authorize(pid, action, context),
+    do: GenServer.call(pid, {:authorize, action, context})
+
+  def command(pid, %Message{} = message, context),
+    do: GenServer.call(pid, {:command, message, context})
 
   def authenticate(pid, username, password, metadata),
     do: GenServer.call(pid, {:authenticate, username, password, metadata}, :infinity)
@@ -26,6 +42,7 @@ defmodule Ircxd.Server.AdapterWorker do
          %{
            module: module,
            callback_state: callback_state,
+           authentication_state: callback_state,
            authentication_timeout: authentication_timeout,
            authentication_supervisor: authentication_supervisor,
            authentication_queue: [],
@@ -42,7 +59,79 @@ defmodule Ircxd.Server.AdapterWorker do
 
   @impl true
   def handle_call(:authentication_enabled?, _from, state) do
-    {:reply, function_exported?(state.module, :authenticate, 4), state}
+    enabled? =
+      if function_exported?(state.module, :authentication_enabled?, 1) do
+        try do
+          state.module.authentication_enabled?(state.authentication_state) == true
+        rescue
+          _error -> false
+        catch
+          _kind, _reason -> false
+        end
+      else
+        function_exported?(state.module, :authenticate, 4)
+      end
+
+    {:reply, enabled?, state}
+  end
+
+  def handle_call({:query, query, context}, _from, state) do
+    if function_exported?(state.module, :handle_query, 3) do
+      case invoke_query(state.module, query, context, state.callback_state) do
+        {:ok, result, callback_state} ->
+          {:reply, {:ok, result}, %{state | callback_state: callback_state}}
+
+        {:error, reason, callback_state} ->
+          {:reply, {:error, reason}, %{state | callback_state: callback_state}}
+      end
+    else
+      {:reply, {:error, :query_not_supported}, state}
+    end
+  end
+
+  def handle_call({:execute, operation, context}, _from, state) do
+    if function_exported?(state.module, :handle_operation, 3) do
+      case invoke_operation(state.module, operation, context, state.callback_state) do
+        {:ok, result, callback_state} ->
+          {:reply, {:ok, result}, %{state | callback_state: callback_state}}
+
+        {:error, reason, callback_state} ->
+          {:reply, {:error, reason}, %{state | callback_state: callback_state}}
+      end
+    else
+      {:reply, {:error, :operation_not_supported}, state}
+    end
+  end
+
+  def handle_call({:authorize, action, context}, _from, state) do
+    if function_exported?(state.module, :authorize, 3) do
+      case invoke_authorize(state.module, action, context, state.callback_state) do
+        {:ok, callback_state} ->
+          {:reply, :ok, %{state | callback_state: callback_state}}
+
+        {:error, reason, callback_state} ->
+          {:reply, {:error, reason}, %{state | callback_state: callback_state}}
+      end
+    else
+      {:reply, :ok, state}
+    end
+  end
+
+  def handle_call({:command, %Message{} = message, context}, _from, state) do
+    if function_exported?(state.module, :handle_command, 3) do
+      case invoke_command(state.module, message, context, state.callback_state) do
+        {:unhandled, callback_state} ->
+          {:reply, :unhandled, %{state | callback_state: callback_state}}
+
+        {:reply, messages, callback_state} ->
+          {:reply, {:reply, messages}, %{state | callback_state: callback_state}}
+
+        {:error, reason, callback_state} ->
+          {:reply, {:error, reason}, %{state | callback_state: callback_state}}
+      end
+    else
+      {:reply, :unhandled, state}
+    end
   end
 
   def handle_call({:authenticate, username, password, metadata}, from, state) do
@@ -59,6 +148,15 @@ defmodule Ircxd.Server.AdapterWorker do
   def handle_cast({:publish, %Message{} = message, metadata}, state) do
     if function_exported?(state.module, :handle_publish, 3) do
       callback_state = invoke_publish(state.module, message, metadata, state.callback_state)
+      {:noreply, %{state | callback_state: callback_state}}
+    else
+      {:noreply, state}
+    end
+  end
+
+  def handle_cast({:event, %Event{} = event, context}, state) do
+    if function_exported?(state.module, :handle_event, 3) do
+      callback_state = invoke_event(state.module, event, context, state.callback_state)
       {:noreply, %{state | callback_state: callback_state}}
     else
       {:noreply, state}
@@ -109,7 +207,7 @@ defmodule Ircxd.Server.AdapterWorker do
   defp maybe_start_authentication(%{authentication_task: nil} = state) do
     [request | queue] = state.authentication_queue
     module = state.module
-    callback_state = state.callback_state
+    callback_state = state.authentication_state
     supervisor = state.authentication_supervisor
 
     task =
@@ -149,10 +247,10 @@ defmodule Ircxd.Server.AdapterWorker do
 
     case result do
       {:ok, _account, callback_state} ->
-        {task.request, %{state | callback_state: callback_state}}
+        {task.request, %{state | authentication_state: callback_state}}
 
       {:error, _reason, callback_state} when not is_nil(callback_state) ->
-        {task.request, %{state | callback_state: callback_state}}
+        {task.request, %{state | authentication_state: callback_state}}
 
       _ ->
         {task.request, state}
@@ -169,6 +267,97 @@ defmodule Ircxd.Server.AdapterWorker do
       _error -> callback_state
     catch
       _kind, _reason -> callback_state
+    end
+  end
+
+  defp invoke_event(module, event, context, callback_state) do
+    try do
+      case module.handle_event(event, context, callback_state) do
+        {:ok, new_callback_state} -> new_callback_state
+        _other -> callback_state
+      end
+    rescue
+      _error -> callback_state
+    catch
+      _kind, _reason -> callback_state
+    end
+  end
+
+  defp invoke_query(module, query, context, callback_state) do
+    result =
+      try do
+        module.handle_query(query, context, callback_state)
+      rescue
+        _error -> {:error, :query_failed, callback_state}
+      catch
+        _kind, _reason -> {:error, :query_failed, callback_state}
+      end
+
+    case result do
+      {:ok, _value, _new_state} -> result
+      {:error, _reason, _new_state} -> result
+      _other -> {:error, :invalid_query_return, callback_state}
+    end
+  end
+
+  defp invoke_operation(module, operation, context, callback_state) do
+    result =
+      try do
+        module.handle_operation(operation, context, callback_state)
+      rescue
+        _error -> {:error, :operation_failed, callback_state}
+      catch
+        _kind, _reason -> {:error, :operation_failed, callback_state}
+      end
+
+    case result do
+      {:ok, _value, _new_state} -> result
+      {:error, _reason, _new_state} -> result
+      _other -> {:error, :invalid_operation_return, callback_state}
+    end
+  end
+
+  defp invoke_authorize(module, action, context, callback_state) do
+    result =
+      try do
+        module.authorize(action, Map.put(context, :action, action), callback_state)
+      rescue
+        _error -> {:error, :authorization_failed, callback_state}
+      catch
+        _kind, _reason -> {:error, :authorization_failed, callback_state}
+      end
+
+    case result do
+      {:ok, _new_state} -> result
+      {:error, _reason, _new_state} -> result
+      _other -> {:error, :invalid_authorize_return, callback_state}
+    end
+  end
+
+  defp invoke_command(module, message, context, callback_state) do
+    result =
+      try do
+        module.handle_command(message, context, callback_state)
+      rescue
+        _error -> {:error, :command_failed, callback_state}
+      catch
+        _kind, _reason -> {:error, :command_failed, callback_state}
+      end
+
+    case result do
+      {:unhandled, _new_state} ->
+        result
+
+      {:reply, messages, _new_state} when is_list(messages) ->
+        if Enum.all?(messages, &match?(%Message{}, &1)),
+          do: result,
+          else: {:error, :invalid_command_return, callback_state}
+
+      {:error, _reason, _new_state} ->
+        result
+
+      _other ->
+        {:error, :invalid_command_return, callback_state}
     end
   end
 

@@ -19,6 +19,8 @@ defmodule Ircxd.ServerWhoisTest do
 
     on_exit(fn -> stop_if_alive(client) end)
     assert_receive {:ircxd, :registered}, 2_000
+    assert :ok = Client.join(client, "#whois")
+    assert_receive {:ircxd, {:join, %{channel: "#whois"}}}, 2_000
     assert :ok = Client.whois(client, "whois-client")
 
     assert_receive {:ircxd,
@@ -28,6 +30,9 @@ defmodule Ircxd.ServerWhoisTest do
                        username: "whois-user",
                        realname: "Ircxd WHOIS client"
                      }}},
+                   2_000
+
+    assert_receive {:ircxd, {:whois_channels, %{nick: "whois-client", channels: ["@#whois"]}}},
                    2_000
 
     assert_receive {:ircxd,

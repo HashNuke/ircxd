@@ -1,46 +1,13 @@
 defmodule Ircxd.ConformanceDocsTest do
   use ExUnit.Case, async: true
 
-  @allowed_statuses ~w(covered partial host pending)
-
-  test "stable spec matrix keeps stable work classified and evidenced" do
-    matrix = File.read!(Path.expand("../../docs/stable_spec_matrix.md", __DIR__))
-    repo_root = Path.expand("../..", __DIR__)
-
-    rows =
-      matrix
-      |> String.split("\n")
-      |> Enum.flat_map(&parse_matrix_row/1)
-
-    assert rows != []
-
-    assert [] =
-             Enum.reject(rows, fn row ->
-               row.status in @allowed_statuses
-             end)
-
-    assert [] =
-             Enum.filter(rows, fn row ->
-               row.status in ["partial", "pending"]
-             end)
-
-    assert [] =
-             Enum.filter(rows, fn row ->
-               row.evidence in ["", "TBD", "None"]
-             end)
-
-    missing_paths =
-      rows
-      |> Enum.flat_map(&evidence_paths/1)
-      |> Enum.reject(&File.exists?(Path.join(repo_root, &1)))
-
-    assert [] = missing_paths
-  end
-
-  test "README points contributors at the conformance workflow" do
+  test "README points client and server integrators at their adapter guides" do
     readme = File.read!(Path.expand("../../README.md", __DIR__))
 
-    assert readme =~ "docs/conformance_workflow.md"
+    assert readme =~ "docs/client-adapters.md"
+    assert readme =~ "docs/server-adapters.md"
+    assert readme =~ "Ircxd.Client.Adapter"
+    assert readme =~ "Ircxd.Server.Adapters.ETS"
   end
 
   test "README local documentation references point to existing files" do
@@ -55,40 +22,40 @@ defmodule Ircxd.ConformanceDocsTest do
     assert [] = missing_paths
   end
 
-  test "completion audit evidence points to existing artifacts" do
-    audit = File.read!(Path.expand("../../docs/completion_audit.md", __DIR__))
-    repo_root = Path.expand("../..", __DIR__)
+  test "adapter guide documents the public integration contract" do
+    guide = File.read!(Path.expand("../../docs/server-adapters.md", __DIR__))
 
-    missing_paths =
-      audit
-      |> document_paths()
-      |> Enum.reject(&File.exists?(Path.join(repo_root, &1)))
-
-    assert [] = missing_paths
+    for required <- [
+          "Ircxd.Server.Adapter",
+          "Ircxd.Server.Adapters.ETS",
+          "Ircxd.Server.Event",
+          "Ircxd.Server.query/2",
+          "Ircxd.Server.execute/2",
+          "handle_event/3",
+          "handle_query/3",
+          "handle_operation/3",
+          "authorize/3",
+          "handle_command/3",
+          "authenticate/4",
+          "memory-only"
+        ] do
+      assert guide =~ required
+    end
   end
 
-  test "spec audit evidence points to existing artifacts" do
-    audit = File.read!(Path.expand("../../docs/spec_audit.md", __DIR__))
-    repo_root = Path.expand("../..", __DIR__)
+  test "client adapter guide documents the matching public contract" do
+    guide = File.read!(Path.expand("../../docs/client-adapters.md", __DIR__))
 
-    missing_paths =
-      audit
-      |> document_paths()
-      |> Enum.reject(&File.exists?(Path.join(repo_root, &1)))
-
-    assert [] = missing_paths
-  end
-
-  test "IRCv3 index audit references point to existing artifacts" do
-    audit = File.read!(Path.expand("../../docs/ircv3_index_audit.md", __DIR__))
-    repo_root = Path.expand("../..", __DIR__)
-
-    missing_paths =
-      audit
-      |> document_paths()
-      |> Enum.reject(&File.exists?(Path.join(repo_root, &1)))
-
-    assert [] = missing_paths
+    for required <- [
+          "Ircxd.Client.Adapter",
+          "Ircxd.Server.Adapter",
+          "adapter: {Module, init_arg}",
+          "handle_event/3",
+          "Ircxd.Handler",
+          "docs/server-adapters.md"
+        ] do
+      assert guide =~ required
+    end
   end
 
   test "all repository docs are included in generated ExDoc extras" do
@@ -112,9 +79,7 @@ defmodule Ircxd.ConformanceDocsTest do
   end
 
   test "package metadata includes source docs license and protocol links" do
-    package =
-      Ircxd.MixProject.project()
-      |> Keyword.fetch!(:package)
+    package = Ircxd.MixProject.project() |> Keyword.fetch!(:package)
 
     assert Keyword.fetch!(package, :files) == [
              "lib",
@@ -139,14 +104,10 @@ defmodule Ircxd.ConformanceDocsTest do
     repo_root = Path.expand("../..", __DIR__)
 
     scripts =
-      [
-        "README.md",
-        "docs/completion_audit.md",
-        "docs/conformance_workflow.md",
-        "docs/spec_audit.md"
-      ]
-      |> Enum.map(&File.read!(Path.join(repo_root, &1)))
-      |> Enum.flat_map(&script_paths/1)
+      repo_root
+      |> Path.join("README.md")
+      |> File.read!()
+      |> script_paths()
       |> Enum.uniq()
       |> Enum.sort()
 
@@ -180,8 +141,7 @@ defmodule Ircxd.ConformanceDocsTest do
     ]
 
     positions =
-      expected_steps
-      |> Enum.map(fn step ->
+      Enum.map(expected_steps, fn step ->
         {index, _length} = :binary.match(runner, step)
         index
       end)
@@ -233,41 +193,8 @@ defmodule Ircxd.ConformanceDocsTest do
     assert [] =
              Enum.reject(requirements, fn {script, commands} ->
                content = File.read!(Path.join(repo_root, script))
-
-               Enum.all?(commands, fn command ->
-                 content =~ "require_command #{command}"
-               end)
+               Enum.all?(commands, &String.contains?(content, "require_command #{&1}"))
              end)
-  end
-
-  defp parse_matrix_row("| Area | Status | Evidence | Next grouped work |"), do: []
-  defp parse_matrix_row("| --- | --- | --- | --- |"), do: []
-
-  defp parse_matrix_row(line) do
-    case Regex.run(
-           ~r/^\| (?<area>[^|]+) \| (?<status>[^|]+) \| (?<evidence>[^|]+) \| (?<next>[^|]+) \|$/,
-           line,
-           capture: :all_names
-         ) do
-      [area, evidence, next, status] ->
-        [
-          %{
-            area: String.trim(area),
-            evidence: String.trim(evidence),
-            next: String.trim(next),
-            status: String.trim(status)
-          }
-        ]
-
-      nil ->
-        []
-    end
-  end
-
-  defp evidence_paths(row) do
-    ~r/`([^`]+\.(?:ex|exs|md))`/
-    |> Regex.scan(row.evidence, capture: :all_but_first)
-    |> List.flatten()
   end
 
   defp document_paths(markdown) do

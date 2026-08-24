@@ -1,8 +1,8 @@
 # ircxd
 
-`ircxd` is an Elixir IRC client library for applications that need to connect
-to IRC networks, negotiate Modern IRC / IRCv3 capabilities, and handle IRC
-events without taking ownership of application storage or UI policy.
+`ircxd` is an Elixir IRC server and client library. Applications can connect
+to IRC networks or embed a protocol server while retaining control of account,
+channel, permission, message-storage, and application-command policy.
 
 It is intended to be embedded in Phoenix apps, background workers, bots,
 bridges, notification systems, and other Elixir applications.
@@ -23,15 +23,18 @@ bridges, notification systems, and other Elixir applications.
   messaging, service queries, modes, and raw commands.
 - CTCP helpers and DCC CTCP payload parsing/encoding. Direct DCC socket and file
   transfer policy remains host-owned.
-- Callback-style event delivery through `:notify` or `Ircxd.Handler`.
+- Callback-style client event delivery through `:notify` or
+  `Ircxd.Client.Adapter`.
+- An embedded IRC server adapter contract with committed events, application
+  queries and operations, policy checks, custom commands, and a supported
+  in-memory ETS implementation.
 - Host-owned boundaries for storage, scrollback, notifications, WebSocket
   server adapters, STS persistence, and DCC transfer policy.
 - Automated unit tests, scripted IRC server tests, local InspIRCd integration,
   services-backed IRCv3 integration, and an optional irssi cross-client check.
 
-For the detailed implementation matrix and spec evidence, see
-`docs/spec_audit.md`, `docs/stable_spec_matrix.md`, and
-`docs/completion_audit.md`.
+See `docs/server-adapters.md` for embedded-server integration and
+`docs/security.md` for the security model and current findings.
 
 ## Installation
 
@@ -107,18 +110,45 @@ Supervisor.start_link(children, strategy: :one_for_one)
 ```
 
 The server accepts one `adapter: {Module, init_arg}` for application-owned
-message persistence, side effects, and SASL credential checks. See
-`docs/server_ircv3_matrix.md` and `plans/server.md` for the current protocol
-coverage and boundaries.
+state, committed-event projections, policy, custom commands, and SASL
+credential checks. The included ETS adapter is useful in tests and is also a
+supported production choice when node-local, memory-only storage is suitable:
+
+```elixir
+{Ircxd.Server,
+ id: :public_irc,
+ port: 6667,
+ adapter: {Ircxd.Server.Adapters.ETS, history_limit: 1_000}}
+```
+
+Applications inspect and change adapter-owned state without impersonating an
+IRC client:
+
+```elixir
+{:ok, users} = Ircxd.Server.query(server, :users)
+{:ok, channels} = Ircxd.Server.query(server, :channels)
+
+{:ok, _channel} =
+  Ircxd.Server.execute(server, {
+    :put_channel,
+    "#elixir",
+    %{description: "Elixir discussion"}
+  })
+```
+
+See `docs/server-adapters.md` for the full adapter contract, ETS lifecycle,
+queries, operations, events, authorization, authentication, and custom-command
+examples.
 
 Listeners bind to localhost (`{127, 0, 0, 1}`) by default. Set `ip: {0, 0, 0,
 0}` to expose a server on all IPv4 interfaces, or provide another IPv4 bind
 address per server.
 
-Adapters implement `Ircxd.Server.Adapter`. The callback state is shared by a
-serialized worker, so message and authentication callbacks can coordinate
-application-owned state such as authentication attempt tracking. Each
-published message includes server and connection metadata:
+Adapters implement `Ircxd.Server.Adapter`. Committed events, queries,
+operations, policy checks, custom commands, and legacy message publication are
+serialized. Authentication has a separate serialized state lane and runs in a
+bounded task so a credential lookup cannot block protocol traffic. For
+example, a custom adapter may project committed messages into its database:
 
 ```elixir
 defmodule MyApp.IrcAdapter do
@@ -128,8 +158,8 @@ defmodule MyApp.IrcAdapter do
   def init(db), do: {:ok, db}
 
   @impl true
-  def handle_publish(message, metadata, db) do
-    MyApp.Messages.persist(db, message, metadata)
+  def handle_event(%Ircxd.Server.Event{type: :message_accepted} = event, context, db) do
+    MyApp.Messages.persist(db, event, context)
     {:ok, db}
   end
 end
@@ -140,11 +170,9 @@ end
  adapter: {MyApp.IrcAdapter, MyApp.Repo}}
 ```
 
-Adapters may implement `handle_publish/3` and `authenticate/4`; both callbacks
-return updated adapter state. Authentication callbacks return
-`{:ok, account, state}` or `{:error, reason, state}`. Callback exceptions are
-contained by the worker; persistence and authentication policy remain owned by
-the embedding application.
+Adapter callback exceptions are contained by the worker. Applications remain
+responsible for durable transaction semantics, retry policy, and keeping
+credential material out of events and logs.
 
 Server information can be configured with `motd: ["Welcome"]`,
 `info: ["Ircxd.Server"]`, and `isupport: ["CHANTYPES=#&", "NICKLEN=30"]`.
@@ -193,44 +221,56 @@ The authenticator metadata includes `:mechanism`, `:peer`, `:transport`,
 `:peer_certificate`, and `:peer_certificate_sha256`. Applications must map or
 authorize the submitted EXTERNAL identity against that verified certificate.
 
-Use `Ircxd.Handler` when you want callback-style event handling:
+Use `Ircxd.Client.Adapter` when an outbound client connection should deliver
+events to application code:
 
 ```elixir
-defmodule MyApp.IrcHandler do
-  use Ircxd.Handler
+defmodule MyApp.IrcClientAdapter do
+  @behaviour Ircxd.Client.Adapter
 
   @impl true
-  def handle_event(:registered, _payload, state) do
+  def init(application_state), do: {:ok, application_state}
+
+  @impl true
+  def handle_event(:registered, context, state) do
+    MyApp.ConnectionLog.registered(context)
     {:ok, state}
   end
 
-  @impl true
-  def handle_event(:message, message, state) do
-    # Store, notify, broadcast, or ignore from your host application.
+  def handle_event({:message, message}, context, state) do
+    MyApp.Messages.store_incoming(message, context)
     {:ok, state}
   end
 end
+
+Ircxd.start_link(
+  host: "irc.example.test",
+  nick: "my-app",
+  adapter: {MyApp.IrcClientAdapter, MyApp.Repo}
+)
 ```
+
+The client and server use the uniform modules `Ircxd.Client.Adapter` and
+`Ircxd.Server.Adapter`, both configured through `adapter: {Module, init_arg}`.
+See `docs/client-adapters.md` and `docs/server-adapters.md` for their distinct
+event sources and callback contracts. The old `Ircxd.Handler` and `:handler`
+option remain supported for client compatibility.
 
 ## Application Boundaries
 
-`ircxd` does not store messages, own scrollback, send browser notifications, or
-manage user accounts. It emits IRC events and provides protocol helpers; the
-embedding application decides what to persist, how long to keep it, and how to
-present it.
+The embedded server owns live protocol state needed to operate each connection.
+Its adapter owns application projections and policies. The ETS adapter can
+retain a channel catalog, account ACLs, live session/membership projections,
+and bounded accepted-message history until its server process or node stops.
+Durable accounts, cross-node recovery, UI policy, and notifications remain
+application responsibilities.
 
 WebSocket server lifecycle is also host-owned. `Ircxd.WebSocket` validates the
 IRCv3 WebSocket subprotocol and one-line payload rules, and host applications
 can provide adapters implementing `Ircxd.WebSocket.Adapter` for Phoenix
 Channels, Cowboy, Bandit, or another stack.
 
-More boundary guidance is available in:
-
-- `docs/host_boundaries.md`
-- `docs/embedding_events.md`
-- `docs/dcc_boundaries.md`
-- `docs/sts_boundaries.md`
-- `docs/websocket_adapters.md`
+Detailed server boundary guidance is available in `docs/server-adapters.md`.
 
 ## Testing
 
@@ -289,14 +329,9 @@ scripts/run_irssi_server_check.sh
 
 ## Documentation
 
-- `docs/spec_audit.md`: detailed protocol implementation evidence.
-- `docs/stable_spec_matrix.md`: stable Modern IRC and IRCv3 coverage matrix.
-- `docs/ircv3_index_audit.md`: stable versus draft/WIP IRCv3 classification.
-- `docs/modern_irc_audit.md`: Modern IRC source audit.
+- `docs/server-adapters.md`: embedded server integration and adapter contract.
+- `docs/client-adapters.md`: outbound client event adapter contract.
 - `docs/security.md`: security review, findings, and remediation priorities.
-- `docs/conformance_workflow.md`: workflow for changing spec coverage.
-- `docs/completion_audit.md`: requirement-to-artifact checklist and gates.
-- `docs/specs.md`: source specification links.
 
 ## Development
 

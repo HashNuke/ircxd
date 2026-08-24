@@ -1,10 +1,11 @@
 defmodule Ircxd do
   @moduledoc """
-  Ircxd is a small IRC client library for Elixir applications.
+  Ircxd is an IRC server and client library for Elixir applications.
 
-  The library exposes protocol parsing/serialization helpers and a supervised
-  client process. Application-specific persistence and side effects are kept
-  outside the library through callback events.
+  The library exposes protocol parsing/serialization helpers, a supervised
+  client process, and an embeddable server. Application-specific persistence
+  and side effects integrate through `Ircxd.Client.Adapter` and
+  `Ircxd.Server.Adapter`.
   """
 
   alias Ircxd.Client
