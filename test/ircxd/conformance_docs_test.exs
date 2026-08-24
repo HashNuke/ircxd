@@ -10,6 +10,24 @@ defmodule Ircxd.ConformanceDocsTest do
     assert readme =~ "Ircxd.Server.Adapters.ETS"
   end
 
+  test "README presents installation features and client/server command support" do
+    readme = File.read!(Path.expand("../../README.md", __DIR__))
+
+    for heading <- [
+          "## Features",
+          "## Installation",
+          "## Supported IRC commands",
+          "### Client commands",
+          "### Server commands"
+        ] do
+      assert readme =~ heading
+    end
+
+    assert readme =~ "`Ircxd.Client.raw/3`"
+    assert readme =~ "adapter-defined commands"
+    assert readme =~ "| Area | Commands |"
+  end
+
   test "README local documentation references point to existing files" do
     readme = File.read!(Path.expand("../../README.md", __DIR__))
     repo_root = Path.expand("../..", __DIR__)
@@ -198,9 +216,17 @@ defmodule Ircxd.ConformanceDocsTest do
   end
 
   defp document_paths(markdown) do
-    ~r/`((?:lib|test|docs|scripts)\/[^`]+|mix\.exs|README\.md|LICENSE|\.formatter\.exs)`/
-    |> Regex.scan(markdown, capture: :all_but_first)
-    |> List.flatten()
+    code_paths =
+      ~r/`((?:lib|test|docs|scripts)\/[^`]+|mix\.exs|README\.md|LICENSE|\.formatter\.exs)`/
+      |> Regex.scan(markdown, capture: :all_but_first)
+      |> List.flatten()
+
+    link_paths =
+      ~r/\]\(((?:lib|test|docs|scripts)\/[^)]+|mix\.exs|README\.md|LICENSE|\.formatter\.exs)\)/
+      |> Regex.scan(markdown, capture: :all_but_first)
+      |> List.flatten()
+
+    Enum.uniq(code_paths ++ link_paths)
   end
 
   defp script_paths(markdown) do

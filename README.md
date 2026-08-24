@@ -1,40 +1,31 @@
 # ircxd
 
-`ircxd` is an Elixir IRC server and client library. Applications can connect
-to IRC networks or embed a protocol server while retaining control of account,
-channel, permission, message-storage, and application-command policy.
+![ircxd terminal banner](docs/assets/ircxd-terminal.svg)
 
-It is intended to be embedded in Phoenix apps, background workers, bots,
-bridges, notification systems, and other Elixir applications.
+`ircxd` is an IRC client library and embeddable IRC server for Elixir. Use it
+to build bots, bridges, notification services, Phoenix integrations, or an IRC
+interface backed by your application's own accounts and data.
+
+```text
+YOUR APP <-> Ircxd.Client <-> IRC NETWORK
+IRC CLIENT <-> Ircxd.Server <-> YOUR ADAPTER
+```
 
 ## Features
 
-- Modern IRC message parsing, serialization, size validation, and source mask
-  parsing.
-- TCP and implicit TLS connections, including SNI configuration.
-- IRC registration with `PASS`, `NICK`, `USER`, `CAP LS 302`, automatic
-  `PING`/`PONG`, reconnect support, and nickname-collision retry handling.
-- IRCv3 capability negotiation, message tags, server-time, message IDs,
-  echo-message, labeled responses, batches, standard replies, account tracking,
-  away notifications, monitor, UTF8ONLY, WebIRC, and WebSocket protocol helpers.
-- SASL `PLAIN`, `EXTERNAL`, and `SCRAM-SHA-256` helpers with fallback and
-  failure-policy support.
-- Modern IRC command helpers for channel operations, user/server queries,
-  messaging, service queries, modes, and raw commands.
-- CTCP helpers and DCC CTCP payload parsing/encoding. Direct DCC socket and file
-  transfer policy remains host-owned.
-- Callback-style client event delivery through `:notify` or
-  `Ircxd.Client.Adapter`.
-- An embedded IRC server adapter contract with committed events, application
-  queries and operations, policy checks, custom commands, and a supported
-  in-memory ETS implementation.
-- Host-owned boundaries for storage, scrollback, notifications, WebSocket
-  server adapters, STS persistence, and DCC transfer policy.
-- Automated unit tests, scripted IRC server tests, local InspIRCd integration,
-  services-backed IRCv3 integration, and an optional irssi cross-client check.
-
-See `docs/server-adapters.md` for embedded-server integration and
-`docs/security.md` for the security model and current findings.
+- **Client and server in one library** — connect to existing networks or embed
+  an isolated IRC server in an OTP supervision tree.
+- **Modern IRCv3 support** — capability negotiation, message tags, server-time,
+  message IDs, batches, labeled responses, multiline messages, chat history,
+  account tracking, and more.
+- **Secure connections and authentication** — verified implicit TLS plus SASL
+  `PLAIN`, `EXTERNAL`, and `SCRAM-SHA-256` client support.
+- **Application-owned policy** — adapters control authentication,
+  authorization, persistence, custom commands, and committed-event handling.
+- **Elixir-friendly integration** — focused command helpers, structured
+  messages, process notifications, callback adapters, and reconnect support.
+- **Useful protocol building blocks** — CTCP, DCC payloads, WebIRC, WebSocket,
+  formatting, casemapping, ISUPPORT, standard replies, and wire-size validation.
 
 ## Installation
 
@@ -95,6 +86,45 @@ the operating-system CA store. A custom trust root can be supplied with
 `tls_options: [cacertfile: "/path/to/ca.pem"]`. Disabling verification with
 `verify: :verify_none` should be limited to isolated development fixtures.
 
+## Supported IRC commands
+
+The client table below lists commands with dedicated `Ircxd.Client` helpers or
+automatic client handling.
+`Ircxd.Client.raw/3`, `Ircxd.Client.raw_tagged/4`, and
+`Ircxd.Client.transmit/2` can send other commands supported by a remote network.
+
+### Client commands
+
+| Area | Commands |
+| --- | --- |
+| Connection and capabilities | `CAP`, `PASS`, `NICK`, `QUIT`, `WEBIRC`; automatic `USER`, `PING`, and `PONG` |
+| Channels | `JOIN`, `PART`, `NAMES`, `LIST`, `INVITE`, `KICK`, `TOPIC`, `MODE`, `RENAME` |
+| Messaging | `PRIVMSG`, `NOTICE`, `TAGMSG`, `BATCH`, `REDACT` |
+| Presence and identity | `AWAY`, `SETNAME`, `MONITOR`, `METADATA`, `MARKREAD` |
+| User and server queries | `WHO`, `WHOIS`, `WHOWAS`, `USERHOST`, `ISON`, `MOTD`, `LUSERS`, `VERSION`, `TIME`, `ADMIN`, `INFO`, `HELP`, `STATS`, `LINKS`, `ISUPPORT` |
+| Accounts and history | `AUTHENTICATE` through SASL, `REGISTER`, `VERIFY`, `CHATHISTORY` |
+| Operator, service, and legacy | `OPER`, `KILL`, `WALLOPS`, `SQUERY`, `TRACE`, `CONNECT`, `SQUIT`, `REHASH`, `RESTART`, `SUMMON`, `USERS`, `SERVLIST` |
+
+Higher-level helpers cover replies, typing notifications, reactions, channel
+context, multiline messages, read markers, metadata subscriptions, capability
+lifecycle, and all six supported `CHATHISTORY` queries.
+
+### Server commands
+
+| Area | Commands |
+| --- | --- |
+| Registration and connection | `CAP`, `AUTHENTICATE` (`PLAIN` and `EXTERNAL`), `PASS`, `NICK`, `USER`, `PING`, `PONG`, `QUIT` |
+| Channels | `JOIN`, `PART`, `NAMES`, `LIST`, `INVITE`, `KICK`, `TOPIC`, `MODE` |
+| Messaging | `PRIVMSG`, `NOTICE`, `TAGMSG`, `BATCH`, `REDACT` |
+| Presence and identity | `AWAY`, `SETNAME`, `MONITOR` |
+| User and server queries | `WHO`, `WHOIS`, `WHOWAS`, `USERHOST`, `ISON`, `MOTD`, `LUSERS`, `VERSION`, `TIME`, `ADMIN`, `INFO`, `HELP`, `STATS`, `LINKS` |
+| History | `CHATHISTORY` (`LATEST`, `BEFORE`, `AFTER`, `AROUND`, `BETWEEN`, and `TARGETS`) |
+
+The embedded server also negotiates the IRCv3 capabilities that back these
+commands. Applications can add adapter-defined commands through the adapter's
+`handle_command/3` callback; unknown commands receive the standard numeric or
+IRCv3 `FAIL` response.
+
 ## Embedded IRC Server
 
 Applications can start one or more independent IRC servers in their own
@@ -136,9 +166,9 @@ IRC client:
   })
 ```
 
-See `docs/server-adapters.md` for the full adapter contract, ETS lifecycle,
-queries, operations, events, authorization, authentication, and custom-command
-examples.
+See the [server adapter guide](docs/server-adapters.md) for the full adapter
+contract, ETS lifecycle, queries, operations, events, authorization,
+authentication, and custom-command examples.
 
 Listeners bind to localhost (`{127, 0, 0, 1}`) by default. Set `ip: {0, 0, 0,
 0}` to expose a server on all IPv4 interfaces, or provide another IPv4 bind
@@ -252,9 +282,10 @@ Ircxd.start_link(
 
 The client and server use the uniform modules `Ircxd.Client.Adapter` and
 `Ircxd.Server.Adapter`, both configured through `adapter: {Module, init_arg}`.
-See `docs/client-adapters.md` and `docs/server-adapters.md` for their distinct
-event sources and callback contracts. The old `Ircxd.Handler` and `:handler`
-option remain supported for client compatibility.
+See the [client adapter guide](docs/client-adapters.md) and
+[server adapter guide](docs/server-adapters.md) for their distinct event
+sources and callback contracts. The old `Ircxd.Handler` and `:handler` option
+remain supported for client compatibility.
 
 ## Application Boundaries
 
@@ -270,7 +301,8 @@ IRCv3 WebSocket subprotocol and one-line payload rules, and host applications
 can provide adapters implementing `Ircxd.WebSocket.Adapter` for Phoenix
 Channels, Cowboy, Bandit, or another stack.
 
-Detailed server boundary guidance is available in `docs/server-adapters.md`.
+Detailed server boundary guidance is available in the
+[server adapter guide](docs/server-adapters.md).
 
 ## Testing
 
@@ -329,9 +361,12 @@ scripts/run_irssi_server_check.sh
 
 ## Documentation
 
-- `docs/server-adapters.md`: embedded server integration and adapter contract.
-- `docs/client-adapters.md`: outbound client event adapter contract.
-- `docs/security.md`: security review, findings, and remediation priorities.
+- [Client adapters](docs/client-adapters.md): outbound client event delivery
+  and callback contract.
+- [Server adapters](docs/server-adapters.md): embedded server state, policy,
+  authentication, custom commands, and event contract.
+- [Security](docs/security.md): security model, review findings, and remediation
+  priorities.
 
 ## Development
 
