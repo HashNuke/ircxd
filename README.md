@@ -39,16 +39,6 @@ def deps do
 end
 ```
 
-Until the package is published, depend on the repository directly:
-
-```elixir
-def deps do
-  [
-    {:ircxd, git: "https://github.com/HashNuke/ircxd.git"}
-  ]
-end
-```
-
 Then fetch dependencies:
 
 ```bash
