@@ -21,7 +21,8 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y inspircd openssl
+          sudo apt-get install -y inspircd netcat-openbsd openssl
+          sudo systemctl stop inspircd.service
 
       - name: Install Hex and Rebar
         run: |
@@ -46,6 +47,11 @@ jobs:
 
       - name: Start InspIRCd fixture
         run: |
+          if (echo >/dev/tcp/127.0.0.1/6667) >/dev/null 2>&1; then
+            echo "InspIRCd port 6667 is already occupied" >&2
+            exit 1
+          fi
+
           cat >/tmp/ircxd-ci.conf <<'EOF'
           <server name="irc.local"
                   description="ircxd CI"
@@ -105,16 +111,35 @@ jobs:
 
           sudo cp /tmp/ircxd-ci.conf /etc/inspircd/ircxd-ci.conf
           sudo chown irc:irc /etc/inspircd/ircxd-ci.conf
-          sudo -u irc inspircd --config /etc/inspircd/ircxd-ci.conf --debug --nolog --nopid >/tmp/ircxd-ci.log 2>&1 &
+          sudo -u irc inspircd --config /etc/inspircd/ircxd-ci.conf --debug --nolog --nopid --nofork >/tmp/ircxd-ci.log 2>&1 &
+          inspircd_pid=$!
 
           for _ in {1..50}; do
+            if ! kill -0 "${inspircd_pid}" 2>/dev/null; then
+              echo "InspIRCd exited during startup" >&2
+              tail -100 /tmp/ircxd-ci.log >&2 || true
+              exit 1
+            fi
+
             if (echo >/dev/tcp/127.0.0.1/6667) >/dev/null 2>&1; then
-              exit 0
+              cap_response=$(printf 'CAP LS 302\r\nQUIT :CI readiness check\r\n' | timeout 2 nc 127.0.0.1 6667 || true)
+              capabilities_ready=true
+
+              for capability in extended-join server-time echo-message standard-replies account-notify away-notify; do
+                if [[ "${cap_response}" != *"${capability}"* ]]; then
+                  capabilities_ready=false
+                  break
+                fi
+              done
+
+              if [[ "${capabilities_ready}" == true ]]; then
+                exit 0
+              fi
             fi
             sleep 0.1
           done
 
-          echo "InspIRCd did not start" >&2
+          echo "InspIRCd did not start with the required IRCv3 capabilities" >&2
           tail -100 /tmp/ircxd-ci.log >&2 || true
           exit 1
 

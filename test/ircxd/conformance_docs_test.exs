@@ -242,6 +242,31 @@ defmodule Ircxd.ConformanceDocsTest do
              end)
   end
 
+  test "CI owns and verifies the InspIRCd fixture process" do
+    workflow = File.read!(Path.expand("../../.github/workflows/ci.yml", __DIR__))
+
+    assert workflow =~ "sudo systemctl stop inspircd.service"
+    assert workflow =~ "InspIRCd port 6667 is already occupied"
+
+    assert workflow =~
+             "inspircd --config /etc/inspircd/ircxd-ci.conf --debug --nolog --nopid --nofork"
+
+    assert workflow =~ "inspircd_pid=$!"
+    assert workflow =~ ~s(kill -0 "${inspircd_pid}")
+    assert workflow =~ "netcat-openbsd"
+    assert workflow =~ "CAP LS 302"
+
+    assert workflow =~
+             "for capability in extended-join server-time echo-message standard-replies account-notify away-notify"
+
+    assert workflow =~ "tail -100 /tmp/ircxd-ci.log"
+
+    {stop_service, _} = :binary.match(workflow, "sudo systemctl stop inspircd.service")
+    {start_fixture, _} = :binary.match(workflow, "inspircd --config /etc/inspircd/ircxd-ci.conf")
+
+    assert stop_service < start_fixture
+  end
+
   defp document_paths(markdown) do
     code_paths =
       ~r/`((?:lib|test|docs|scripts)\/[^`]+|mix\.exs|README\.md|LICENSE|\.formatter\.exs)`/
