@@ -35,6 +35,7 @@ defmodule Ircxd.ClientAccountRegistrationTest do
       Ircxd.start_link(
         host: "127.0.0.1",
         port: ScriptedIrcServer.port(server),
+        allow_insecure_auth: true,
         nick: "nick",
         username: "nick",
         realname: "Nick",
@@ -92,6 +93,7 @@ defmodule Ircxd.ClientAccountRegistrationTest do
       Ircxd.start_link(
         host: "127.0.0.1",
         port: ScriptedIrcServer.port(server),
+        allow_insecure_auth: true,
         nick: "nick",
         username: "nick",
         realname: "Nick",
@@ -130,6 +132,7 @@ defmodule Ircxd.ClientAccountRegistrationTest do
       Ircxd.start_link(
         host: "127.0.0.1",
         port: ScriptedIrcServer.port(server),
+        allow_insecure_auth: true,
         nick: "nick",
         username: "nick",
         realname: "Nick",

@@ -46,6 +46,7 @@ defmodule Ircxd.ServerRegistrationQueryValidationTest do
     Client.start_link(
       host: "127.0.0.1",
       port: Server.port(server),
+      allow_insecure_auth: true,
       nick: nick,
       username: nick,
       realname: "Ircxd validation client",

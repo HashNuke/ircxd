@@ -19,6 +19,7 @@ defmodule Ircxd.ClientCoreCommandsTest do
       Ircxd.start_link(
         host: "127.0.0.1",
         port: ScriptedIrcServer.port(server),
+        allow_insecure_auth: true,
         password: "server-password",
         nick: "nick",
         username: "nick",
@@ -48,6 +49,7 @@ defmodule Ircxd.ClientCoreCommandsTest do
       Ircxd.start_link(
         host: "127.0.0.1",
         port: ScriptedIrcServer.port(server),
+        allow_insecure_auth: true,
         nick: "nick",
         username: "nick",
         realname: "Nick",
