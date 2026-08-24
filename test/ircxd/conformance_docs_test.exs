@@ -41,6 +41,20 @@ defmodule Ircxd.ConformanceDocsTest do
     assert embedded_server_section |> String.split("\n") |> length() <= 70
   end
 
+  test "README delegates testing and contributor setup to the development guide" do
+    readme = File.read!(Path.expand("../../README.md", __DIR__))
+    guide = File.read!(Path.expand("../../docs/development.md", __DIR__))
+
+    refute readme =~ "## Testing"
+    refute readme =~ "## Development"
+    assert readme =~ "[Development and testing](docs/development.md)"
+
+    assert guide =~ "# Development"
+    assert guide =~ "## Setup"
+    assert guide =~ "## Testing"
+    assert guide =~ "scripts/run_verification_gates.sh"
+  end
+
   test "README local documentation references point to existing files" do
     readme = File.read!(Path.expand("../../README.md", __DIR__))
     repo_root = Path.expand("../..", __DIR__)
@@ -136,7 +150,7 @@ defmodule Ircxd.ConformanceDocsTest do
 
     scripts =
       repo_root
-      |> Path.join("README.md")
+      |> Path.join("docs/development.md")
       |> File.read!()
       |> script_paths()
       |> Enum.uniq()

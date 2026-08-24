@@ -53,11 +53,16 @@ defmodule Ircxd.MixProject do
       extras: [
         "README.md",
         "docs/client-adapters.md",
+        "docs/development.md",
         "docs/security.md",
         "docs/server-adapters.md"
       ],
       groups_for_extras: [
-        Guides: ["docs/client-adapters.md", "docs/server-adapters.md"],
+        Guides: [
+          "docs/client-adapters.md",
+          "docs/development.md",
+          "docs/server-adapters.md"
+        ],
         Security: ["docs/security.md"]
       ]
     ]

@@ -154,90 +154,16 @@ See the [client adapter guide](docs/client-adapters.md) and
 [server adapter guide](docs/server-adapters.md) for the callback contracts,
 examples, lifecycle details, security boundaries, and production guidance.
 
-## Testing
-
-Set up the locally generated TLS fixtures once after checking out the
-repository. This requires `openssl`:
-
-```bash
-bin/setup-tests
-```
-
-Run the default automated suite:
-
-```bash
-mix test
-```
-
-Run the suite with the project coverage floor:
-
-```bash
-mix cover
-```
-
-Run repeatable microbenchmarks for the protocol hot paths:
-
-```bash
-mix bench
-```
-
-The benchmark command uses only the Erlang/Elixir runtime and reports median
-and p95 sample time plus operations per second. Compare results on the same
-machine and runtime; it is intended for detecting relative regressions rather
-than publishing cross-machine absolute numbers.
-
-Run the full standard verification gate:
-
-```bash
-scripts/run_verification_gates.sh
-```
-
-Include the optional irssi cross-client check:
-
-```bash
-IRCXD_INCLUDE_IRSSI=1 scripts/run_verification_gates.sh
-```
-
-The integration tests expect a local InspIRCd on `127.0.0.1:6667`. Additional
-opt-in scripts create disposable local fixtures for services-backed IRCv3 and
-real standard-replies coverage:
-
-```bash
-scripts/run_services_integration.sh
-scripts/run_standard_replies_integration.sh
-scripts/run_irssi_manual_check.sh
-scripts/run_irssi_server_check.sh
-```
-
 ## Documentation
 
 - [Client adapters](docs/client-adapters.md): outbound client event delivery
   and callback contract.
 - [Server adapters](docs/server-adapters.md): embedded server state, policy,
   authentication, custom commands, and event contract.
+- [Development and testing](docs/development.md): local setup, automated tests,
+  benchmarks, integration checks, and release verification.
 - [Security](docs/security.md): security model, review findings, and remediation
   priorities.
-
-## Development
-
-Development expects Elixir 1.19, Erlang/OTP, InspIRCd on `127.0.0.1:6667`,
-and optional `atheme-services`, `irssi`, `tmux`, and `sudo` for the opt-in
-integration checks.
-
-Run `bin/setup-tests` once after checkout to generate the TLS fixtures used by
-the TLS integration tests.
-
-```bash
-mix deps.get
-mix format --check-formatted
-mix compile --warnings-as-errors
-mix test
-mix docs
-mix hex.build --unpack
-```
-
-Use `scripts/run_verification_gates.sh` when the local IRC services are
-available and you want the same gate used before release-oriented commits.
 
 ## License
 
