@@ -117,182 +117,42 @@ IRCv3 `FAIL` response.
 
 ## Embedded IRC Server
 
-Applications can start one or more independent IRC servers in their own
-supervision tree. Give each server child a distinct `:id`:
+Add `Ircxd.Server` to an OTP supervision tree:
 
 ```elixir
 children = [
-  {Ircxd.Server, id: :public_irc, port: 6667, server_name: "public.example"},
-  {Ircxd.Server, id: :internal_irc, port: 6668, server_name: "internal.example"}
+  {Ircxd.Server,
+   id: :public_irc,
+   port: 6667,
+   server_name: "irc.example.test",
+   adapter: {Ircxd.Server.Adapters.ETS, history_limit: 1_000}}
 ]
 
 Supervisor.start_link(children, strategy: :one_for_one)
 ```
 
-The server accepts one `adapter: {Module, init_arg}` for application-owned
-state, committed-event projections, policy, custom commands, and SASL
-credential checks. The included ETS adapter is useful in tests and is also a
-supported production choice when node-local, memory-only storage is suitable:
-
-```elixir
-{Ircxd.Server,
- id: :public_irc,
- port: 6667,
- adapter: {Ircxd.Server.Adapters.ETS, history_limit: 1_000}}
-```
-
-Applications inspect and change adapter-owned state without impersonating an
-IRC client:
+The included ETS adapter provides node-local, memory-only accounts, channels,
+policy, and bounded history. Applications can query or change adapter-owned
+state directly:
 
 ```elixir
 {:ok, users} = Ircxd.Server.query(server, :users)
-{:ok, channels} = Ircxd.Server.query(server, :channels)
-
-{:ok, _channel} =
-  Ircxd.Server.execute(server, {
-    :put_channel,
-    "#elixir",
-    %{description: "Elixir discussion"}
-  })
+{:ok, channel} = Ircxd.Server.execute(server, {:put_channel, "#elixir", %{}})
 ```
 
-See the [server adapter guide](docs/server-adapters.md) for the full adapter
-contract, ETS lifecycle, queries, operations, events, authorization,
-authentication, and custom-command examples.
+Listeners bind to localhost by default. Use `ip: {0, 0, 0, 0}` to expose the
+listener, or enable implicit TLS with `tls: true` and standard Erlang
+`tls_options`.
 
-Listeners bind to localhost (`{127, 0, 0, 1}`) by default. Set `ip: {0, 0, 0,
-0}` to expose a server on all IPv4 interfaces, or provide another IPv4 bind
-address per server.
+## Adapters
 
-Adapters implement `Ircxd.Server.Adapter`. Committed events, queries,
-operations, policy checks, custom commands, and legacy message publication are
-serialized. Authentication has a separate serialized state lane and runs in a
-bounded task so a credential lookup cannot block protocol traffic. For
-example, a custom adapter may project committed messages into its database:
+Both sides accept `adapter: {Module, init_arg}`. Use `Ircxd.Client.Adapter` for
+outbound client events and `Ircxd.Server.Adapter` for application-owned server
+state, persistence, authentication, authorization, and custom commands.
 
-```elixir
-defmodule MyApp.IrcAdapter do
-  @behaviour Ircxd.Server.Adapter
-
-  @impl true
-  def init(db), do: {:ok, db}
-
-  @impl true
-  def handle_event(%Ircxd.Server.Event{type: :message_accepted} = event, context, db) do
-    MyApp.Messages.persist(db, event, context)
-    {:ok, db}
-  end
-end
-
-{Ircxd.Server,
- id: :public_irc,
- port: 6667,
- adapter: {MyApp.IrcAdapter, MyApp.Repo}}
-```
-
-Adapter callback exceptions are contained by the worker. Applications remain
-responsible for durable transaction semantics, retry policy, and keeping
-credential material out of events and logs.
-
-Server information can be configured with `motd: ["Welcome"]`,
-`info: ["Ircxd.Server"]`, and `isupport: ["CHANTYPES=#&", "NICKLEN=30"]`.
-Help text uses `help: %{"JOIN" => ["JOIN <channel>"]}`. Administrative
-details use `admin: %{location: ["Operations"], email: "admin@example.test"}`.
-Network protection defaults to 1,024 simultaneous connections, 100 commands
-per connection per second, 128 concurrent TLS handshakes, and a five-second TLS
-handshake timeout. These can be changed with `max_connections`,
-`command_rate_limit`, `max_handshakes`, and `handshake_timeout`.
-
-Authentication callbacks run in a supervised, serialized worker with a
-five-second timeout. Configure this per server with
-`authentication_timeout`; application configuration under
-`config :ircxd, Ircxd.Server, ...` supplies defaults when per-server options
-are not provided.
-
-For an implicit TLS listener, set `tls: true` and provide standard Erlang SSL
-options such as `certfile` and `keyfile` through `tls_options`:
-
-```elixir
-{Ircxd.Server,
- id: :secure_irc,
- port: 6697,
- tls: true,
- tls_options: [certfile: "/path/to/server.crt", keyfile: "/path/to/server.key"]}
-```
-
-SASL EXTERNAL is disabled by default. Enabling it requires a TLS listener that
-verifies client certificates:
-
-```elixir
-{Ircxd.Server,
- port: 6697,
- tls: true,
- external_auth: true,
- adapter: {MyApp.IrcAdapter, MyApp.Repo},
- tls_options: [
-   certfile: "/path/to/server.crt",
-   keyfile: "/path/to/server.key",
-   verify: :verify_peer,
-   cacertfile: "/path/to/client-ca.crt"
- ]}
-```
-
-The authenticator metadata includes `:mechanism`, `:peer`, `:transport`,
-`:peer_certificate`, and `:peer_certificate_sha256`. Applications must map or
-authorize the submitted EXTERNAL identity against that verified certificate.
-
-Use `Ircxd.Client.Adapter` when an outbound client connection should deliver
-events to application code:
-
-```elixir
-defmodule MyApp.IrcClientAdapter do
-  @behaviour Ircxd.Client.Adapter
-
-  @impl true
-  def init(application_state), do: {:ok, application_state}
-
-  @impl true
-  def handle_event(:registered, context, state) do
-    MyApp.ConnectionLog.registered(context)
-    {:ok, state}
-  end
-
-  def handle_event({:message, message}, context, state) do
-    MyApp.Messages.store_incoming(message, context)
-    {:ok, state}
-  end
-end
-
-Ircxd.start_link(
-  host: "irc.example.test",
-  nick: "my-app",
-  adapter: {MyApp.IrcClientAdapter, MyApp.Repo}
-)
-```
-
-The client and server use the uniform modules `Ircxd.Client.Adapter` and
-`Ircxd.Server.Adapter`, both configured through `adapter: {Module, init_arg}`.
 See the [client adapter guide](docs/client-adapters.md) and
-[server adapter guide](docs/server-adapters.md) for their distinct event
-sources and callback contracts. The old `Ircxd.Handler` and `:handler` option
-remain supported for client compatibility.
-
-## Application Boundaries
-
-The embedded server owns live protocol state needed to operate each connection.
-Its adapter owns application projections and policies. The ETS adapter can
-retain a channel catalog, account ACLs, live session/membership projections,
-and bounded accepted-message history until its server process or node stops.
-Durable accounts, cross-node recovery, UI policy, and notifications remain
-application responsibilities.
-
-WebSocket server lifecycle is also host-owned. `Ircxd.WebSocket` validates the
-IRCv3 WebSocket subprotocol and one-line payload rules, and host applications
-can provide adapters implementing `Ircxd.WebSocket.Adapter` for Phoenix
-Channels, Cowboy, Bandit, or another stack.
-
-Detailed server boundary guidance is available in the
-[server adapter guide](docs/server-adapters.md).
+[server adapter guide](docs/server-adapters.md) for the callback contracts,
+examples, lifecycle details, security boundaries, and production guidance.
 
 ## Testing
 

@@ -28,6 +28,19 @@ defmodule Ircxd.ConformanceDocsTest do
     assert readme =~ "| Area | Commands |"
   end
 
+  test "README keeps the embedded server quickstart concise" do
+    readme = File.read!(Path.expand("../../README.md", __DIR__))
+
+    embedded_server_section =
+      readme
+      |> String.split("## Embedded IRC Server\n", parts: 2)
+      |> List.last()
+      |> String.split("\n## ", parts: 2)
+      |> List.first()
+
+    assert embedded_server_section |> String.split("\n") |> length() <= 70
+  end
+
   test "README local documentation references point to existing files" do
     readme = File.read!(Path.expand("../../README.md", __DIR__))
     repo_root = Path.expand("../..", __DIR__)
