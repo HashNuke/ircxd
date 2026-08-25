@@ -152,14 +152,16 @@ Both sides accept `adapter: {Module, init_arg}`. Use `Ircxd.Client.Adapter` for
 outbound client events and `Ircxd.Server.Adapter` for application-owned server
 state, persistence, authentication, authorization, and custom commands.
 
-See the [client adapter guide](docs/client-adapters.md) and
-[server adapter guide](docs/server-adapters.md) for the callback contracts,
-examples, lifecycle details, security boundaries, and production guidance.
+See [Client usage and adapters](docs/client-adapters.md) for the complete client
+lifecycle and client callback contract. The [server adapter
+guide](docs/server-adapters.md) covers server state, security boundaries, and
+production integration.
 
 ## Documentation
 
-- [Client adapters](docs/client-adapters.md): outbound client event delivery
-  and callback contract.
+- [Client usage and adapters](docs/client-adapters.md): connection setup,
+  supervision, events, commands, capabilities, authentication, reconnection,
+  and the client callback contract.
 - [Server adapters](docs/server-adapters.md): embedded server state, policy,
   authentication, custom commands, and event contract.
 - [Development and testing](docs/development.md): local setup, automated tests,

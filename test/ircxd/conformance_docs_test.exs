@@ -1,10 +1,11 @@
 defmodule Ircxd.ConformanceDocsTest do
   use ExUnit.Case, async: true
 
-  test "README points client and server integrators at their adapter guides" do
+  test "README points client and server integrators at their guides" do
     readme = File.read!(Path.expand("../../README.md", __DIR__))
 
     assert readme =~ "docs/client-adapters.md"
+    assert readme =~ "Client usage and adapters"
     assert readme =~ "docs/server-adapters.md"
     assert readme =~ "Ircxd.Client.Adapter"
     assert readme =~ "Ircxd.Server.Adapters.ETS"
@@ -88,19 +89,33 @@ defmodule Ircxd.ConformanceDocsTest do
     end
   end
 
-  test "client adapter guide documents the matching public contract" do
+  test "client guide documents usage and the adapter contract" do
     guide = File.read!(Path.expand("../../docs/client-adapters.md", __DIR__))
 
     for required <- [
+          "# Client usage and adapters",
+          "## Starting and supervising a client",
+          "## Connection options",
+          "## Receiving events",
+          "## Sending commands",
+          "## Capabilities",
+          "## TLS and authentication",
+          "## Reconnection",
+          "## Implementing an adapter",
           "Ircxd.Client.Adapter",
           "Ircxd.Server.Adapter",
           "adapter: {Module, init_arg}",
           "handle_event/3",
           "Ircxd.Handler",
-          "docs/server-adapters.md"
+          "[server adapter guide](server-adapters.md)"
         ] do
       assert guide =~ required
     end
+  end
+
+  test "package description covers both sides of the library" do
+    assert Ircxd.MixProject.project()[:description] ==
+             "IRC client library and embeddable IRC server for Elixir applications, with Modern IRC and IRCv3 support."
   end
 
   test "all repository docs are included in generated ExDoc extras" do

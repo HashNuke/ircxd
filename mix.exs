@@ -44,7 +44,7 @@ defmodule Ircxd.MixProject do
   end
 
   defp description do
-    "IRC v2/Modern IRC and IRCv3 client library for Elixir applications."
+    "IRC client library and embeddable IRC server for Elixir applications, with Modern IRC and IRCv3 support."
   end
 
   defp docs do
