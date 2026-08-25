@@ -1,12 +1,8 @@
-# ircxd
+# ircxd - IRC client & server library for Elixir
 
-IRC client & server library for Elixir
+> Use it to build your bots or embed an IRC server on your app backed by your application's own accounts and data.
 
 ![ircxd, an IRC client and server library for Elixir](docs/assets/ircxd-banner.svg)
-
-`ircxd` is an IRC client library and embeddable IRC server for Elixir. Use it
-to build bots, bridges, notification services, Phoenix integrations, or an IRC
-interface backed by your application's own accounts and data.
 
 ```text
 Your APP <-> Ircxd.Client <-> IRC NETWORK
@@ -17,7 +13,7 @@ Your APP <-> Ircxd.Server <-> Your USERS
 ## Features
 
 - Connect to IRC networks
-- Embed an IRC server in your Elixir app, with your own user accounts
+- Run an IRC server in your Elixir app
 - **Modern IRCv3 support** — capability negotiation, message tags, server-time,
   message IDs, batches, labeled responses, multiline messages, chat history,
   account tracking, and more.
