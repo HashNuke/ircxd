@@ -1,6 +1,9 @@
 # ircxd
 
-![ircxd terminal banner](docs/assets/ircxd-terminal.svg)
+![A messenger carries IRC messages from an Elixir application to a network while an embedded server welcomes IRC clients](docs/assets/ircxd-client-server-garden.png)
+
+*One library for both journeys: connect an Elixir application to IRC, or bring
+IRC clients into your application through an embedded server.*
 
 `ircxd` is an IRC client library and embeddable IRC server for Elixir. Use it
 to build bots, bridges, notification services, Phoenix integrations, or an IRC
