@@ -1,6 +1,6 @@
 # ircxd - IRC client & server library for Elixir
 
-> Use it to build your bots or embed an IRC server on your app backed by your application's own accounts and data.
+> Use it to build your bots, or embed an IRC server on your app - backed by your application's own accounts and data.
 
 ![ircxd, an IRC client and server library for Elixir](docs/assets/ircxd-banner.svg)
 
