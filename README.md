@@ -1,6 +1,6 @@
 # ircxd
 
-![A messenger carries IRC messages from an Elixir application to a network while an embedded server welcomes IRC clients](docs/assets/ircxd-client-server-garden.png)
+![Two people use ircxd to chat in IRC channels through an IRC network and embedded server](docs/assets/ircxd-client-server-garden.png)
 
 *One library for both journeys: connect an Elixir application to IRC, or bring
 IRC clients into your application through an embedded server.*
