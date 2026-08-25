@@ -3,7 +3,7 @@ defmodule Ircxd.ClientLabeledResponseLifecycleTest do
 
   alias Ircxd.ScriptedIrcServer
 
-  test "tracks labeled-response request lifecycle from send through ACK and batch completion" do
+  test "tracks labeled-response request lifecycle from send through batch completion" do
     server =
       start_supervised!(
         {ScriptedIrcServer,
@@ -20,7 +20,6 @@ defmodule Ircxd.ClientLabeledResponseLifecycleTest do
 
            "@label=list-2 LIST", _state ->
              [
-               "@label=list-2 ACK",
                "@label=list-2 BATCH +lb2 labeled-response",
                "@batch=lb2 :irc.test 321 nick Channel :Users Name",
                "@batch=lb2 :irc.test 323 nick :End of /LIST",
@@ -49,9 +48,6 @@ defmodule Ircxd.ClientLabeledResponseLifecycleTest do
     assert_receive {:ircxd,
                     {:labeled_request,
                      %{label: "list-2", status: :sent, command: "LIST", params: []}}},
-                   1_000
-
-    assert_receive {:ircxd, {:labeled_request, %{label: "list-2", status: :acknowledged}}},
                    1_000
 
     assert_receive {:ircxd,

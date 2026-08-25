@@ -1313,12 +1313,18 @@ defmodule Ircxd.Server do
     broadcast(state, MapSet.new([connection]), end_message, connection)
   end
 
-  defp handle_registered_command(state, connection, %{command: "WHOIS", params: []}) do
-    error_reply(state, connection, "461", [
-      state.connections[connection].nick,
-      "WHOIS",
-      "Not enough parameters"
-    ])
+  defp handle_registered_command(state, connection, %{
+         command: "WHOIS",
+         params: [],
+         tags: tags
+       }) do
+    error_reply(
+      state,
+      connection,
+      "461",
+      [state.connections[connection].nick, "WHOIS", "Not enough parameters"],
+      Map.take(tags, ["label"])
+    )
   end
 
   defp handle_registered_command(state, connection, %{
@@ -1327,13 +1333,22 @@ defmodule Ircxd.Server do
          tags: tags
        }) do
     requester = state.connections[connection].nick
-    response_tags = Map.take(tags, ["label"])
+    request_tags = Map.take(tags, ["label"])
 
     case find_connection_by_nick(state, target) do
       nil ->
-        error_reply(state, connection, "401", [requester, target, "No such nick/channel"])
+        error_reply(
+          state,
+          connection,
+          "401",
+          [requester, target, "No such nick/channel"],
+          request_tags
+        )
 
       {target_connection, client} ->
+        {state, response_tags, batch_ref} =
+          maybe_start_labeled_response(state, connection, request_tags, "whois")
+
         username = client.username || client.nick
         realname = client.realname || client.nick
 
@@ -1410,7 +1425,8 @@ defmodule Ircxd.Server do
           params: [requester, client.nick, "End of /WHOIS list"]
         }
 
-        broadcast(state, MapSet.new([connection]), end_message, connection)
+        state = broadcast(state, MapSet.new([connection]), end_message, connection)
+        maybe_end_labeled_response(state, connection, batch_ref)
     end
   end
 
@@ -3286,9 +3302,44 @@ defmodule Ircxd.Server do
       MapSet.member?(members, connection)
   end
 
-  defp error_reply(state, connection, command, params) do
-    message = %Ircxd.Message{source: state.server_name, command: command, params: params}
+  defp error_reply(state, connection, command, params, tags \\ %{}) do
+    message = %Ircxd.Message{
+      tags: tags,
+      source: state.server_name,
+      command: command,
+      params: params
+    }
+
     broadcast(state, MapSet.new([connection]), message, connection)
+  end
+
+  defp maybe_start_labeled_response(state, connection, %{"label" => label}, prefix) do
+    ref = "#{prefix}-#{Integer.to_string(state.message_id + 1, 16)}"
+
+    start_message = %Ircxd.Message{
+      tags: %{"label" => label},
+      source: state.server_name,
+      command: "BATCH",
+      params: ["+#{ref}", "labeled-response"]
+    }
+
+    state = broadcast(state, MapSet.new([connection]), start_message, connection)
+    {state, %{"batch" => ref}, ref}
+  end
+
+  defp maybe_start_labeled_response(state, _connection, _tags, _prefix),
+    do: {state, %{}, nil}
+
+  defp maybe_end_labeled_response(state, _connection, nil), do: state
+
+  defp maybe_end_labeled_response(state, connection, ref) do
+    end_message = %Ircxd.Message{
+      source: state.server_name,
+      command: "BATCH",
+      params: ["-#{ref}"]
+    }
+
+    broadcast(state, MapSet.new([connection]), end_message, connection)
   end
 
   defp capability_recipients(recipients, state, capability) do

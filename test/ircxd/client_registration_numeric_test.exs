@@ -133,4 +133,64 @@ defmodule Ircxd.ClientRegistrationNumericTest do
     assert_receive {:scripted_irc_line, "NICK nick_"}, 1_000
     assert_receive {:ircxd, :registered}, 1_000
   end
+
+  test "does not retry a labeled post-registration nickname rejection" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :labeled-response batch"]
+
+           "CAP REQ :labeled-response batch", _state ->
+             [":irc.test CAP * ACK :labeled-response batch"]
+
+           "CAP END", _state ->
+             [":irc.test 001 mira :Welcome"]
+
+           "@label=nick-1 NICK alice", _state ->
+             ["@label=nick-1 :irc.test 433 mira alice :Nickname is already in use"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "mira",
+        username: "mira",
+        realname: "Mira",
+        caps: ["labeled-response", "batch"],
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+    assert :ok = Ircxd.Client.labeled_raw(client, "nick-1", "NICK", ["alice"])
+
+    assert_receive {:ircxd,
+                    {:nick_in_use,
+                     %{
+                       attempted: "alice",
+                       next: nil,
+                       label: "nick-1",
+                       raw_message: %Ircxd.Message{command: "433"}
+                     }}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:labeled_request,
+                     %{
+                       label: "nick-1",
+                       status: :failed,
+                       reason: {:nick_in_use, %{attempted: "alice"}}
+                     }}},
+                   1_000
+
+    refute_receive {:scripted_irc_line, "NICK alice_"}, 250
+    assert :sys.get_state(client).current_nick == "mira"
+  end
 end

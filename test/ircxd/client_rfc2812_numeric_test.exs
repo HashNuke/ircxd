@@ -57,7 +57,7 @@ defmodule Ircxd.ClientRFC2812NumericTest do
     assert_error("437", "#delayed", "Nick/channel is temporarily unavailable")
     assert_error("444", "alice", "User not logged in")
     assert_error("445", nil, "SUMMON has been disabled")
-    assert_error("446", nil, "USERS has been disabled")
+    assert_receive {:ircxd, {:users_disabled, %{text: "USERS has been disabled"}}}, 1_000
     assert_error("463", nil, "Your host isn't among the privileged")
     assert_error("466", nil, "You will be banned soon")
     assert_error("467", "#locked", "Channel key already set")
@@ -66,6 +66,65 @@ defmodule Ircxd.ClientRFC2812NumericTest do
     assert_error("484", nil, "Your connection is restricted!")
     assert_error("485", nil, "You're not the original channel operator")
     assert_error("492", nil, "No service host")
+  end
+
+  test "distinguishes labeled empty USERS success from disabled failure" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :labeled-response batch"]
+
+           "CAP REQ :labeled-response batch", _state ->
+             [":irc.test CAP * ACK :labeled-response batch"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome"]
+
+           "@label=users-empty USERS", _state ->
+             ["@label=users-empty :irc.test 395 nick :Nobody logged in"]
+
+           "@label=users-disabled USERS", _state ->
+             ["@label=users-disabled :irc.test 446 nick :USERS has been disabled"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        caps: ["labeled-response", "batch"],
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+    assert :ok = Ircxd.Client.labeled_raw(client, "users-empty", "USERS", [])
+    assert_receive {:ircxd, {:users_empty, %{label: "users-empty"}}}, 1_000
+
+    assert_receive {:ircxd,
+                    {:labeled_request,
+                     %{label: "users-empty", status: :completed, response_type: :single}}},
+                   1_000
+
+    assert :ok = Ircxd.Client.labeled_raw(client, "users-disabled", "USERS", [])
+    assert_receive {:ircxd, {:users_disabled, %{label: "users-disabled"}}}, 1_000
+
+    assert_receive {:ircxd,
+                    {:labeled_request,
+                     %{
+                       label: "users-disabled",
+                       status: :failed,
+                       reason: {:users_disabled, %{text: "USERS has been disabled"}}
+                     }}},
+                   1_000
   end
 
   defp assert_error(code, target, reason) do

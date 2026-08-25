@@ -11,10 +11,10 @@ defmodule Ircxd.ClientTaggedMessagesTest do
          test_pid: self(),
          script: fn
            "CAP LS 302", _state ->
-             [":irc.test CAP * LS :message-tags labeled-response"]
+             [":irc.test CAP * LS :message-tags labeled-response batch"]
 
-           "CAP REQ :message-tags labeled-response", _state ->
-             [":irc.test CAP * ACK :message-tags labeled-response"]
+           "CAP REQ :message-tags labeled-response batch", _state ->
+             [":irc.test CAP * ACK :message-tags labeled-response batch"]
 
            "CAP END", _state ->
              [":irc.test 001 nick :Welcome"]
@@ -31,7 +31,7 @@ defmodule Ircxd.ClientTaggedMessagesTest do
         nick: "nick",
         username: "nick",
         realname: "Nick",
-        caps: ["message-tags", "labeled-response"],
+        caps: ["message-tags", "labeled-response", "batch"],
         notify: self()
       )
 
@@ -90,6 +90,43 @@ defmodule Ircxd.ClientTaggedMessagesTest do
              Ircxd.Client.labeled_raw(client, "request-1", "WHOIS", ["alice"])
 
     refute_receive {:scripted_irc_line, "@label=request-1 WHOIS alice"}, 250
+  end
+
+  test "rejects label tags unless batch is also negotiated" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :labeled-response"]
+
+           "CAP REQ labeled-response", _state ->
+             [":irc.test CAP * ACK :labeled-response"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        caps: ["labeled-response"],
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+
+    assert {:error, {:capability_not_enabled, "batch"}} =
+             Ircxd.Client.labeled_raw(client, "request-1", "WHOIS", ["alice"])
   end
 
   test "rejects malformed outbound IRCv3 tag keys" do
@@ -220,10 +257,10 @@ defmodule Ircxd.ClientTaggedMessagesTest do
          test_pid: self(),
          script: fn
            "CAP LS 302", _state ->
-             [":irc.test CAP * LS :message-tags labeled-response"]
+             [":irc.test CAP * LS :message-tags labeled-response batch"]
 
-           "CAP REQ :message-tags labeled-response", _state ->
-             [":irc.test CAP * ACK :message-tags labeled-response"]
+           "CAP REQ :message-tags labeled-response batch", _state ->
+             [":irc.test CAP * ACK :message-tags labeled-response batch"]
 
            "CAP END", _state ->
              [
@@ -243,7 +280,7 @@ defmodule Ircxd.ClientTaggedMessagesTest do
         nick: "nick",
         username: "nick",
         realname: "Nick",
-        caps: ["message-tags", "labeled-response"],
+        caps: ["message-tags", "labeled-response", "batch"],
         notify: self()
       )
 

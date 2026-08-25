@@ -90,10 +90,10 @@ defmodule Ircxd.ClientStandardReplyTest do
          test_pid: self(),
          script: fn
            "CAP LS 302", _state ->
-             [":irc.test CAP * LS :message-tags labeled-response standard-replies"]
+             [":irc.test CAP * LS :message-tags labeled-response standard-replies batch"]
 
-           "CAP REQ :message-tags labeled-response standard-replies", _state ->
-             [":irc.test CAP * ACK :message-tags labeled-response standard-replies"]
+           "CAP REQ :message-tags labeled-response standard-replies batch", _state ->
+             [":irc.test CAP * ACK :message-tags labeled-response standard-replies batch"]
 
            "CAP END", _state ->
              [":irc.test 001 nick :Welcome"]
@@ -113,7 +113,7 @@ defmodule Ircxd.ClientStandardReplyTest do
         nick: "nick",
         username: "nick",
         realname: "Nick",
-        caps: ["message-tags", "labeled-response", "standard-replies"],
+        caps: ["message-tags", "labeled-response", "standard-replies", "batch"],
         notify: self()
       )
 
@@ -152,7 +152,17 @@ defmodule Ircxd.ClientStandardReplyTest do
 
     assert_receive {:ircxd,
                     {:labeled_request,
-                     %{label: "req-std", status: :completed, response_type: :single}}},
+                     %{
+                       label: "req-std",
+                       status: :failed,
+                       response_type: :single,
+                       reason:
+                         {:standard_reply,
+                          %{type: :fail, command: "HELP", code: "UNKNOWN_COMMAND"}}
+                     }}},
                    1_000
+
+    refute_receive {:ircxd, {:labeled_request, %{label: "req-std", status: :completed}}},
+                   100
   end
 end

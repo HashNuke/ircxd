@@ -20,6 +20,7 @@ defmodule Ircxd.Client do
     * `:caps` - IRCv3 capabilities to request.
     * `:notify` - pid to receive `{:ircxd, event}` messages.
     * `:adapter` - `{module, init_arg}` implementing `Ircxd.Client.Adapter`.
+    * `:events` - `:legacy` (default), `:envelope`, or `:both` event delivery.
     * `:handler` - legacy `{module, init_arg}` implementing `Ircxd.Handler`.
       Prefer `:adapter` for new integrations.
   """
@@ -29,6 +30,9 @@ defmodule Ircxd.Client do
   alias Ircxd.Batch
   alias Ircxd.AccountExtban
   alias Ircxd.ChatHistory
+  alias Ircxd.ClientCommand
+  alias Ircxd.Client.Info
+  alias Ircxd.Client.Event
   alias Ircxd.ClientTagDeny
   alias Ircxd.CTCP
   alias Ircxd.DCC
@@ -53,6 +57,15 @@ defmodule Ircxd.Client do
     GenServer.start_link(__MODULE__, opts, Keyword.take(opts, [:name]))
   end
 
+  def child_spec(opts) do
+    %{
+      id: Keyword.get(opts, :name) || __MODULE__,
+      start: {__MODULE__, :start_link, [opts]},
+      restart: :transient,
+      type: :worker
+    }
+  end
+
   def request_capabilities(client, caps) do
     GenServer.call(client, {:request_caps, List.wrap(caps)})
   end
@@ -62,6 +75,11 @@ defmodule Ircxd.Client do
   end
 
   def cap_list(client), do: GenServer.call(client, :cap_list)
+  def connection_info(client), do: GenServer.call(client, :connection_info)
+  def self_nick?(client, nick), do: GenServer.call(client, {:self_nick?, nick})
+
+  def same_identifier?(client, left, right),
+    do: GenServer.call(client, {:same_identifier?, left, right})
 
   def pass(client, password), do: GenServer.call(client, {:send, "PASS", [password]})
   def nick(client, nick), do: GenServer.call(client, {:send, "NICK", [nick]})
@@ -163,6 +181,7 @@ defmodule Ircxd.Client do
     do: GenServer.call(client, {:send, "RENAME", [old_channel, new_channel, reason]})
 
   def quit(client, reason \\ "leaving"), do: GenServer.call(client, {:send, "QUIT", [reason]})
+  def reconnect(client), do: GenServer.call(client, :reconnect)
   def raw(client, command, params \\ []), do: GenServer.call(client, {:send, command, params})
 
   def motd(client, target \\ nil)
@@ -404,16 +423,21 @@ defmodule Ircxd.Client do
       webirc: Keyword.get(opts, :webirc),
       reconnect: normalize_reconnect(Keyword.get(opts, :reconnect, false)),
       reconnect_attempts: 0,
+      reconnect_timer: nil,
+      connect_generation: 0,
+      disconnect_intent: nil,
       caps: Keyword.get(opts, :caps, []),
       msgid_dedupe: Keyword.get(opts, :msgid_dedupe, false),
       seen_msgids: MapSet.new(),
       server_time_order: Keyword.get(opts, :server_time_order, false),
       server_time_buffer: [],
       server_time_flush_timer: nil,
+      server_time_flush_generation: 0,
+      event_mode: normalize_event_mode(Keyword.get(opts, :events, :legacy)),
       available_caps: %{},
       active_caps: MapSet.new(),
       isupport: %{},
-      current_nick: Keyword.fetch!(opts, :nick),
+      current_nick: nil,
       nick_retry_fun: Keyword.get(opts, :nick_retry_fun, &default_nick_retry/2),
       sasl: Keyword.get(opts, :sasl),
       sasl_mechanisms: normalize_sasl(Keyword.get(opts, :sasl)),
@@ -441,7 +465,7 @@ defmodule Ircxd.Client do
 
     case init_adapter(state, Keyword.get(opts, :adapter), Keyword.get(opts, :handler)) do
       {:ok, state} ->
-        send(self(), :connect)
+        send(self(), {:connect, :initial, 0})
         {:ok, state}
 
       {:error, reason} ->
@@ -450,7 +474,12 @@ defmodule Ircxd.Client do
   end
 
   @impl true
-  def handle_info(:connect, state) do
+  def handle_info(
+        {:connect, origin, generation},
+        %{socket: nil, connect_generation: generation} = state
+      ) do
+    state = %{state | reconnect_timer: nil}
+
     with {:ok, transport, socket} <- connect(state) do
       state = %{state | transport: transport, socket: socket}
       maybe_send_webirc(state)
@@ -463,10 +492,12 @@ defmodule Ircxd.Client do
       {:noreply, state}
     else
       {:error, reason} ->
-        _state = emit(state, {:connect_error, reason})
-        {:stop, reason, state}
+        state = emit(state, {:connect_error, reason})
+        handle_connect_failure(state, origin, reason)
     end
   end
+
+  def handle_info({:connect, _origin, _generation}, state), do: {:noreply, state}
 
   def handle_info({:tcp, socket, line}, %{socket: socket} = state),
     do: handle_active_line(line, state)
@@ -474,28 +505,75 @@ defmodule Ircxd.Client do
   def handle_info({:ssl, socket, line}, %{socket: socket} = state),
     do: handle_active_line(line, state)
 
-  def handle_info({:tcp_closed, _socket}, state), do: handle_disconnect(state)
-  def handle_info({:ssl_closed, _socket}, state), do: handle_disconnect(state)
-  def handle_info({:tcp_error, _socket, reason}, state), do: {:stop, reason, state}
-  def handle_info({:ssl_error, _socket, reason}, state), do: {:stop, reason, state}
+  def handle_info({:tcp, _socket, _line}, state), do: {:noreply, state}
+  def handle_info({:ssl, _socket, _line}, state), do: {:noreply, state}
 
-  def handle_info(:flush_server_time, state) do
+  def handle_info({:tcp_closed, socket}, %{socket: socket, transport: :gen_tcp} = state),
+    do: handle_disconnect(state, :transport_closed)
+
+  def handle_info({:ssl_closed, socket}, %{socket: socket, transport: :ssl} = state),
+    do: handle_disconnect(state, :transport_closed)
+
+  def handle_info({:tcp_error, socket, reason}, %{socket: socket, transport: :gen_tcp} = state),
+    do: handle_disconnect(state, {:transport_error, reason})
+
+  def handle_info({:ssl_error, socket, reason}, %{socket: socket, transport: :ssl} = state),
+    do: handle_disconnect(state, {:transport_error, reason})
+
+  def handle_info({:tcp_closed, _socket}, state), do: {:noreply, state}
+  def handle_info({:ssl_closed, _socket}, state), do: {:noreply, state}
+  def handle_info({:tcp_error, _socket, _reason}, state), do: {:noreply, state}
+  def handle_info({:ssl_error, _socket, _reason}, state), do: {:noreply, state}
+
+  def handle_info(
+        {:flush_server_time, generation},
+        %{server_time_flush_generation: generation} = state
+      ) do
     {:noreply, flush_server_time_buffer(%{state | server_time_flush_timer: nil})}
   end
+
+  def handle_info({:flush_server_time, _generation}, state), do: {:noreply, state}
 
   @impl true
   def handle_call({:send, %Message{} = message}, _from, state) do
     case send_message(state, message) do
-      :ok -> {:reply, :ok, maybe_track_labeled_request(state, message)}
-      error -> {:reply, error, state}
+      :ok ->
+        state = state |> maybe_track_labeled_request(message) |> maybe_mark_quit_intent(message)
+        {:reply, :ok, state}
+
+      error ->
+        {:reply, error, state}
     end
   end
 
   def handle_call({:send, command, params}, _from, state) do
     case send_message(state, command, params) do
-      :ok -> {:reply, :ok, state}
+      :ok -> {:reply, :ok, maybe_mark_quit_intent(state, command)}
       error -> {:reply, error, state}
     end
+  end
+
+  def handle_call(:reconnect, _from, %{socket: nil} = state) do
+    state =
+      state
+      |> cancel_reconnect_timer()
+      |> Map.put(:disconnect_intent, nil)
+      |> schedule_reconnect(1, 0)
+
+    {:reply, :ok, state}
+  end
+
+  def handle_call(:reconnect, _from, state), do: {:reply, {:error, :already_connected}, state}
+
+  def handle_call(:connection_info, _from, state), do: {:reply, client_info(state), state}
+
+  def handle_call({:self_nick?, nick}, _from, state) do
+    {:reply, identifier_self?(state, nick), state}
+  end
+
+  def handle_call({:same_identifier?, left, right}, _from, state) do
+    result = is_binary(left) and is_binary(right) and ISupport.equal?(state.isupport, left, right)
+    {:reply, result, state}
   end
 
   def handle_call({:request_caps, caps}, _from, state) do
@@ -573,14 +651,17 @@ defmodule Ircxd.Client do
   end
 
   def handle_call(:flush_server_time, _from, state) do
-    {:reply, :ok, flush_server_time_buffer(state)}
+    state = state |> cancel_server_time_flush_timer() |> flush_server_time_buffer()
+    {:reply, :ok, state}
   end
 
   def handle_call({:send_client_batch, reference, type, params, messages, opts}, _from, state) do
     result =
       with :ok <- require_client_batch_cap(state, opts),
            {:ok, messages} <- normalize_client_batch_messages(messages),
-           :ok <- validate_client_batch_messages(messages) do
+           {:ok, reference, type, params} <-
+             normalize_client_batch_header(state, reference, type, params),
+           {:ok, messages} <- prepare_client_batch_messages(state, messages, reference) do
         send_client_batch(state, reference, type, params, messages)
       end
 
@@ -665,43 +746,130 @@ defmodule Ircxd.Client do
   defp maybe_send_pass(%{tls: false, allow_insecure_auth?: false}), do: :ok
   defp maybe_send_pass(%{password: password} = state), do: send_message(state, "PASS", [password])
 
-  defp handle_disconnect(state) do
+  defp handle_disconnect(state, reason) do
+    intentional? = state.disconnect_intent == :quit
+    reconnecting? = not intentional? and reconnect?(state)
+    attempt = state.reconnect_attempts + 1
+    delay = if reconnecting?, do: state.reconnect.delay
+
+    state = fail_labeled_requests(state, if(intentional?, do: :quit, else: reason))
+    state = reset_connection_state(state)
     state = emit(state, :disconnected)
 
+    state =
+      emit(
+        state,
+        {:disconnect,
+         %{
+           reason: if(intentional?, do: :quit, else: reason),
+           intentional?: intentional?,
+           reconnecting?: reconnecting?
+         }}
+      )
+
+    cond do
+      intentional? ->
+        {:noreply, state}
+
+      reconnecting? ->
+        state =
+          state
+          |> schedule_reconnect(attempt, delay)
+          |> emit({:reconnecting, %{attempt: attempt, delay: delay}})
+
+        {:noreply, state}
+
+      true ->
+        {:stop, :normal, state}
+    end
+  end
+
+  defp reset_connection_state(state) do
+    state = cancel_server_time_flush_timer(state)
+
+    Map.merge(state, %{
+      socket: nil,
+      transport: nil,
+      registered?: false,
+      available_caps: %{},
+      active_caps: MapSet.new(),
+      isupport: %{},
+      active_batches: %{},
+      multiline_batches: %{},
+      labeled_response_batches: %{},
+      labeled_requests: %{},
+      isupport_batches: %{},
+      metadata_batches: %{},
+      net_batches: %{},
+      cap_list_buffer: %{},
+      seen_msgids: MapSet.new(),
+      server_time_buffer: [],
+      server_time_flush_timer: nil,
+      disconnect_intent: nil,
+      current_nick: nil
+    })
+  end
+
+  defp fail_labeled_requests(state, reason) do
+    Enum.reduce(state.labeled_requests, state, fn {_label, request}, state ->
+      emit(state, {:labeled_request, Map.merge(request, %{status: :failed, reason: reason})})
+    end)
+  end
+
+  defp maybe_mark_quit_intent(state, %Message{command: command}),
+    do: maybe_mark_quit_intent(state, command)
+
+  defp maybe_mark_quit_intent(state, command) when is_binary(command) do
+    if String.upcase(command) == "QUIT", do: %{state | disconnect_intent: :quit}, else: state
+  end
+
+  defp maybe_mark_quit_intent(state, _command), do: state
+
+  defp handle_connect_failure(state, :initial, reason), do: {:stop, reason, state}
+
+  defp handle_connect_failure(state, {:retry, _attempt}, reason) do
     if reconnect?(state) do
       attempt = state.reconnect_attempts + 1
       delay = state.reconnect.delay
-      Process.send_after(self(), :connect, delay)
 
       state =
         state
+        |> schedule_reconnect(attempt, delay)
         |> emit({:reconnecting, %{attempt: attempt, delay: delay}})
-        |> Map.merge(%{
-          socket: nil,
-          transport: nil,
-          registered?: false,
-          available_caps: %{},
-          active_caps: MapSet.new(),
-          isupport: %{},
-          active_batches: %{},
-          multiline_batches: %{},
-          labeled_response_batches: %{},
-          labeled_requests: %{},
-          isupport_batches: %{},
-          metadata_batches: %{},
-          net_batches: %{},
-          cap_list_buffer: %{},
-          seen_msgids: MapSet.new(),
-          server_time_buffer: [],
-          server_time_flush_timer: nil,
-          reconnect_attempts: attempt
-        })
 
       {:noreply, state}
     else
-      {:stop, :normal, state}
+      exhausted = %{
+        attempts: state.reconnect_attempts,
+        max_attempts:
+          if(state.reconnect, do: state.reconnect.max_attempts, else: state.reconnect_attempts),
+        reason: reason
+      }
+
+      {:stop, :normal, emit(state, {:reconnect_exhausted, exhausted})}
     end
   end
+
+  defp schedule_reconnect(state, attempt, delay) do
+    generation = state.connect_generation + 1
+
+    timer =
+      Process.send_after(self(), {:connect, {:retry, attempt}, generation}, delay)
+
+    %{
+      state
+      | connect_generation: generation,
+        reconnect_attempts: attempt,
+        reconnect_timer: timer
+    }
+  end
+
+  defp cancel_reconnect_timer(%{reconnect_timer: timer} = state) when is_reference(timer) do
+    Process.cancel_timer(timer)
+    %{state | reconnect_timer: nil}
+  end
+
+  defp cancel_reconnect_timer(state), do: state
 
   defp reconnect?(%{reconnect: nil}), do: false
   defp reconnect?(%{reconnect: %{max_attempts: :infinity}}), do: true
@@ -721,7 +889,7 @@ defmodule Ircxd.Client do
         state = emit(state, {:message, message})
 
         if cap_list_complete?(message) do
-          request_caps_or_end(state)
+          request_caps_or_end(state, message)
         else
           {:noreply, state}
         end
@@ -731,7 +899,7 @@ defmodule Ircxd.Client do
         state = emit(state, {:message, message})
 
         if cap_list_complete?(message) do
-          state = emit(state, {:cap_list, state.cap_list_buffer})
+          state = emit_event(state, {:cap_list, state.cap_list_buffer}, message)
           {:noreply, %{state | cap_list_buffer: %{}}}
         else
           {:noreply, state}
@@ -747,7 +915,7 @@ defmodule Ircxd.Client do
           |> MapSet.difference(MapSet.new(disabled_caps))
 
         state = %{state | active_caps: active_caps}
-        state = emit(state, {:cap_ack, acked_caps})
+        state = emit_event(state, {:cap_ack, acked_caps}, message)
         state = emit(state, {:message, message})
 
         if should_start_sasl?(state, acked_caps) do
@@ -761,7 +929,7 @@ defmodule Ircxd.Client do
 
       {:ok, %Message{command: "CAP", params: [_nick, "NAK", caps]} = message} ->
         nacked_caps = String.split(caps, " ", trim: true)
-        state = emit(state, {:cap_nak, nacked_caps})
+        state = emit_event(state, {:cap_nak, nacked_caps}, message)
         state = emit(state, {:message, message})
         maybe_end_cap_negotiation(state)
         {:noreply, state}
@@ -769,8 +937,7 @@ defmodule Ircxd.Client do
       {:ok, %Message{command: "CAP", params: [_nick, "NEW", caps]} = message} ->
         new_caps = parse_caps(caps)
         state = %{state | available_caps: Map.merge(state.available_caps, new_caps)}
-        state = maybe_emit_sts_policy(state, new_caps)
-        state = emit(state, {:cap_new, new_caps})
+        state = emit_event(state, {:cap_new, new_caps}, message)
         state = emit(state, {:message, message})
         {:noreply, state}
 
@@ -784,29 +951,42 @@ defmodule Ircxd.Client do
             active_caps: MapSet.difference(state.active_caps, MapSet.new(deleted_caps))
         }
 
-        state = maybe_emit_cap_del(state, deleted_caps)
+        state = maybe_emit_cap_del(state, deleted_caps, message)
         state = emit(state, {:message, message})
         {:noreply, state}
 
       {:ok, %Message{command: "AUTHENTICATE", params: [payload]} = message} ->
+        state = handle_sasl_authenticate(state, payload, message)
         state = emit(state, {:message, message})
-        {:noreply, handle_sasl_authenticate(state, payload)}
+        {:noreply, state}
 
       {:ok, %Message{command: "903"} = message} ->
         if sasl_scram_verified_or_unused?(state) do
-          state = emit(state, :sasl_success)
+          state = emit_event(state, :sasl_success, message)
           state = emit(state, {:message, message})
           send_message(state, "CAP", ["END"])
           {:noreply, %{state | sasl_in_progress?: false, sasl_scram: nil}}
         else
-          state = emit(state, {:sasl_scram_error, %{reason: :missing_verified_server_final}})
+          state =
+            emit_event(
+              state,
+              {:sasl_scram_error, %{reason: :missing_verified_server_final}},
+              message
+            )
+
           state = emit(state, {:message, message})
           send_message(state, "QUIT", ["SASL SCRAM verification failed"])
           {:stop, :sasl_failure, state}
         end
 
       {:ok, %Message{command: "908", params: [_nick, mechanisms | _rest]} = message} ->
-        state = emit(state, {:sasl_mechanisms, %{mechanisms: parse_sasl_mechanisms(mechanisms)}})
+        state =
+          emit_event(
+            state,
+            {:sasl_mechanisms, %{mechanisms: parse_sasl_mechanisms(mechanisms)}},
+            message
+          )
+
         state = emit(state, {:message, message})
         {:noreply, state}
 
@@ -814,8 +994,8 @@ defmodule Ircxd.Client do
       when command in ["902", "904", "905", "906", "907"] ->
         handle_sasl_failure(state, command, message)
 
-      {:ok, %Message{command: "001"} = message} ->
-        state = %{state | registered?: true}
+      {:ok, %Message{command: "001", params: [nick | _rest]} = message} ->
+        state = %{state | registered?: true, current_nick: nick, reconnect_attempts: 0}
         state = emit(state, :registered)
         state = emit_event(state, event_for(message), message)
         state = emit(state, {:message, message})
@@ -835,16 +1015,15 @@ defmodule Ircxd.Client do
         {:noreply, state}
 
       {:ok, %Message{command: "433", params: params} = message} ->
-        attempted = Enum.at(params, 1) || state.current_nick
-        next_nick = state.nick_retry_fun.(attempted, state)
-        send_message(state, "NICK", [next_nick])
-        state = %{state | current_nick: next_nick}
+        attempted = Enum.at(params, 1) || state.current_nick || state.nick
+        {state, next_nick} = maybe_retry_nick(state, attempted)
 
         state =
-          emit(
+          emit_event(
             state,
             {:nick_in_use,
-             %{attempted: attempted, next: next_nick, reason: List.last(params), message: message}}
+             %{attempted: attempted, next: next_nick, reason: List.last(params), message: message}},
+            message
           )
 
         state = emit(state, {:message, message})
@@ -852,36 +1031,38 @@ defmodule Ircxd.Client do
 
       {:ok, %Message{command: "353", params: [_nick, symbol, channel, names]} = message} ->
         state =
-          emit(
+          emit_event(
             state,
-            {:names, %{symbol: symbol, channel: channel, names: Names.parse_names(names)}}
+            {:names, %{symbol: symbol, channel: channel, names: Names.parse_names(names)}},
+            message
           )
 
         state = emit(state, {:message, message})
         {:noreply, state}
 
       {:ok, %Message{command: "366", params: [_nick, channel | _rest]} = message} ->
-        state = emit(state, {:names_end, %{channel: channel, message: message}})
+        state = emit_event(state, {:names_end, %{channel: channel, message: message}}, message)
         state = emit(state, {:message, message})
         {:noreply, state}
 
       {:ok, %Message{command: "352"} = message} ->
         state =
-          emit(
+          emit_event(
             state,
-            {:who_reply, Who.parse_reply(message.params, ISupport.bot_mode(state.isupport))}
+            {:who_reply, Who.parse_reply(message.params, ISupport.bot_mode(state.isupport))},
+            message
           )
 
         state = emit(state, {:message, message})
         {:noreply, state}
 
       {:ok, %Message{command: "354"} = message} ->
-        state = emit(state, {:whox_reply, Who.parse_whox(message.params)})
+        state = emit_event(state, {:whox_reply, Who.parse_whox(message.params)}, message)
         state = emit(state, {:message, message})
         {:noreply, state}
 
       {:ok, %Message{command: "315", params: [_me, mask | _rest]} = message} ->
-        state = emit(state, {:who_end, %{mask: mask}})
+        state = emit_event(state, {:who_end, %{mask: mask}}, message)
         state = emit(state, {:message, message})
         {:noreply, state}
 
@@ -925,8 +1106,9 @@ defmodule Ircxd.Client do
         handle_batch(message, state)
 
       {:ok, %Message{} = message} ->
+        event = attach_identity_metadata(state, event_for(message))
         state = update_current_nick(state, message)
-        state = emit_event(state, event_for(message), message)
+        state = emit_event(state, event, message)
         state = emit(state, {:message, message})
         {:noreply, state}
 
@@ -934,6 +1116,14 @@ defmodule Ircxd.Client do
         state = emit(state, {:parse_error, reason, line})
         {:noreply, state}
     end
+  end
+
+  defp maybe_retry_nick(%{registered?: true} = state, _attempted), do: {state, nil}
+
+  defp maybe_retry_nick(state, attempted) do
+    next_nick = state.nick_retry_fun.(attempted, state)
+    send_message(state, "NICK", [next_nick])
+    {state, next_nick}
   end
 
   defp handle_active_line(line, state) do
@@ -965,12 +1155,15 @@ defmodule Ircxd.Client do
     do: :ssl.setopts(socket, active: :once)
 
   defp update_current_nick(
-         %{current_nick: current_nick} = state,
+         state,
          %Message{command: "NICK", source: source, params: [new_nick]}
        ) do
     case Source.parse(source) do
-      %Source{nick: ^current_nick} -> %{state | current_nick: new_nick}
-      _ -> state
+      %Source{nick: nick} when is_binary(nick) ->
+        if identifier_self?(state, nick), do: %{state | current_nick: new_nick}, else: state
+
+      _ ->
+        state
     end
   end
 
@@ -1008,7 +1201,7 @@ defmodule Ircxd.Client do
     end)
   end
 
-  defp request_caps_or_end(state) do
+  defp request_caps_or_end(state, message) do
     requested =
       state.caps
       |> maybe_include_sasl(state)
@@ -1016,41 +1209,49 @@ defmodule Ircxd.Client do
       |> Enum.reject(&(&1 == "sts"))
       |> Enum.filter(&Map.has_key?(state.available_caps, &1))
 
-    state = maybe_emit_sts_policy(state, state.available_caps)
-
     if requested == [] do
       send_message(state, "CAP", ["END"])
     else
       send_message(state, "CAP", ["REQ", Enum.join(requested, " ")])
     end
 
-    state = emit(state, {:cap_ls, state.available_caps})
+    state = emit_event(state, {:cap_ls, state.available_caps}, message)
     {:noreply, state}
   end
 
   defp maybe_end_cap_negotiation(%{registered?: true}), do: :ok
   defp maybe_end_cap_negotiation(state), do: send_message(state, "CAP", ["END"])
 
-  defp maybe_emit_sts_policy(state, %{"sts" => value}) do
+  defp maybe_emit_sts_policy(state, {name, %{"sts" => value} = source_payload}, message)
+       when name in [:cap_ls, :cap_new] do
     case STS.parse(value, state.tls) do
       {:ok, policy} ->
-        emit(
+        emit_related_event(
           state,
           {:sts_policy,
            policy
            |> Map.put(:host, state.host)
-           |> Map.put(:tls?, state.tls)}
+           |> Map.put(:tls?, state.tls)},
+          source_payload,
+          message
         )
 
       {:error, reason} ->
-        emit(state, {:sts_policy_error, %{host: state.host, value: value, reason: reason}})
+        emit_related_event(
+          state,
+          {:sts_policy_error, %{host: state.host, value: value, reason: reason}},
+          source_payload,
+          message
+        )
     end
   end
 
-  defp maybe_emit_sts_policy(state, _caps), do: state
+  defp maybe_emit_sts_policy(state, _event, _message), do: state
 
-  defp maybe_emit_cap_del(state, []), do: state
-  defp maybe_emit_cap_del(state, deleted_caps), do: emit(state, {:cap_del, deleted_caps})
+  defp maybe_emit_cap_del(state, [], _message), do: state
+
+  defp maybe_emit_cap_del(state, deleted_caps, message),
+    do: emit_event(state, {:cap_del, deleted_caps}, message)
 
   defp event_for(%Message{command: "PRIVMSG", source: source, params: [target, body]} = message) do
     parsed_source = Source.parse(source)
@@ -1617,6 +1818,9 @@ defmodule Ircxd.Client do
     do: {:users_end, %{text: text, message: message}}
 
   defp event_for(%Message{command: "395", params: [_me, text]} = message),
+    do: {:users_empty, %{text: text, message: message}}
+
+  defp event_for(%Message{command: "446", params: [_me, text]} = message),
     do: {:users_disabled, %{text: text, message: message}}
 
   defp event_for(%Message{command: "381", params: [_me, text]} = message),
@@ -1729,7 +1933,6 @@ defmodule Ircxd.Client do
               "443",
               "444",
               "445",
-              "446",
               "451",
               "461",
               "462",
@@ -1817,14 +2020,14 @@ defmodule Ircxd.Client do
   defp handle_batch(%Message{params: params} = message, state) do
     case Batch.parse(params) do
       {:ok, %{direction: :start, ref: ref, type: type, params: batch_params}} ->
-        batch = %{type: type, params: batch_params, message: message}
+        batch = %{type: type, params: batch_params, message: message, parent: Tags.batch(message)}
         state = %{state | active_batches: Map.put(state.active_batches, ref, batch)}
         state = maybe_start_multiline(state, ref, batch)
         state = maybe_start_labeled_response_batch(state, ref, batch)
         state = maybe_start_isupport_batch(state, ref, batch)
         state = maybe_start_metadata_batch(state, ref, batch)
         state = maybe_start_net_batch(state, ref, batch)
-        state = emit(state, {:batch_start, Map.put(batch, :ref, ref)})
+        state = emit_event(state, {:batch_start, Map.put(batch, :ref, ref)}, message)
         state = emit(state, {:message, message})
         {:noreply, state}
 
@@ -1833,37 +2036,53 @@ defmodule Ircxd.Client do
 
         if is_nil(batch) do
           state =
-            emit(state, {:batch_error, %{reason: :unknown_batch, ref: ref, message: message}})
+            emit_event(
+              state,
+              {:batch_error, %{reason: :unknown_batch, ref: ref, message: message}},
+              message
+            )
 
           state = emit(state, {:message, message})
           {:noreply, state}
         else
+          label = labeled_batch_value(state, ref, :label)
           state = %{state | active_batches: active_batches}
           state = maybe_emit_multiline(state, ref, batch)
           state = maybe_emit_labeled_response_batch(state, ref, batch)
           state = maybe_emit_isupport_batch(state, ref, batch)
           state = maybe_emit_metadata_batch(state, ref, batch)
           state = maybe_emit_net_batch(state, ref, batch)
-          state = emit(state, {:batch_end, %{ref: ref, batch: batch}})
+
+          state =
+            emit_event(state, {:batch_end, %{ref: ref, batch: batch, label: label}}, message)
+
           state = emit(state, {:message, message})
           {:noreply, state}
         end
 
       {:error, reason} ->
-        state = emit(state, {:batch_error, %{reason: reason, message: message}})
+        state = emit_event(state, {:batch_error, %{reason: reason, message: message}}, message)
         state = emit(state, {:message, message})
         {:noreply, state}
     end
   end
 
   defp emit_event(state, event, message) do
+    event = attach_message_metadata(state, event, message)
     {state, event} = maybe_mark_duplicate_msgid(state, event)
+    {state, batch_context} = collect_batched_event(state, event, message)
+    server_time = server_time_for_event(event, message)
 
-    if buffer_server_time?(state, event) do
+    if buffer_server_time?(state, server_time) do
+      {state, labeled_lifecycle_processed?} =
+        process_buffered_labeled_lifecycle(state, event, message)
+
       entry = %{
-        time: server_time_from_event(event),
+        time: server_time,
         event: event,
         message: message,
+        batch_context: batch_context,
+        labeled_lifecycle_processed?: labeled_lifecycle_processed?,
         index: length(state.server_time_buffer)
       }
 
@@ -1871,7 +2090,103 @@ defmodule Ircxd.Client do
       |> Map.update!(:server_time_buffer, &[entry | &1])
       |> maybe_schedule_server_time_flush()
     else
-      emit_event_now(state, event, message)
+      emit_event_now(state, event, message, batch_context, false)
+    end
+  end
+
+  defp attach_message_metadata(state, {name, payload}, message) when is_map(payload) do
+    metadata = %{
+      raw_message: message,
+      label: message_label(state, message),
+      batch: Tags.batch(message),
+      server_time: tag_value(message, &Tags.server_time/1)
+    }
+
+    payload = Map.merge(metadata, payload)
+
+    payload =
+      case {metadata.server_time, Map.get(payload, :server_time)} do
+        {%DateTime{} = server_time, value} when not is_struct(value, DateTime) ->
+          Map.put(payload, :server_time, server_time)
+
+        _other ->
+          payload
+      end
+
+    state
+    |> attach_identity_metadata({name, payload})
+  end
+
+  defp attach_message_metadata(_state, event, _message), do: event
+
+  @source_identity_events ~w(
+    account away channel_rename chghost invite join kick mode nick notice part pong
+    privmsg quit redact setname tagmsg topic wallops
+  )a
+  @target_identity_events ~w(invite kick mode notice privmsg redact tagmsg)a
+
+  defp attach_identity_metadata(state, {name, payload})
+       when is_map(payload) and name in @source_identity_events do
+    source_key = source_identity_key(name)
+    payload = Map.put_new(payload, :source_self?, identifier_self?(state, payload[source_key]))
+    payload = maybe_attach_target_identity(state, name, payload)
+    {name, payload}
+  end
+
+  defp attach_identity_metadata(_state, event), do: event
+
+  defp source_identity_key(:nick), do: :old_nick
+  defp source_identity_key(:pong), do: :server
+  defp source_identity_key(_name), do: :nick
+
+  defp maybe_attach_target_identity(state, name, payload)
+       when name in @target_identity_events do
+    target_key = if name == :kick, do: :target_nick, else: :target
+    Map.put_new(payload, :target_self?, identifier_self?(state, payload[target_key]))
+  end
+
+  defp maybe_attach_target_identity(_state, _name, payload), do: payload
+
+  defp identifier_self?(%{current_nick: current_nick, isupport: isupport}, nick)
+       when is_binary(current_nick) and is_binary(nick),
+       do: ISupport.equal?(isupport, current_nick, nick)
+
+  defp identifier_self?(_state, _nick), do: false
+
+  defp message_label(state, message) do
+    case Tags.label(message) do
+      label when is_binary(label) ->
+        label
+
+      _ ->
+        labeled_batch_value(state, Tags.batch(message), :label)
+    end
+  end
+
+  defp labeled_batch_value(state, ref, key) when is_binary(ref) do
+    case labeled_response_ref(state, ref) do
+      nil -> nil
+      labeled_ref -> get_in(state.labeled_response_batches, [labeled_ref, key])
+    end
+  end
+
+  defp labeled_batch_value(_state, _ref, _key), do: nil
+
+  defp labeled_response_ref(state, ref), do: labeled_response_ref(state, ref, MapSet.new())
+
+  defp labeled_response_ref(_state, nil, _seen), do: nil
+
+  defp labeled_response_ref(state, ref, seen) do
+    cond do
+      MapSet.member?(seen, ref) ->
+        nil
+
+      Map.has_key?(state.labeled_response_batches, ref) ->
+        ref
+
+      true ->
+        parent = get_in(state.active_batches, [ref, :parent])
+        labeled_response_ref(state, parent, MapSet.put(seen, ref))
     end
   end
 
@@ -1880,47 +2195,86 @@ defmodule Ircxd.Client do
     |> Enum.sort_by(fn %{time: time, index: index} ->
       {DateTime.to_unix(time, :microsecond), index}
     end)
-    |> Enum.reduce(%{state | server_time_buffer: []}, fn %{event: event, message: message},
-                                                         state ->
-      emit_event_now(state, event, message)
-    end)
+    |> Enum.reduce(
+      %{state | server_time_buffer: []},
+      fn %{
+           event: event,
+           message: message,
+           batch_context: batch_context,
+           labeled_lifecycle_processed?: labeled_lifecycle_processed?
+         },
+         state ->
+        emit_event_now(
+          state,
+          event,
+          message,
+          batch_context,
+          labeled_lifecycle_processed?
+        )
+      end
+    )
   end
 
-  defp emit_event_now(state, event, message) do
+  defp emit_event_now(
+         state,
+         event,
+         message,
+         batch_context,
+         labeled_lifecycle_processed?
+       ) do
     state =
       state
       |> maybe_emit_duplicate_msgid(event)
-      |> emit(event)
+      |> emit(event, message)
+      |> maybe_emit_sts_policy(event, message)
       |> maybe_emit_typing(event)
       |> maybe_emit_reaction(event)
-      |> maybe_emit_labeled_response(event, message)
-      |> maybe_emit_batched(event, message)
+      |> maybe_emit_labeled_response(event, message, labeled_lifecycle_processed?)
+      |> maybe_emit_batched(event, message, batch_context)
 
     state
   end
 
-  defp buffer_server_time?(%{server_time_order: :manual}, event) do
-    match?(%DateTime{}, server_time_from_event(event))
-  end
+  defp buffer_server_time?(%{server_time_order: :manual}, %DateTime{}), do: true
 
-  defp buffer_server_time?(%{server_time_order: opts}, event) when is_list(opts) do
-    Keyword.has_key?(opts, :flush_after) and match?(%DateTime{}, server_time_from_event(event))
-  end
+  defp buffer_server_time?(%{server_time_order: opts}, %DateTime{}) when is_list(opts),
+    do: Keyword.has_key?(opts, :flush_after)
 
-  defp buffer_server_time?(_state, _event), do: false
+  defp buffer_server_time?(_state, _server_time), do: false
 
   defp maybe_schedule_server_time_flush(
          %{server_time_order: opts, server_time_flush_timer: nil} = state
        )
        when is_list(opts) do
     delay = Keyword.fetch!(opts, :flush_after)
-    %{state | server_time_flush_timer: Process.send_after(self(), :flush_server_time, delay)}
+    generation = state.server_time_flush_generation + 1
+
+    timer =
+      Process.send_after(self(), {:flush_server_time, generation}, delay)
+
+    %{state | server_time_flush_timer: timer, server_time_flush_generation: generation}
   end
 
   defp maybe_schedule_server_time_flush(state), do: state
 
+  defp cancel_server_time_flush_timer(%{server_time_flush_timer: timer} = state)
+       when is_reference(timer) do
+    Process.cancel_timer(timer)
+
+    %{
+      state
+      | server_time_flush_timer: nil,
+        server_time_flush_generation: state.server_time_flush_generation + 1
+    }
+  end
+
+  defp cancel_server_time_flush_timer(state), do: state
+
   defp server_time_from_event({_name, %{server_time: %DateTime{} = server_time}}), do: server_time
   defp server_time_from_event(_event), do: nil
+
+  defp server_time_for_event(event, message),
+    do: server_time_from_event(event) || tag_value(message, &Tags.server_time/1)
 
   defp maybe_mark_duplicate_msgid(
          %{msgid_dedupe: :mark} = state,
@@ -1943,6 +2297,16 @@ defmodule Ircxd.Client do
 
   defp maybe_emit_duplicate_msgid(state, _event), do: state
 
+  @related_event_metadata ~w(
+    raw_message label batch server_time msgid duplicate_msgid?
+  )a
+
+  defp emit_related_event(state, {name, payload}, source_payload, message)
+       when is_map(payload) and is_map(source_payload) do
+    metadata = Map.take(source_payload, @related_event_metadata)
+    emit(state, {name, Map.merge(metadata, payload)}, message)
+  end
+
   defp maybe_emit_typing(
          state,
          {:tagmsg,
@@ -1951,22 +2315,29 @@ defmodule Ircxd.Client do
             raw_source: raw_source,
             nick: nick,
             target: target,
+            source_self?: source_self?,
+            target_self?: target_self?,
             tags: %{"+typing" => status},
             message: message
-          }}
+          } = source_payload}
        ) do
-    emit(state, {
-      :typing,
-      %{
-        source: source,
-        raw_source: raw_source,
-        nick: nick,
-        target: target,
-        status: parse_typing_status(status),
-        raw_status: status,
-        message: message
-      }
-    })
+    emit_related_event(
+      state,
+      {:typing,
+       %{
+         source: source,
+         raw_source: raw_source,
+         nick: nick,
+         target: target,
+         source_self?: source_self?,
+         target_self?: target_self?,
+         status: parse_typing_status(status),
+         raw_status: status,
+         message: message
+       }},
+      source_payload,
+      message
+    )
   end
 
   defp maybe_emit_typing(state, _event), do: state
@@ -1979,44 +2350,81 @@ defmodule Ircxd.Client do
             raw_source: raw_source,
             nick: nick,
             target: target,
+            source_self?: source_self?,
+            target_self?: target_self?,
             tags: tags,
             message: message
-          }}
+          } = source_payload}
        ) do
     case reaction_from_tags(tags) do
       nil ->
         state
 
       %{action: action, reaction: reaction, reply_to_msgid: reply_to_msgid} ->
-        emit(state, {
-          :reaction,
-          %{
-            source: source,
-            raw_source: raw_source,
-            nick: nick,
-            target: target,
-            action: action,
-            reaction: reaction,
-            reply_to_msgid: reply_to_msgid,
-            message: message
-          }
-        })
+        emit_related_event(
+          state,
+          {:reaction,
+           %{
+             source: source,
+             raw_source: raw_source,
+             nick: nick,
+             target: target,
+             source_self?: source_self?,
+             target_self?: target_self?,
+             action: action,
+             reaction: reaction,
+             reply_to_msgid: reply_to_msgid,
+             message: message
+           }},
+          source_payload,
+          message
+        )
     end
   end
 
   defp maybe_emit_reaction(state, _event), do: state
 
-  defp maybe_emit_labeled_response(state, event, message) do
-    state = maybe_ack_labeled_request(state, event)
+  defp process_buffered_labeled_lifecycle(state, {:batch_start, _payload}, _message),
+    do: {state, false}
+
+  defp process_buffered_labeled_lifecycle(state, event, message) do
+    case Tags.label(message) do
+      nil ->
+        {state, false}
+
+      label ->
+        state =
+          state
+          |> maybe_ack_labeled_request(event)
+          |> maybe_complete_labeled_request(event, label)
+
+        {state, true}
+    end
+  end
+
+  defp maybe_emit_labeled_response(
+         state,
+         {:batch_start, _payload},
+         _message,
+         _lifecycle_processed?
+       ),
+       do: state
+
+  defp maybe_emit_labeled_response(state, event, message, lifecycle_processed?) do
+    state = if lifecycle_processed?, do: state, else: maybe_ack_labeled_request(state, event)
 
     case Tags.label(message) do
       nil ->
         state
 
       label ->
-        state
-        |> emit({:labeled_response, %{label: label, event: event, message: message}})
-        |> maybe_complete_labeled_request(event, label)
+        state = emit(state, {:labeled_response, %{label: label, event: event, message: message}})
+
+        if lifecycle_processed? do
+          state
+        else
+          maybe_complete_labeled_request(state, event, label)
+        end
     end
   end
 
@@ -2046,18 +2454,19 @@ defmodule Ircxd.Client do
 
   defp maybe_ack_labeled_request(state, _event), do: state
 
-  defp maybe_complete_labeled_request(state, {:ack, _payload}, _label), do: state
+  defp maybe_complete_labeled_request(state, {:ack, _payload}, label),
+    do: finish_labeled_request(state, label, :ack, :ack)
 
-  defp maybe_complete_labeled_request(state, _event, label),
-    do: complete_labeled_request(state, label, :single)
+  defp maybe_complete_labeled_request(state, event, label),
+    do: finish_labeled_request(state, label, :single, event)
 
-  defp complete_labeled_request(state, label, response_type) do
+  defp finish_labeled_request(state, label, response_type, response) do
     case Map.fetch(state.labeled_requests, label) do
       {:ok, request} ->
         request =
           request
-          |> Map.put(:status, :completed)
           |> Map.put(:response_type, response_type)
+          |> put_labeled_request_outcome(response)
 
         state
         |> Map.update!(:labeled_requests, &Map.delete(&1, label))
@@ -2068,24 +2477,52 @@ defmodule Ircxd.Client do
     end
   end
 
-  defp maybe_emit_batched(state, event, message) do
+  defp put_labeled_request_outcome(request, response) do
+    case labeled_failure(response) do
+      nil -> Map.put(request, :status, :completed)
+      failure -> Map.merge(request, %{status: :failed, reason: failure})
+    end
+  end
+
+  @labeled_failure_names ~w(
+    batch_error chathistory_error error irc_error metadata_error metadata_reply_error
+    monitor_error motd_missing nick_in_use read_marker_error sasl_failure sasl_scram_error
+    standard_reply_error starttls_failed try_again users_disabled
+  )a
+
+  defp labeled_failure({:standard_reply, %{type: :fail}} = event), do: event
+  defp labeled_failure({:monitor, %{type: :list_full}} = event), do: event
+
+  defp labeled_failure({:batch, %{events: events}}) do
+    Enum.find_value(events, &labeled_failure/1)
+  end
+
+  defp labeled_failure({name, _payload} = event) when name in @labeled_failure_names, do: event
+  defp labeled_failure(_response), do: nil
+
+  defp collect_batched_event(state, event, message) do
     case Tags.batch(message) do
       nil ->
-        state
+        {state, nil}
 
       ref ->
+        batch_context = %{ref: ref, batch: Map.get(state.active_batches, ref)}
         state = maybe_collect_multiline(state, ref, event, message)
         state = maybe_collect_labeled_response_batch(state, ref, event)
         state = maybe_collect_isupport_batch(state, ref, event)
         state = maybe_collect_metadata_batch(state, ref, event)
         state = maybe_collect_net_batch(state, ref, event)
-
-        emit(
-          state,
-          {:batched,
-           %{ref: ref, batch: Map.get(state.active_batches, ref), event: event, message: message}}
-        )
+        {state, batch_context}
     end
+  end
+
+  defp maybe_emit_batched(state, _event, _message, nil), do: state
+
+  defp maybe_emit_batched(state, event, message, %{ref: ref, batch: batch}) do
+    emit(
+      state,
+      {:batched, %{ref: ref, batch: batch, event: event, message: message}}
+    )
   end
 
   defp maybe_start_multiline(state, ref, %{type: "draft/multiline", params: [target | _rest]}) do
@@ -2122,7 +2559,7 @@ defmodule Ircxd.Client do
 
     case multiline do
       %{lines: [%{event: {command, first_payload}} | _rest] = lines, target: target} ->
-        emit(
+        emit_related_event(
           state,
           {:multiline,
            %{
@@ -2134,8 +2571,12 @@ defmodule Ircxd.Client do
              source: first_payload.source,
              raw_source: first_payload.raw_source,
              nick: first_payload.nick,
+             source_self?: first_payload.source_self?,
+             target_self?: first_payload.target_self?,
              lines: lines
-           }}
+           }},
+          first_payload,
+          first_payload.raw_message
         )
 
       _ ->
@@ -2147,11 +2588,7 @@ defmodule Ircxd.Client do
     %{state | multiline_batches: Map.delete(state.multiline_batches, ref)}
   end
 
-  defp maybe_start_labeled_response_batch(
-         state,
-         ref,
-         %{type: "labeled-response", message: message} = batch
-       ) do
+  defp maybe_start_labeled_response_batch(state, ref, %{message: message} = batch) do
     case Tags.label(message) do
       nil ->
         state
@@ -2169,36 +2606,37 @@ defmodule Ircxd.Client do
   defp maybe_start_labeled_response_batch(state, _ref, _batch), do: state
 
   defp maybe_collect_labeled_response_batch(state, ref, event) do
-    case Map.fetch(state.labeled_response_batches, ref) do
+    labeled_ref = labeled_response_ref(state, ref)
+
+    case Map.fetch(state.labeled_response_batches, labeled_ref) do
       {:ok, batch} ->
         batch = %{batch | events: batch.events ++ [event]}
-        %{state | labeled_response_batches: Map.put(state.labeled_response_batches, ref, batch)}
+
+        %{
+          state
+          | labeled_response_batches: Map.put(state.labeled_response_batches, labeled_ref, batch)
+        }
 
       :error ->
         state
     end
   end
 
-  defp maybe_emit_labeled_response_batch(state, ref, %{type: "labeled-response"}) do
+  defp maybe_emit_labeled_response_batch(state, ref, _batch) do
     {batch, labeled_response_batches} = Map.pop(state.labeled_response_batches, ref)
     state = %{state | labeled_response_batches: labeled_response_batches}
 
     case batch do
       %{label: label, type: type, events: events} ->
+        response = {:batch, %{ref: ref, type: type, events: events}}
+
         state
-        |> emit(
-          {:labeled_response,
-           %{label: label, event: {:batch, %{ref: ref, type: type, events: events}}}}
-        )
-        |> complete_labeled_request(label, :batch)
+        |> emit({:labeled_response, %{label: label, event: response}})
+        |> finish_labeled_request(label, :batch, response)
 
       _ ->
         state
     end
-  end
-
-  defp maybe_emit_labeled_response_batch(state, ref, _batch) do
-    %{state | labeled_response_batches: Map.delete(state.labeled_response_batches, ref)}
   end
 
   defp maybe_start_isupport_batch(state, ref, %{type: "draft/isupport"}) do
@@ -2318,50 +2756,52 @@ defmodule Ircxd.Client do
   defp send_message(%{transport: nil}, _command, _params), do: {:error, :not_connected}
 
   defp send_message(state, command, params) do
-    send_message(state, %Message{command: command, params: params})
+    with {:ok, params} <- normalize_outbound_params(params) do
+      send_message(state, %Message{command: command, params: params})
+    end
   end
 
   defp send_message(%{transport: nil}, %Message{}), do: {:error, :not_connected}
 
   defp send_message(state, %Message{} = message) do
-    with :ok <- validate_outbound_shape(message),
-         :ok <- validate_outbound_command(state, message),
-         :ok <- validate_utf8_only(state, message),
-         :ok <- validate_outbound_tags(state, message) do
+    message = ClientCommand.normalize(message)
+
+    with :ok <- validate_outbound_message(state, message) do
       line = Message.serialize(message)
 
-      if Message.valid_wire_size?(line) do
-        case state.transport do
-          :ssl -> :ssl.send(state.socket, line)
-          :gen_tcp -> :gen_tcp.send(state.socket, line)
-        end
-      else
-        {:error, :line_too_long}
+      case state.transport do
+        :ssl -> :ssl.send(state.socket, line)
+        :gen_tcp -> :gen_tcp.send(state.socket, line)
       end
     end
   end
 
-  defp validate_outbound_shape(%Message{command: command, params: params}) do
-    cond do
-      not is_binary(command) or not Message.valid_command?(command) ->
-        {:error, :invalid_command}
-
-      length(params) > Message.max_params() ->
-        {:error, :too_many_params}
-
-      Enum.any?(params, &invalid_outbound_param?/1) ->
-        {:error, :invalid_param}
-
-      true ->
-        :ok
+  defp validate_outbound_message(state, message) do
+    with :ok <- ClientCommand.validate(message, tags: :allow),
+         :ok <- validate_outbound_command(state, message),
+         :ok <- validate_utf8_only(state, message) do
+      validate_outbound_tags(state, message)
     end
   end
 
-  defp invalid_outbound_param?(param) when is_binary(param) do
-    String.contains?(param, ["\r", "\n"])
+  defp normalize_outbound_params(params) when is_list(params) do
+    Enum.reduce_while(params, {:ok, []}, fn
+      value, {:ok, params} when is_binary(value) ->
+        {:cont, {:ok, [value | params]}}
+
+      value, {:ok, params} when is_integer(value) ->
+        {:cont, {:ok, [Integer.to_string(value) | params]}}
+
+      _value, _acc ->
+        {:halt, {:error, :invalid_param}}
+    end)
+    |> case do
+      {:ok, params} -> {:ok, Enum.reverse(params)}
+      error -> error
+    end
   end
 
-  defp invalid_outbound_param?(_param), do: false
+  defp normalize_outbound_params(_params), do: {:error, :invalid_param}
 
   defp validate_outbound_command(state, %Message{command: "REDACT"}) do
     with :ok <- require_active_cap(state, "draft/message-redaction") do
@@ -2381,6 +2821,12 @@ defmodule Ircxd.Client do
 
   defp validate_outbound_command(state, %Message{command: "RENAME"}),
     do: require_active_cap(state, "draft/channel-rename")
+
+  defp validate_outbound_command(state, %Message{command: "SETNAME"}),
+    do: require_active_cap(state, "setname")
+
+  defp validate_outbound_command(state, %Message{command: "TAGMSG"}),
+    do: require_active_cap(state, "message-tags")
 
   defp validate_outbound_command(state, %Message{command: "METADATA"}),
     do: require_active_cap(state, "metadata")
@@ -2411,31 +2857,18 @@ defmodule Ircxd.Client do
   defp validate_utf8_only(_state, _message), do: :ok
 
   defp validate_outbound_tags(state, %Message{tags: tags}) when is_map(tags) do
-    with :ok <- validate_outbound_tag_keys(tags),
-         :ok <- maybe_require_labeled_response(state, tags) do
+    with :ok <- maybe_require_labeled_response(state, tags) do
       maybe_require_message_tags(state, tags)
     end
   end
 
   defp validate_outbound_tags(_state, _message), do: :ok
 
-  defp validate_outbound_tag_keys(tags) do
-    if Enum.all?(Map.keys(tags), &valid_outbound_tag_key?/1) do
-      :ok
-    else
-      {:error, :invalid_tag_key}
-    end
-  end
-
-  defp valid_outbound_tag_key?(key) when is_binary(key) do
-    String.match?(key, ~r/\A\+?(?:(?:[A-Za-z0-9][A-Za-z0-9.-]*)\/)?[A-Za-z0-9][A-Za-z0-9-]*\z/)
-  end
-
-  defp valid_outbound_tag_key?(_key), do: false
-
   defp maybe_require_labeled_response(state, tags) do
     if Map.has_key?(tags, "label") do
-      require_active_cap(state, "labeled-response")
+      with :ok <- require_active_cap(state, "labeled-response") do
+        require_active_cap(state, "batch")
+      end
     else
       :ok
     end
@@ -2514,6 +2947,13 @@ defmodule Ircxd.Client do
       max_attempts: Keyword.get(opts, :max_attempts, 3),
       delay: Keyword.get(opts, :delay, 1_000)
     }
+  end
+
+  defp normalize_event_mode(mode) when mode in [:legacy, :envelope, :both], do: mode
+
+  defp normalize_event_mode(mode) do
+    raise ArgumentError,
+          "expected :events to be :legacy, :envelope, or :both, got: #{inspect(mode)}"
   end
 
   defp should_start_sasl?(%{sasl: nil}, _acked_caps), do: false
@@ -2631,9 +3071,13 @@ defmodule Ircxd.Client do
   defp sasl_mechanism_atom({:scram_sha_256, _username, _password, _opts}), do: :scram_sha_256
   defp sasl_mechanism_atom(nil), do: nil
 
-  defp handle_sasl_authenticate(state, "+"), do: send_sasl_initial_response(state)
+  defp handle_sasl_authenticate(state, "+", _message), do: send_sasl_initial_response(state)
 
-  defp handle_sasl_authenticate(%{sasl_scram: %{phase: :server_first}} = state, payload) do
+  defp handle_sasl_authenticate(
+         %{sasl_scram: %{phase: :server_first}} = state,
+         payload,
+         message
+       ) do
     with {:ok, server_first} <- Base.decode64(payload),
          {:ok, final} <-
            SASL.scram_sha256_client_final(
@@ -2655,14 +3099,18 @@ defmodule Ircxd.Client do
       }
     else
       :error ->
-        emit(state, {:sasl_scram_error, %{reason: :invalid_base64}})
+        emit_event(state, {:sasl_scram_error, %{reason: :invalid_base64}}, message)
 
       {:error, reason} ->
-        emit(state, {:sasl_scram_error, %{reason: reason}})
+        emit_event(state, {:sasl_scram_error, %{reason: reason}}, message)
     end
   end
 
-  defp handle_sasl_authenticate(%{sasl_scram: %{phase: :server_final}} = state, payload) do
+  defp handle_sasl_authenticate(
+         %{sasl_scram: %{phase: :server_final}} = state,
+         payload,
+         message
+       ) do
     with {:ok, server_final} <- Base.decode64(payload),
          :ok <-
            SASL.verify_scram_sha256_server_final(
@@ -2672,14 +3120,14 @@ defmodule Ircxd.Client do
       %{state | sasl_scram: %{state.sasl_scram | phase: :complete}}
     else
       :error ->
-        emit(state, {:sasl_scram_error, %{reason: :invalid_base64}})
+        emit_event(state, {:sasl_scram_error, %{reason: :invalid_base64}}, message)
 
       {:error, reason} ->
-        emit(state, {:sasl_scram_error, %{reason: reason}})
+        emit_event(state, {:sasl_scram_error, %{reason: reason}}, message)
     end
   end
 
-  defp handle_sasl_authenticate(state, _payload), do: state
+  defp handle_sasl_authenticate(state, _payload, _message), do: state
 
   defp send_sasl_initial_response(%{sasl_mechanisms: mechanisms, sasl_index: index} = state) do
     case Enum.at(mechanisms, index) do
@@ -2753,7 +3201,7 @@ defmodule Ircxd.Client do
       message: message
     }
 
-    state = emit(state, {:sasl_failure, payload})
+    state = emit_event(state, {:sasl_failure, payload}, message)
     state = emit(state, {:message, message})
     state = %{state | sasl_in_progress?: false}
 
@@ -2815,26 +3263,74 @@ defmodule Ircxd.Client do
 
   defp normalize_client_batch_messages(_messages), do: {:error, :invalid_client_batch_message}
 
-  defp validate_client_batch_messages(messages) do
-    cond do
-      Enum.any?(messages, &(String.upcase(&1.command) == "BATCH")) ->
-        {:error, :nested_client_batch}
-
-      Enum.any?(messages, &Map.has_key?(&1.tags, "batch")) ->
-        {:error, :reserved_client_batch_tag}
-
-      true ->
-        :ok
+  defp normalize_client_batch_header(state, reference, type, params) when is_list(params) do
+    with {:ok, [reference, type | params]} <-
+           normalize_outbound_params([reference, type] ++ params),
+         :ok <- validate_client_batch_reference(reference),
+         :ok <- validate_client_batch_type(type),
+         :ok <-
+           validate_outbound_message(
+             state,
+             %Message{command: "BATCH", params: ["+" <> reference, type | params]}
+           ) do
+      {:ok, reference, type, params}
     end
   end
 
-  defp send_client_batch(state, reference, type, params, messages) do
-    reference = to_string(reference)
-    type = to_string(type)
-    params = Enum.map(params, &to_string/1)
+  defp normalize_client_batch_header(_state, _reference, _type, _params),
+    do: {:error, :invalid_param}
 
+  defp validate_client_batch_reference(reference) do
+    if String.match?(reference, ~r/\A[A-Za-z0-9-]+\z/),
+      do: :ok,
+      else: {:error, :invalid_batch_reference}
+  end
+
+  defp validate_client_batch_type(type) do
+    if type != "" and not String.starts_with?(type, ":") and
+         not String.contains?(type, [" ", <<0>>, "\r", "\n"]),
+       do: :ok,
+       else: {:error, :invalid_batch_type}
+  end
+
+  defp prepare_client_batch_messages(state, messages, reference) do
+    Enum.reduce_while(messages, {:ok, []}, fn message, {:ok, acc} ->
+      message = ClientCommand.normalize(message)
+
+      result =
+        with :ok <- ClientCommand.validate(message, tags: :allow),
+             :ok <- reject_nested_client_batch(message),
+             :ok <- reject_reserved_client_batch_tag(message) do
+          message = %{message | tags: Map.put(message.tags, "batch", reference)}
+
+          with :ok <- validate_outbound_message(state, message) do
+            {:ok, message}
+          end
+        end
+
+      case result do
+        {:ok, message} -> {:cont, {:ok, [message | acc]}}
+        error -> {:halt, error}
+      end
+    end)
+    |> case do
+      {:ok, messages} -> {:ok, Enum.reverse(messages)}
+      error -> error
+    end
+  end
+
+  defp reject_nested_client_batch(%Message{command: "BATCH"}),
+    do: {:error, :nested_client_batch}
+
+  defp reject_nested_client_batch(_message), do: :ok
+
+  defp reject_reserved_client_batch_tag(%Message{tags: tags}) do
+    if Map.has_key?(tags, "batch"), do: {:error, :reserved_client_batch_tag}, else: :ok
+  end
+
+  defp send_client_batch(state, reference, type, params, messages) do
     with :ok <- send_message(state, "BATCH", ["+" <> reference, type | params]) do
-      case send_client_batch_messages(state, messages, reference) do
+      case send_client_batch_messages(state, messages) do
         :ok ->
           send_message(state, "BATCH", ["-" <> reference])
 
@@ -2845,10 +3341,8 @@ defmodule Ircxd.Client do
     end
   end
 
-  defp send_client_batch_messages(state, messages, reference) do
+  defp send_client_batch_messages(state, messages) do
     Enum.reduce_while(messages, :ok, fn message, :ok ->
-      message = %{message | tags: Map.put(message.tags, "batch", reference)}
-
       case send_message(state, message) do
         :ok -> {:cont, :ok}
         error -> {:halt, error}
@@ -2947,7 +3441,22 @@ defmodule Ircxd.Client do
     kind, reason -> {:error, {kind, reason}}
   end
 
-  defp emit(state, event) do
+  defp emit(state, event), do: emit(state, event, nil)
+
+  defp emit(state, event, message) do
+    envelope = Event.from_legacy!(event, message)
+
+    publications =
+      case state.event_mode do
+        :legacy -> [event]
+        :envelope -> [envelope]
+        :both -> [event, envelope]
+      end
+
+    Enum.reduce(publications, state, &deliver_event(&2, &1))
+  end
+
+  defp deliver_event(state, event) do
     if state.notify, do: send(state.notify, {:ircxd, event})
 
     case state.adapter do
@@ -2974,7 +3483,35 @@ defmodule Ircxd.Client do
       host: state.host,
       port: state.port,
       tls?: state.tls,
-      nick: state.current_nick
+      nick: state.current_nick,
+      client_info: client_info(state)
+    }
+  end
+
+  defp client_info(state) do
+    connected? = not is_nil(state.socket)
+
+    status =
+      cond do
+        state.registered? -> :registered
+        connected? -> :connected
+        true -> :disconnected
+      end
+
+    %Info{
+      status: status,
+      connected?: connected?,
+      registered?: state.registered?,
+      host: state.host,
+      port: state.port,
+      tls?: state.tls,
+      transport: state.transport,
+      desired_nick: state.nick,
+      current_nick: state.current_nick,
+      available_caps: state.available_caps,
+      active_caps: state.active_caps,
+      isupport: state.isupport,
+      casemapping: ISupport.casemap(state.isupport)
     }
   end
 end

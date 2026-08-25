@@ -174,4 +174,82 @@ defmodule Ircxd.ClientClientBatchTest do
                required_cap: "draft/example-client-batch"
              )
   end
+
+  test "validates every message before opening a client batch" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :draft/example-client-batch message-tags"]
+
+           "CAP REQ :draft/example-client-batch message-tags", _state ->
+             [":irc.test CAP * ACK :draft/example-client-batch message-tags"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        caps: ["draft/example-client-batch", "message-tags"],
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+
+    for {message, error} <- [
+          {%Message{command: nil}, :invalid_command},
+          {%Message{command: "PRIVMSG", params: [%{}]}, :invalid_param},
+          {%Message{command: "PRIVMSG", params: ["#room", "hello"], tags: nil}, :invalid_tags}
+        ] do
+      assert {:error, ^error} =
+               Ircxd.Client.client_batch(
+                 client,
+                 "cb-invalid",
+                 "draft/example",
+                 [],
+                 [message],
+                 required_cap: "draft/example-client-batch"
+               )
+
+      assert Process.alive?(client)
+    end
+
+    for reference <- ["", "_", "bad/reference"] do
+      assert {:error, :invalid_batch_reference} =
+               Ircxd.Client.client_batch(
+                 client,
+                 reference,
+                 "draft/example",
+                 [],
+                 [{"PRIVMSG", ["#room", "hello"]}],
+                 required_cap: "draft/example-client-batch"
+               )
+    end
+
+    for type <- ["", "bad type", ":bad"] do
+      assert {:error, :invalid_batch_type} =
+               Ircxd.Client.client_batch(
+                 client,
+                 "valid-ref",
+                 type,
+                 [],
+                 [{"PRIVMSG", ["#room", "hello"]}],
+                 required_cap: "draft/example-client-batch"
+               )
+    end
+
+    refute Enum.any?(ScriptedIrcServer.lines(server), &String.starts_with?(&1, "BATCH +"))
+  end
 end

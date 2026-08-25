@@ -88,6 +88,7 @@ Client behavior and integration options are:
 | `:caps` | `[]` | IRCv3 capabilities to request during registration. |
 | `:notify` | `nil` | PID that receives `{:ircxd, event}` messages. |
 | `:adapter` | `nil` | `{module, init_arg}` implementing `Ircxd.Client.Adapter`. |
+| `:events` | `:legacy` | Event delivery as `:legacy`, `:envelope`, or `:both`. |
 | `:reconnect` | `false` | Reconnect policy after an established transport closes. |
 | `:password` | `nil` | Server password sent with `PASS` before registration. |
 | `:sasl` | `nil` | One SASL mechanism or an ordered fallback list. |
@@ -100,6 +101,17 @@ Client behavior and integration options are:
 The legacy `handler: {Module, init_arg}` option is described in the migration
 section below. Do not configure it together with `:adapter`.
 
+Server-time ordering delays publication, not IRC protocol bookkeeping.
+Timestamped batch members are attached to and collected into their active
+batch as they arrive. An untimed batch close can therefore publish complete
+labeled, multiline, ISUPPORT, metadata, netjoin, or netsplit aggregates; a
+later manual or timed flush publishes each buffered member and its `:batched`
+relationship with the batch context captured on arrival.
+Direct labeled-request acknowledgment and completion also advance on arrival,
+so a disconnect cannot mark an already-observed response as failed. The
+timestamped content event and its `:labeled_response` relationship remain
+buffered until publication, without repeating lifecycle transitions.
+
 ## Receiving events
 
 With `notify: pid`, every event arrives as `{:ircxd, event}`. Common lifecycle
@@ -110,8 +122,10 @@ and messaging events include:
 | `{:connected, details}` | The TCP or TLS connection was established. |
 | `:registered` | IRC registration and initial capability negotiation completed. |
 | `:disconnected` | The established transport closed. |
+| `{:disconnect, details}` | Explains whether the close was intentional and whether reconnect was scheduled. |
 | `{:reconnecting, details}` | A reconnect was scheduled. |
-| `{:connect_error, reason}` | The connection attempt failed and the client stopped. |
+| `{:connect_error, reason}` | A connection attempt failed; the reconnect policy determines whether another attempt follows. |
+| `{:reconnect_exhausted, details}` | A bounded reconnect policy used its final attempt and the client stopped normally. |
 | `{:join, details}`, `{:part, details}`, `{:quit, details}` | Channel or user lifecycle activity. |
 | `{:privmsg, details}`, `{:notice, details}` | A normalized incoming message. |
 | `{:irc_error, details}` or `{:error, details}` | A numeric or protocol error from the server. |
@@ -135,6 +149,102 @@ specialized event.
 Normalized and raw-message events describe the same incoming traffic. Choose
 which representation to persist so that handling both does not create
 duplicates.
+
+### Labels, batches, and request lifecycle
+
+A normalized event such as `{:whois_user, details}` or `{:names, details}` is
+the content representation of one server reply. Its details include
+`:raw_message`, `:label`, and `:batch` metadata when applicable. Persist or
+display that normalized event once.
+
+The client also emits relationship and lifecycle views:
+
+| Event | Meaning |
+| --- | --- |
+| `{:labeled_response, details}` | Correlates a label with a single event or completed batch; it is not another content row. |
+| `{:batched, details}` | Relates an already-emitted normalized event to a server batch. |
+| `{:labeled_request, details}` | Reports `:sent`, `:acknowledged`, `:completed`, or `:failed` request state. |
+| `{:ack, details}` | The server's sole logical response for a labeled command that normally has no content response. |
+
+For example, persist the `:whois_user` event and use `:labeled_response` only
+to mark the matching application request:
+
+```elixir
+def handle_event({:whois_user, details}, _context, state) do
+  {:ok, persist_result_once(state, details)}
+end
+
+def handle_event({:labeled_response, %{label: label}}, _context, state) do
+  {:ok, correlate_request(state, label)}
+end
+```
+
+A labeled response is exactly one logical response: a direct message, an
+ACK-only completion, or a batch. Labels are opaque values. Missing, incomplete,
+or late responses remain possible, so application timeouts are still required.
+Successful response boundaries produce `status: :completed`. Correlated IRC
+error/rejection events and standard `FAIL` replies instead produce
+`status: :failed`; `:reason` contains the normalized failure event, while
+transport failures retain their transport reason. This classification applies
+to both direct responses and failures collected inside labeled batches.
+
+### Cached state and self identity
+
+`Ircxd.Client.connection_info/1` returns a secret-free snapshot of the state
+the client is currently using without sending IRC traffic:
+
+```elixir
+info = Ircxd.Client.connection_info(client)
+info.registered?
+info.current_nick
+info.active_caps
+info.isupport
+```
+
+The snapshot changes after registration, capability and ISUPPORT updates, a
+confirmed self NICK, and disconnect/reconnect transitions. It never contains
+PASS, SASL, OPER, WEBIRC, or account-registration credentials. Adapter
+callbacks receive the same snapshot as `context.client_info`; they must use
+that value instead of synchronously calling the client GenServer from inside
+`handle_event/3`.
+
+Source-bearing normalized events include `:source_self?`. Events with a nick
+target, including KICK, MODE, PRIVMSG, NOTICE, and TAGMSG, also include
+`:target_self?`. These flags use negotiated CASEMAPPING and describe identity
+when the event was processed. A self NICK updates `context.client_info` before
+the NICK event is delivered, while the event's `:source_self?` flag is
+calculated against the previous confirmed nick.
+
+External processes can also use `Ircxd.Client.self_nick?/2` and
+`Ircxd.Client.same_identifier?/3`. For asynchronous persistence, prefer the
+event flags because a later NICK may occur before a mailbox consumer runs.
+
+### Event catalog and envelopes
+
+`Ircxd.Client.Event.names/0` is the canonical public event-name catalog.
+`Ircxd.Client.Event.spec/1` identifies terminal and derivative events, allowing
+consumer contract tests to require an explicit disposition after an ircxd
+upgrade:
+
+```elixir
+assert MapSet.subset?(
+         MapSet.new(Ircxd.Client.Event.names()),
+         MapSet.new(MyApp.IrcEventDisposition.names())
+       )
+```
+
+Both `:ack` and `:labeled_response` are terminal because each represents an
+unambiguous logical response boundary. `:labeled_response` is also derivative:
+consumers can use it for correlation without treating it as another content
+row.
+
+Legacy atom and tuple events remain the default. Start a client with
+`events: :envelope` to receive one `%Ircxd.Client.Event{}` for each published
+event, or `events: :both` during migration. An envelope provides `:name`,
+`:payload`, `:message`, `:label`, `:batch`, server-time and duplicate metadata,
+`:origin`, `:terminal?`, and `:derivative?`; `:legacy` retains the original
+event exactly. Envelope mode replaces rather than duplicates the legacy
+publication.
 
 ## Sending commands
 
@@ -171,6 +281,53 @@ Use the escape hatches when no dedicated helper exists:
 
 Raw commands still pass through command-shape, CR/LF injection, wire-size,
 UTF-8, authentication, tag, and capability validation.
+
+For `/quote`-style text, parse the line before sending it:
+
+```elixir
+with {:ok, message} <- Ircxd.ClientCommand.parse("TOPIC #elixir :A new topic"),
+     :ok <- Ircxd.Client.transmit(client, message) do
+  :sent
+end
+```
+
+The parser preserves trailing parameters, including an empty trailing value,
+normalizes the command name, and enforces parameter, injection, and wire-size
+limits. It rejects source prefixes, numeric replies, and tags by default. A
+trusted caller can enable grammar features explicitly:
+
+```elixir
+Ircxd.ClientCommand.parse("@label=req-1 WHOIS alice", tags: :allow)
+```
+
+Tag opt-in performs structural validation only. Sending the parsed message
+still applies the live client's capability and transport-security checks.
+Product permissions—such as whether a browser user may issue `OPER`—remain the
+host application's responsibility.
+
+`Ircxd.CommandSpec` publishes the reusable protocol portion of command
+metadata:
+
+```elixir
+spec = Ircxd.CommandSpec.classify("MODE", ["#room", "+b"], info)
+# => %{family: :query, result_events: [:ban_list], terminal_events: [:ban_list_end], ...}
+```
+
+Known specs include command syntax, family, required capabilities, relevant
+ISUPPORT tokens, sensitive parameter positions, result/terminal event hints,
+partial success, and client-state effects. Unknown vendor commands remain
+representable with `known?: false`; that result is not a safety or permission
+decision.
+Argument-aware MODE classification uses the supplied snapshot's CHANTYPES,
+CHANMODES, and PREFIX values. Command completion metadata is a correlation hint,
+not a delivery guarantee.
+
+`quit/2` and a raw or transmitted `QUIT` are intentional disconnects. After
+the server closes the transport, the client emits `:disconnected` followed by
+`{:disconnect, %{reason: :quit, intentional?: true, reconnecting?: false}}`.
+The client process stays alive but disconnected, so a permanent OTP supervisor
+does not immediately start a replacement connection. Call `reconnect/1` to
+connect that process again explicitly.
 
 ## Capabilities
 
@@ -248,9 +405,22 @@ registration, capability, batch, label, message-ID, and server-time state are
 reset before the next attempt. Observe `:disconnected`, `:reconnecting`, and a
 new `:registered` event before resuming commands.
 
+Transport errors and unintentional closes use the configured reconnect policy.
+An intentional `QUIT` suppresses that policy for its close. Pending labeled
+requests receive a final `:failed` lifecycle event before connection-specific
+state is cleared.
+
+When a bounded reconnect policy uses its last attempt, the client emits
+`{:reconnect_exhausted, %{attempts: count, max_attempts: limit, reason: reason}}`
+and stops normally. The default client child specification is `:transient`, so
+a supervisor does not defeat that bound by restarting the normal exhaustion
+exit. An unexpected abnormal exit, including an initial connection failure,
+is still restartable by a supervisor. A normal unintentional disconnect with
+reconnection disabled is likewise not restarted automatically.
+
 An initial connection failure emits `{:connect_error, reason}` and stops the
-client. Use an OTP supervisor to restart failures that occur before a transport
-has been established.
+client abnormally. Use an OTP supervisor to restart failures that occur before
+a transport has been established.
 
 ## Implementing an adapter
 
@@ -315,6 +485,7 @@ The event context contains:
 | `:port` | Configured remote port. |
 | `:tls?` | Whether the connection uses implicit TLS. |
 | `:nick` | The client's current nickname at event time. |
+| `:client_info` | Secret-free cached protocol snapshot at event time. |
 
 Client adapter state belongs to one client process. Start a separate adapter
 instance for each connection; use an application-owned database or registry

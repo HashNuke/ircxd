@@ -18,8 +18,8 @@ defmodule Ircxd.ClientReactTagTest do
            "CAP END", _state ->
              [
                ":irc.test 001 nick :Welcome",
-               "@+reply=parent-1;+draft/react=lol :alice!a@example.test TAGMSG #elixir",
-               "@+reply=parent-1;+draft/unreact=lol :alice!a@example.test TAGMSG #elixir"
+               "@msgid=reaction-1;+reply=parent-1;+draft/react=lol :alice!a@example.test TAGMSG #elixir",
+               "@msgid=reaction-1;+reply=parent-1;+draft/unreact=lol :alice!a@example.test TAGMSG #elixir"
              ]
 
            "@+draft/react=lol;+reply=parent-1 TAGMSG #elixir", _state ->
@@ -41,6 +41,7 @@ defmodule Ircxd.ClientReactTagTest do
         username: "nick",
         realname: "Nick",
         caps: ["message-tags"],
+        msgid_dedupe: :mark,
         notify: self()
       )
 
@@ -53,7 +54,11 @@ defmodule Ircxd.ClientReactTagTest do
                        target: "#elixir",
                        action: :react,
                        reaction: "lol",
-                       reply_to_msgid: "parent-1"
+                       reply_to_msgid: "parent-1",
+                       msgid: "reaction-1",
+                       duplicate_msgid?: false,
+                       source_self?: false,
+                       target_self?: false
                      }}},
                    1_000
 
@@ -64,7 +69,9 @@ defmodule Ircxd.ClientReactTagTest do
                        target: "#elixir",
                        action: :unreact,
                        reaction: "lol",
-                       reply_to_msgid: "parent-1"
+                       reply_to_msgid: "parent-1",
+                       msgid: "reaction-1",
+                       duplicate_msgid?: true
                      }}},
                    1_000
 

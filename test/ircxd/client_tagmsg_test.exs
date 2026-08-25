@@ -57,7 +57,15 @@ defmodule Ircxd.ClientTagmsgTest do
                      }}},
                    1_000
 
-    assert_receive {:ircxd, {:typing, %{nick: "alice", target: "nick", status: :paused}}},
+    assert_receive {:ircxd,
+                    {:typing,
+                     %{
+                       nick: "alice",
+                       target: "nick",
+                       status: :paused,
+                       source_self?: false,
+                       target_self?: true
+                     }}},
                    1_000
 
     assert_receive {:ircxd, {:typing, %{nick: "alice", target: "#elixir", status: :done}}},
@@ -69,5 +77,37 @@ defmodule Ircxd.ClientTagmsgTest do
 
   test "validates outbound typing statuses" do
     assert {:error, :invalid_typing_status} = Ircxd.Client.typing(self(), "#elixir", :invalid)
+  end
+
+  test "requires message-tags for TAGMSG regardless of tag shape" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state -> [":irc.test CAP * LS :"]
+           "CAP END", _state -> [":irc.test 001 nick :Welcome"]
+           _line, _state -> []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+
+    for tags <- [%{}, %{"example/tag" => "value"}] do
+      assert {:error, {:capability_not_enabled, "message-tags"}} =
+               Ircxd.Client.tagmsg(client, "#elixir", tags)
+    end
+
+    refute Enum.any?(ScriptedIrcServer.lines(server), &String.contains?(&1, "TAGMSG"))
   end
 end

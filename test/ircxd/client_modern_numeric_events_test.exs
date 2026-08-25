@@ -66,7 +66,7 @@ defmodule Ircxd.ClientModernNumericEventsTest do
                ":irc.test 392 nick :UserID Terminal Host",
                ":irc.test 393 nick :alice pts/0 example.test",
                ":irc.test 394 nick :End of users",
-               ":irc.test 395 nick :USERS has been disabled",
+               ":irc.test 395 nick :Nobody logged in",
                ":irc.test 381 nick :You are now an IRC operator",
                ":irc.test 382 nick ircd.conf :Rehashing",
                ":irc.test 670 nick :STARTTLS successful",
@@ -297,7 +297,7 @@ defmodule Ircxd.ClientModernNumericEventsTest do
     assert_receive {:ircxd, {:users_start, %{text: "UserID Terminal Host"}}}, 1_000
     assert_receive {:ircxd, {:users, %{text: "alice pts/0 example.test"}}}, 1_000
     assert_receive {:ircxd, {:users_end, %{text: "End of users"}}}, 1_000
-    assert_receive {:ircxd, {:users_disabled, %{text: "USERS has been disabled"}}}, 1_000
+    assert_receive {:ircxd, {:users_empty, %{text: "Nobody logged in"}}}, 1_000
     assert_receive {:ircxd, {:youre_oper, %{text: "You are now an IRC operator"}}}, 1_000
     assert_receive {:ircxd, {:rehashing, %{config_file: "ircd.conf", text: "Rehashing"}}}, 1_000
     assert_receive {:ircxd, {:starttls, %{text: "STARTTLS successful"}}}, 1_000

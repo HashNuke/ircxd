@@ -3,11 +3,13 @@ defmodule Ircxd.ServerLabeledResponseTest do
 
   alias Ircxd.{Client, Server}
 
-  test "preserves a label on WHOIS replies for labeled-response clients" do
+  test "frames a multi-message labeled WHOIS as one completed batch" do
     {:ok, server} = Server.start_link(port: 0)
     on_exit(fn -> stop_if_alive(server) end)
 
-    {:ok, requester} = start_client(server, "labeled-requester", ["labeled-response"])
+    {:ok, requester} =
+      start_client(server, "labeled-requester", ["labeled-response", "batch"])
+
     {:ok, target} = start_client(server, "labeled-target", [])
 
     on_exit(fn ->
@@ -19,9 +21,84 @@ defmodule Ircxd.ServerLabeledResponseTest do
 
     assert :ok = Client.labeled_raw(requester, "whois-1", "WHOIS", ["labeled-target"])
 
+    assert_receive {:ircxd, {:whois_user, %{label: "whois-1", batch: batch_ref}}}, 2_000
+    assert_receive {:ircxd, {:whois_end, %{label: "whois-1", batch: ^batch_ref}}}, 2_000
+
     assert_receive {:ircxd,
                     {:labeled_response,
-                     %{label: "whois-1", event: {:whois_end, %{nick: "labeled-target"}}}}},
+                     %{
+                       label: "whois-1",
+                       event: {:batch, %{ref: ^batch_ref, events: events}}
+                     }}},
+                   2_000
+
+    assert Enum.map(events, &elem(&1, 0)) |> List.first() == :whois_user
+    assert Enum.map(events, &elem(&1, 0)) |> List.last() == :whois_end
+
+    assert_receive {:ircxd,
+                    {:labeled_request,
+                     %{label: "whois-1", status: :completed, response_type: :batch}}},
+                   2_000
+
+    refute_receive {:ircxd,
+                    {:labeled_request,
+                     %{label: "whois-1", status: :completed, response_type: :single}}},
+                   100
+  end
+
+  test "preserves a label on a single WHOIS error" do
+    {:ok, server} = Server.start_link(port: 0)
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, requester} =
+      start_client(server, "labeled-requester", ["labeled-response", "batch"])
+
+    on_exit(fn -> stop_if_alive(requester) end)
+    wait_registered_and_capabilities(1, 1)
+
+    assert :ok = Client.labeled_raw(requester, "missing-1", "WHOIS", ["missing-target"])
+
+    assert_receive {:ircxd,
+                    {:irc_error,
+                     %{code: "401", label: "missing-1", raw_message: %Ircxd.Message{}}}},
+                   2_000
+
+    assert_receive {:ircxd,
+                    {:labeled_request,
+                     %{
+                       label: "missing-1",
+                       status: :failed,
+                       response_type: :single,
+                       reason: {:irc_error, %{code: "401"}}
+                     }}},
+                   2_000
+  end
+
+  test "preserves a label when WHOIS has no target" do
+    {:ok, server} = Server.start_link(port: 0)
+    on_exit(fn -> stop_if_alive(server) end)
+
+    {:ok, requester} =
+      start_client(server, "labeled-requester", ["labeled-response", "batch"])
+
+    on_exit(fn -> stop_if_alive(requester) end)
+    wait_registered_and_capabilities(1, 1)
+
+    assert :ok = Client.labeled_raw(requester, "missing-params", "WHOIS", [])
+
+    assert_receive {:ircxd,
+                    {:irc_error,
+                     %{code: "461", label: "missing-params", raw_message: %Ircxd.Message{}}}},
+                   2_000
+
+    assert_receive {:ircxd,
+                    {:labeled_request,
+                     %{
+                       label: "missing-params",
+                       status: :failed,
+                       response_type: :single,
+                       reason: {:irc_error, %{code: "461"}}
+                     }}},
                    2_000
   end
 
@@ -29,7 +106,7 @@ defmodule Ircxd.ServerLabeledResponseTest do
     {:ok, server} = Server.start_link(port: 0)
     on_exit(fn -> stop_if_alive(server) end)
 
-    {:ok, client} = start_client(server, "labeled-ping", ["labeled-response"])
+    {:ok, client} = start_client(server, "labeled-ping", ["labeled-response", "batch"])
     on_exit(fn -> stop_if_alive(client) end)
     wait_registered_and_capabilities(1, 1)
 

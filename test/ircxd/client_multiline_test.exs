@@ -66,7 +66,9 @@ defmodule Ircxd.ClientMultilineTest do
                        target: "#elixir",
                        command: "PRIVMSG",
                        body: "hello\n\nhow is everyone?",
-                       nick: "alice"
+                       nick: "alice",
+                       source_self?: false,
+                       target_self?: false
                      }}},
                    1_000
 

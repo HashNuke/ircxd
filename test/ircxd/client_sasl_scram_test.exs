@@ -4,6 +4,8 @@ defmodule Ircxd.ClientSASLScramTest do
   import ExUnit.CaptureLog
 
   alias Ircxd.SASL
+  alias Ircxd.Client.Event
+  alias Ircxd.Message
   alias Ircxd.ScriptedIrcServer
 
   test "performs SASL SCRAM-SHA-256 negotiation before ending CAP" do
@@ -133,10 +135,23 @@ defmodule Ircxd.ClientSASLScramTest do
           realname: "Nick",
           sasl: {:scram_sha_256, "user", "pencil", nonce: nonce},
           allow_insecure_auth: true,
+          events: :both,
           notify: self()
         )
 
       assert_receive {:ircxd, {:sasl_scram_error, %{reason: :invalid_server_signature}}}, 1_000
+
+      assert_receive {:ircxd,
+                      %Event{
+                        name: :sasl_scram_error,
+                        payload: %{
+                          reason: :invalid_server_signature,
+                          raw_message: %Message{command: "AUTHENTICATE"}
+                        },
+                        message: %Message{command: "AUTHENTICATE"},
+                        origin: :message
+                      }},
+                     1_000
 
       assert_receive {:ircxd, {:sasl_scram_error, %{reason: :missing_verified_server_final}}},
                      1_000

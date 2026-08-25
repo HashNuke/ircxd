@@ -115,7 +115,8 @@ defmodule Ircxd.ClientEventsTest do
 
     assert_receive {:adapter_event, 0, {:connected, %{host: "127.0.0.1"}}, context}, 1_000
     assert context.host == "127.0.0.1"
-    assert context.nick == "nick"
+    assert context.nick == nil
+    assert context.client_info.desired_nick == "nick"
     assert context.tls? == false
 
     assert_receive {:adapter_event, _count, :registered, _context}, 1_000

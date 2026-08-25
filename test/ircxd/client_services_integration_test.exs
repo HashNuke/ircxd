@@ -34,6 +34,7 @@ defmodule Ircxd.ClientServicesIntegrationTest do
     {:ok, _client} =
       start_client("#{account}login",
         caps: ["sasl", "account-notify"],
+        allow_insecure_auth: true,
         sasl: {:plain, account, password}
       )
 

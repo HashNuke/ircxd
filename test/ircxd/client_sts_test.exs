@@ -2,6 +2,8 @@ defmodule Ircxd.ClientSTSTest do
   use ExUnit.Case, async: false
 
   alias Ircxd.ScriptedIrcServer
+  alias Ircxd.Client.Event
+  alias Ircxd.Message
 
   test "emits STS policy events and does not request the sts capability" do
     server =
@@ -31,11 +33,22 @@ defmodule Ircxd.ClientSTSTest do
         username: "nick",
         realname: "Nick",
         caps: ["sts", "message-tags"],
+        events: :both,
         notify: self()
       )
 
     assert_receive {:ircxd,
                     {:sts_policy, %{host: "127.0.0.1", type: :upgrade, port: 6697, tls?: false}}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    %Event{
+                      name: :sts_policy,
+                      payload: %{raw_message: %Message{command: "CAP"}},
+                      message: %Message{command: "CAP"},
+                      origin: :derivative,
+                      derivative?: true
+                    }},
                    1_000
 
     assert_receive {:scripted_irc_line, "CAP REQ message-tags"}, 1_000
@@ -115,5 +128,57 @@ defmodule Ircxd.ClientSTSTest do
                        reason: :invalid_sts_policy
                      }}},
                    1_000
+  end
+
+  test "treats STS as metadata rather than a second labeled CAP response" do
+    server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state ->
+             [":irc.test CAP * LS :labeled-response batch sts=port=6697"]
+
+           "CAP REQ :labeled-response batch", _state ->
+             [":irc.test CAP * ACK :labeled-response batch"]
+
+           "CAP END", _state ->
+             [":irc.test 001 nick :Welcome"]
+
+           "@label=sts-1 VENDOR", _state ->
+             ["@label=sts-1 :irc.test CAP nick NEW :sts=port=7000"]
+
+           _line, _state ->
+             []
+         end}
+      )
+
+    {:ok, client} =
+      Ircxd.start_link(
+        host: "127.0.0.1",
+        port: ScriptedIrcServer.port(server),
+        nick: "nick",
+        username: "nick",
+        realname: "Nick",
+        caps: ["labeled-response", "batch"],
+        notify: self()
+      )
+
+    assert_receive {:ircxd, :registered}, 1_000
+    assert :ok = Ircxd.Client.labeled_raw(client, "sts-1", "VENDOR", [])
+
+    assert_receive {:ircxd, {:sts_policy, %{port: 7000, label: "sts-1"}}}, 1_000
+
+    assert_receive {:ircxd,
+                    {:labeled_response,
+                     %{label: "sts-1", event: {:cap_new, %{"sts" => "port=7000"}}}}},
+                   1_000
+
+    assert_receive {:ircxd,
+                    {:labeled_request,
+                     %{label: "sts-1", status: :completed, response_type: :single}}},
+                   1_000
+
+    refute_receive {:ircxd, {:labeled_response, %{label: "sts-1"}}}, 100
   end
 end

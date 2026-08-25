@@ -10,10 +10,10 @@ defmodule Ircxd.ClientLabeledResponseTest do
          test_pid: self(),
          script: fn
            "CAP LS 302", _state ->
-             [":irc.test CAP * LS :message-tags labeled-response"]
+             [":irc.test CAP * LS :message-tags labeled-response batch"]
 
-           "CAP REQ :message-tags labeled-response", _state ->
-             [":irc.test CAP * ACK :message-tags labeled-response"]
+           "CAP REQ :message-tags labeled-response batch", _state ->
+             [":irc.test CAP * ACK :message-tags labeled-response batch"]
 
            "CAP END", _state ->
              [":irc.test 001 nick :Welcome"]
@@ -33,7 +33,7 @@ defmodule Ircxd.ClientLabeledResponseTest do
         nick: "nick",
         username: "nick",
         realname: "Nick",
-        caps: ["message-tags", "labeled-response"],
+        caps: ["message-tags", "labeled-response", "batch"],
         notify: self()
       )
 

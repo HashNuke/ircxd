@@ -8,13 +8,14 @@ defmodule Ircxd.Client.Adapter do
   """
 
   @type state :: term()
-  @type event :: term()
+  @type event :: Ircxd.Client.Event.legacy() | Ircxd.Client.Event.t()
   @type context :: %{
           client: pid(),
           host: String.t(),
           port: :inet.port_number(),
           tls?: boolean(),
-          nick: String.t()
+          nick: String.t() | nil,
+          client_info: Ircxd.Client.Info.t()
         }
 
   @callback init(term()) :: {:ok, state()} | {:error, term()}
