@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="480" viewBox="0 0 1200 480" role="img" aria-labelledby="title description" shape-rendering="crispEdges">
+  <title id="title">ircxd — IRC client and server library for Elixir</title>
+  <desc id="description">A sparse colorful pixel-art banner with the ircxd project name on the left and one desktop monitor displaying an IRC conversation on the right.</desc>
+
+  <!--
+    ircxd pixel banner, iteration 4
+    Two elements only: project identity and one IRC monitor. Username pills
+    include explicit horizontal padding and do not depend on text backgrounds.
+  -->
+  <defs>
+    <style>
+      :root {
+        --ink: #17324d;
+        --paper: #fff4d6;
+        --coral: #ff675d;
+        --orange: #ff9f43;
+        --yellow: #ffd54a;
+        --cyan: #40c9d0;
+        --blue: #3993dd;
+        --lime: #9bd64b;
+        --pink: #ff9ac2;
+        --screen: #eafff5;
+      }
+      .pixel { font-family: monospace; font-weight: 700; fill: var(--ink); }
+      .outline { stroke: var(--ink); stroke-width: 6; stroke-linejoin: miter; }
+      .thin { stroke: var(--ink); stroke-width: 4; stroke-linejoin: miter; }
+      .ui { font-family: monospace; font-weight: 700; font-size: 15px; fill: var(--ink); }
+    </style>
+    <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <rect width="24" height="24" fill="#fff4d6"/>
+      <path d="M24 0H0V24" fill="none" stroke="#efdcae" stroke-width="2"/>
+    </pattern>
+  </defs>
+
+  <g id="background">
+    <rect width="1200" height="480" fill="url(#grid)"/>
+    <rect x="12" y="12" width="1176" height="456" fill="none" stroke="#17324d" stroke-width="8"/>
+    <path d="M20 20h132v12H32v44H20z" fill="#ff675d"/>
+    <path d="M1180 460h-132v-12h120v-44h12z" fill="#40c9d0"/>
+  </g>
+
+  <g id="project-identity">
+    <text x="70" y="210" class="pixel" font-size="96" letter-spacing="7">ircxd</text>
+    <rect x="74" y="230" width="400" height="12" fill="#ff675d"/>
+    <rect x="74" y="250" width="300" height="12" fill="#40c9d0"/>
+
+    <rect x="72" y="292" width="446" height="54" fill="#ffd54a" class="outline"/>
+    <text x="295" y="326" text-anchor="middle" class="pixel" font-size="19">IRC client &amp; server library for Elixir</text>
+
+    <rect x="72" y="366" width="20" height="20" fill="#ff9ac2"/>
+    <rect x="98" y="366" width="20" height="20" fill="#9bd64b"/>
+    <rect x="124" y="366" width="20" height="20" fill="#3993dd"/>
+  </g>
+
+  <g id="irc-monitor">
+    <!-- Monitor body and screen. -->
+    <rect x="592" y="78" width="544" height="324" fill="#17324d"/>
+    <rect x="580" y="66" width="544" height="324" fill="#40c9d0" class="outline"/>
+    <rect x="600" y="86" width="504" height="268" fill="#eafff5" class="thin"/>
+
+    <!-- IRC window title bar. -->
+    <rect x="600" y="86" width="504" height="38" fill="#ffd54a" class="thin"/>
+    <rect x="614" y="99" width="12" height="12" fill="#ff675d"/>
+    <rect x="634" y="99" width="12" height="12" fill="#40c9d0"/>
+    <rect x="654" y="99" width="12" height="12" fill="#9bd64b"/>
+    <text x="852" y="111" text-anchor="middle" class="pixel" font-size="17">ircxd — #elixir</text>
+
+    <!-- Channel sidebar. -->
+    <rect x="600" y="124" width="132" height="230" fill="#3993dd" class="thin"/>
+    <text x="616" y="151" class="ui" fill="#fff4d6">CHANNELS</text>
+    <rect x="608" y="164" width="116" height="34" fill="#ffd54a"/>
+    <text x="622" y="187" class="ui">#ircxd</text>
+    <text x="622" y="225" class="ui" fill="#fff4d6">#elixir</text>
+    <text x="622" y="259" class="ui" fill="#fff4d6">#bots</text>
+    <text x="622" y="293" class="ui" fill="#fff4d6">#dev</text>
+
+    <!-- Chat area. Each username pill is wider than its rendered label. -->
+    <rect x="732" y="124" width="372" height="182" fill="#eafff5"/>
+
+    <rect x="750" y="143" width="78" height="26" fill="#ff9ac2"/>
+    <text x="761" y="161" class="ui">@alice</text>
+    <rect x="846" y="150" width="208" height="10" fill="#ff675d"/>
+
+    <rect x="750" y="181" width="60" height="26" fill="#9bd64b"/>
+    <text x="761" y="199" class="ui">+bob</text>
+    <rect x="828" y="188" width="240" height="10" fill="#40c9d0"/>
+
+    <rect x="750" y="219" width="78" height="26" fill="#ff9ac2"/>
+    <text x="761" y="237" class="ui">@alice</text>
+    <rect x="846" y="226" width="172" height="10" fill="#ff675d"/>
+
+    <rect x="750" y="257" width="60" height="26" fill="#9bd64b"/>
+    <text x="761" y="275" class="ui">+bob</text>
+    <rect x="828" y="264" width="218" height="10" fill="#40c9d0"/>
+
+    <!-- Message input. -->
+    <rect x="732" y="306" width="372" height="48" fill="#fff4d6" class="thin"/>
+    <text x="750" y="336" class="ui">Message #ircxd_</text>
+    <path d="M1070 320l18 10-18 10z" fill="#ff675d"/>
+
+    <!-- Minimal stand: enough to read as a monitor, no keyboard or desk. -->
+    <rect x="818" y="390" width="68" height="30" fill="#3993dd" class="thin"/>
+    <rect x="762" y="418" width="180" height="20" fill="#ffd54a" class="outline"/>
+  </g>
+</svg>
