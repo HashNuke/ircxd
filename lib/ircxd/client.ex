@@ -30,6 +30,7 @@ defmodule Ircxd.Client do
   alias Ircxd.AccountExtban
   alias Ircxd.ChatHistory
   alias Ircxd.ClientTagDeny
+  alias Ircxd.CTCP
   alias Ircxd.DCC
   alias Ircxd.FileHost
   alias Ircxd.Metadata
@@ -108,6 +109,8 @@ defmodule Ircxd.Client do
         client,
         {:send, %Message{command: "PRIVMSG", params: [target, body], tags: tags}}
       )
+
+  def action(client, target, body), do: privmsg(client, target, CTCP.encode("ACTION", body))
 
   def reply(client, target, body, reply_to_msgid),
     do: privmsg(client, target, body, %{"+reply" => reply_to_msgid})

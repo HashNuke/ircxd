@@ -70,6 +70,7 @@ end
 
 :ok = Ircxd.Client.join(client, "#elixir")
 :ok = Ircxd.Client.privmsg(client, "#elixir", "hello from ircxd")
+:ok = Ircxd.Client.action(client, "#elixir", "waves")
 ```
 
 TLS clients verify the server certificate chain and hostname by default using
