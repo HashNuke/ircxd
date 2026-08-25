@@ -1,32 +1,30 @@
 # ircxd
 
-![ircxd, an IRC client and server library for Elixir](docs/assets/ircxd-banner.svg)
+IRC client & server library for Elixir
 
-*One library for both journeys: connect an Elixir application to IRC, or bring
-IRC clients into your application through an embedded server.*
+![ircxd, an IRC client and server library for Elixir](docs/assets/ircxd-banner.svg)
 
 `ircxd` is an IRC client library and embeddable IRC server for Elixir. Use it
 to build bots, bridges, notification services, Phoenix integrations, or an IRC
 interface backed by your application's own accounts and data.
 
 ```text
-YOUR APP <-> Ircxd.Client <-> IRC NETWORK
-IRC CLIENT <-> Ircxd.Server <-> YOUR ADAPTER
+Your APP <-> Ircxd.Client <-> IRC NETWORK
+
+Your APP <-> Ircxd.Server <-> Your USERS
 ```
 
 ## Features
 
-- **Client and server in one library** — connect to existing networks or embed
-  an isolated IRC server in an OTP supervision tree.
+- Connect to IRC networks
+- Embed an IRC server in your Elixir app, with your own user accounts
 - **Modern IRCv3 support** — capability negotiation, message tags, server-time,
   message IDs, batches, labeled responses, multiline messages, chat history,
   account tracking, and more.
-- **Secure connections and authentication** — verified implicit TLS plus SASL
+- **Secure connections and authentication** — Verified implicit TLS plus SASL
   `PLAIN`, `EXTERNAL`, and `SCRAM-SHA-256` client support.
 - **Application-owned policy** — adapters control authentication,
   authorization, persistence, custom commands, and committed-event handling.
-- **Elixir-friendly integration** — focused command helpers, structured
-  messages, process notifications, callback adapters, and reconnect support.
 - **Useful protocol building blocks** — CTCP, DCC payloads, WebIRC, WebSocket,
   formatting, casemapping, ISUPPORT, standard replies, and wire-size validation.
 
