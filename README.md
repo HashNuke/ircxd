@@ -1,6 +1,6 @@
 # ircxd
 
-![Two people use ircxd to chat in IRC channels through an IRC network and embedded server](docs/assets/ircxd-client-server-garden.png)
+![ircxd, an IRC client and server library for Elixir](docs/assets/ircxd-banner.svg)
 
 *One library for both journeys: connect an Elixir application to IRC, or bring
 IRC clients into your application through an embedded server.*
