@@ -3,6 +3,7 @@ defmodule Ircxd.Batch do
   Parser helpers for IRCv3 BATCH messages.
   """
 
+  @doc "Parses the parameters of a `BATCH` start or end message."
   @spec parse([String.t()]) ::
           {:ok, %{direction: :start, ref: String.t(), type: String.t(), params: [String.t()]}}
           | {:ok, %{direction: :end, ref: String.t()}}

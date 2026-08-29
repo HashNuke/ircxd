@@ -5,6 +5,12 @@ defmodule Ircxd.WebIRC do
 
   alias Ircxd.Message
 
+  @doc """
+  Builds `WEBIRC` command parameters.
+
+  The options `:password`, `:gateway`, `:hostname`, and `:ip` are required.
+  Use `:options` to add escaped WebIRC options.
+  """
   @spec params(keyword()) :: [String.t()]
   def params(opts) do
     params = [
@@ -20,6 +26,7 @@ defmodule Ircxd.WebIRC do
     end
   end
 
+  @doc "Serializes and escapes WebIRC options."
   @spec options(map() | keyword() | [{String.t(), term()}]) :: String.t()
   def options(options) when is_map(options) do
     options

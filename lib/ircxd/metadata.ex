@@ -3,11 +3,13 @@ defmodule Ircxd.Metadata do
   Parser helpers for the IRCv3 draft metadata extension.
   """
 
+  @doc "Returns `true` if a metadata key has valid characters."
   @spec valid_key?(String.t()) :: boolean()
   def valid_key?(key) when is_binary(key) do
     String.match?(key, ~r/\A[a-z0-9_.\/-]+\z/)
   end
 
+  @doc "Parses the parameters of a `METADATA` message."
   @spec parse_message([String.t()]) :: {:ok, map()} | {:error, atom()}
   def parse_message([target, key, visibility, value]) do
     {:ok, %{target: target, key: key, visibility: visibility, value: value}}
@@ -15,6 +17,7 @@ defmodule Ircxd.Metadata do
 
   def parse_message(_params), do: {:error, :invalid_metadata_message}
 
+  @doc "Parses a metadata numeric reply."
   @spec parse_numeric(String.t(), [String.t()]) :: {:ok, map()} | {:error, atom()}
   def parse_numeric(command, [_me | params]), do: parse_reply(command, params)
   def parse_numeric(_command, _params), do: {:error, :invalid_metadata_numeric}

@@ -3,6 +3,7 @@ defmodule Ircxd.STS do
   Parser helpers for the IRCv3 Strict Transport Security capability.
   """
 
+  @doc "Parses an STS upgrade or persistence policy."
   def parse(value, tls?) when is_binary(value) do
     tokens = parse_tokens(value)
 

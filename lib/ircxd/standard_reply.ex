@@ -5,6 +5,7 @@ defmodule Ircxd.StandardReply do
 
   @types %{"FAIL" => :fail, "WARN" => :warn, "NOTE" => :note}
 
+  @doc "Parses an IRCv3 `FAIL`, `WARN`, or `NOTE` reply."
   @spec parse(String.t(), [String.t()]) ::
           {:ok,
            %{

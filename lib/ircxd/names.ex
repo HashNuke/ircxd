@@ -7,12 +7,14 @@ defmodule Ircxd.Names do
 
   @prefixes ["~", "&", "@", "%", "+"]
 
+  @doc "Parses a space-separated list from an `RPL_NAMREPLY` message."
   def parse_names(names) when is_binary(names) do
     names
     |> String.split(" ", trim: true)
     |> Enum.map(&parse_name/1)
   end
 
+  @doc "Parses one nickname and its membership prefixes."
   def parse_name(name) do
     {prefixes, source_or_nick} = split_prefixes(name, [])
 

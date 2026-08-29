@@ -3,6 +3,7 @@ defmodule Ircxd.AccountExtban do
   Helpers for IRCv3 account extended-ban masks.
   """
 
+  @doc "Builds an account extban mask from advertised `ISUPPORT` tokens."
   def mask(isupport, account, preferred_name \\ nil) when is_map(isupport) do
     with {:ok, prefix} <- extban_prefix(isupport),
          {:ok, name} <- account_extban_name(isupport, preferred_name) do

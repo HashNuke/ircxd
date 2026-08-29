@@ -6,8 +6,10 @@ defmodule Ircxd.FileHost do
   @token "soju.im/FILEHOST"
   @supported_schemes ["http", "https"]
 
+  @doc "Returns the supported file-host `ISUPPORT` token name."
   def token, do: @token
 
+  @doc "Returns a validated file upload URL from `ISUPPORT`."
   def upload_url(isupport, tls?) when is_map(isupport) do
     case Map.fetch(isupport, @token) do
       {:ok, url} when is_binary(url) -> validate_upload_url(url, tls?)

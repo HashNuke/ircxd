@@ -5,8 +5,10 @@ defmodule Ircxd.Multiline do
 
   @concat_tag "draft/multiline-concat"
 
+  @doc "Returns the multiline concatenation tag name."
   def concat_tag, do: @concat_tag
 
+  @doc "Combines multiline message parts into one body."
   @spec combine([%{required(:body) => String.t(), optional(:concat?) => boolean()}]) :: String.t()
   def combine(lines) do
     lines
@@ -23,6 +25,7 @@ defmodule Ircxd.Multiline do
     |> IO.iodata_to_binary()
   end
 
+  @doc "Splits text into multiline message parts."
   @spec split(String.t()) :: [%{body: String.t(), concat?: false}]
   def split(text) when is_binary(text) do
     text

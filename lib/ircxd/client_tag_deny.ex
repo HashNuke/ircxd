@@ -3,6 +3,7 @@ defmodule Ircxd.ClientTagDeny do
   Helpers for the IRCv3 `CLIENTTAGDENY` ISUPPORT token.
   """
 
+  @doc "Returns `true` if a `CLIENTTAGDENY` value denies the client-only tag."
   def denied?(nil, _tag), do: false
   def denied?("", _tag), do: false
 

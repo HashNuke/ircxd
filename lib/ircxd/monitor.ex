@@ -5,11 +5,13 @@ defmodule Ircxd.Monitor do
 
   alias Ircxd.Source
 
+  @doc "Parses a comma-separated monitor target list."
   @spec parse_targets(String.t()) :: [String.t()]
   def parse_targets(targets) when is_binary(targets) do
     String.split(targets, ",", trim: true)
   end
 
+  @doc "Parses a `MONITOR` numeric reply."
   @spec parse_numeric(String.t(), [String.t()]) :: {:ok, map()} | {:error, atom()}
   def parse_numeric("730", [_me, targets]) do
     targets = parse_targets(targets)

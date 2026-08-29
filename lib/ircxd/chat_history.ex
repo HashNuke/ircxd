@@ -3,11 +3,13 @@ defmodule Ircxd.ChatHistory do
   Helpers for the IRCv3 draft chathistory extension.
   """
 
+  @doc "Encodes a chat-history message selector."
   @spec ref(:latest | {:timestamp, String.t()} | {:msgid, String.t()}) :: String.t()
   def ref(:latest), do: "*"
   def ref({:timestamp, timestamp}), do: "timestamp=#{timestamp}"
   def ref({:msgid, msgid}), do: "msgid=#{msgid}"
 
+  @doc "Builds parameters for a `CHATHISTORY` query."
   @spec params(tuple()) :: [String.t()]
   def params({:latest, target, selector, limit}) do
     ["LATEST", target, ref(selector), to_string(limit)]
@@ -33,6 +35,7 @@ defmodule Ircxd.ChatHistory do
     ["TARGETS", ref(first_timestamp), ref(second_timestamp), to_string(limit)]
   end
 
+  @doc "Parses one `CHATHISTORY TARGETS` result."
   @spec parse_targets([String.t()]) :: {:ok, map()} | {:error, atom()}
   def parse_targets([target, latest_timestamp]) do
     {:ok, %{target: target, latest_timestamp: latest_timestamp}}
