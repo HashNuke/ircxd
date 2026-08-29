@@ -4,12 +4,6 @@
 
 ![ircxd, an IRC client and server library for Elixir](docs/assets/ircxd-banner.svg)
 
-```text
-Your APP <-> Ircxd.Client <-> IRC NETWORK
-
-Your APP <-> Ircxd.Server <-> Your USERS
-```
-
 ## Features
 
 - Connect to IRC networks
