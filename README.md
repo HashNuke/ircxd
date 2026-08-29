@@ -1,5 +1,10 @@
 # ircxd - IRC client & server library for Elixir
 
+[![CI](https://github.com/HashNuke/ircxd/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/HashNuke/ircxd/actions/workflows/ci.yml)
+[![Hex.pm](https://img.shields.io/hexpm/v/ircxd.svg)](https://hex.pm/packages/ircxd)
+[![HexDocs](https://img.shields.io/badge/hex-docs-blue.svg)](https://hexdocs.pm/ircxd)
+[![License](https://img.shields.io/hexpm/l/ircxd.svg)](https://hex.pm/packages/ircxd)
+
 > Use it to build your bots, or embed an IRC server on your app - backed by your application's own accounts and data.
 
 ![ircxd, an IRC client and server library for Elixir](docs/assets/ircxd-banner.svg)
