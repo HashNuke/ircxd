@@ -205,7 +205,7 @@ confirmed self NICK, and disconnect/reconnect transitions. It never contains
 PASS, SASL, OPER, WEBIRC, or account-registration credentials. Adapter
 callbacks receive the same snapshot as `context.client_info`; they must use
 that value instead of synchronously calling the client GenServer from inside
-`Ircxd.Client.Adapter.handle_event/3`.
+`c:Ircxd.Client.Adapter.handle_event/3`.
 
 Source-bearing normalized events include `:source_self?`. Events with a nick
 target, including KICK, MODE, PRIVMSG, NOTICE, and TAGMSG, also include
@@ -433,8 +433,8 @@ Client and server integrations use parallel names and configuration:
 
 | Component | Behavior | Option | Primary event callback |
 | --- | --- | --- | --- |
-| IRC client | `Ircxd.Client.Adapter` | `adapter: {Module, init_arg}` | `Ircxd.Client.Adapter.handle_event/3` |
-| IRC server | `Ircxd.Server.Adapter` | `adapter: {Module, init_arg}` | `Ircxd.Server.Adapter.handle_event/3` |
+| IRC client | `Ircxd.Client.Adapter` | `adapter: {Module, init_arg}` | `c:Ircxd.Client.Adapter.handle_event/3` |
+| IRC server | `Ircxd.Server.Adapter` | `adapter: {Module, init_arg}` | `c:Ircxd.Server.Adapter.handle_event/3` |
 
 The client adapter reacts to events received from a remote IRC server. The
 server adapter projects and governs activity accepted by an embedded
@@ -473,8 +473,8 @@ The callback contract is deliberately small:
 
 | Callback | Purpose | Return |
 | --- | --- | --- |
-| `Ircxd.Client.Adapter.init/1` | Initialize application callback state. | `{:ok, state}` or `{:error, reason}` |
-| `Ircxd.Client.Adapter.handle_event/3` | Consume one normalized client event. | `{:ok, state}` |
+| `c:Ircxd.Client.Adapter.init/1` | Initialize application callback state. | `{:ok, state}` or `{:error, reason}` |
+| `c:Ircxd.Client.Adapter.handle_event/3` | Consume one normalized client event. | `{:ok, state}` |
 
 The event context contains:
 
@@ -502,7 +502,7 @@ material in an ordinary IRC message.
 
 ### Ordering, failure, and performance
 
-The client invokes `Ircxd.Client.Adapter.handle_event/3` synchronously in its
+The client invokes `c:Ircxd.Client.Adapter.handle_event/3` synchronously in its
 GenServer, in protocol order. Updated callback state is used for the next
 event. Keep the callback fast. A slow database call also delays socket
 processing and can increase mailbox size. For slow or retryable work, enqueue

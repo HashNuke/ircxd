@@ -99,7 +99,7 @@ ETS adapter when no verifier is configured.
 
 ## Implementing an adapter
 
-An adapter must implement `Ircxd.Server.Adapter.init/1`. Every other callback
+An adapter must implement `c:Ircxd.Server.Adapter.init/1`. Every other callback
 is optional:
 
 ```elixir
@@ -137,31 +137,31 @@ The callback contract is:
 
 | Callback | Purpose | Return |
 | --- | --- | --- |
-| `Ircxd.Server.Adapter.init/1` | Open or identify application resources. | `{:ok, state}` or `{:error, reason}` |
-| `Ircxd.Server.Adapter.handle_event/3` | Consume an accepted domain event. | `{:ok, state}` |
-| `Ircxd.Server.Adapter.handle_query/3` | Answer `Ircxd.Server.query/2`. | `{:ok, value, state}` or `{:error, reason, state}` |
-| `Ircxd.Server.Adapter.handle_operation/3` | Execute `Ircxd.Server.execute/2`. | `{:ok, value, state}` or `{:error, reason, state}` |
-| `Ircxd.Server.Adapter.authorize/3` | Allow or reject a protocol action. | `{:ok, state}` or `{:error, reason, state}` |
-| `Ircxd.Server.Adapter.handle_command/3` | Handle an unknown IRC command. | `{:unhandled, state}`, `{:reply, messages, state}`, or `{:error, reason, state}` |
-| `Ircxd.Server.Adapter.authenticate/4` | Verify SASL credentials and resolve an account. | `{:ok, account, state}` or `{:error, reason, state}` |
-| `Ircxd.Server.Adapter.authentication_enabled?/1` | Report whether authentication is enabled. | boolean |
-| `Ircxd.Server.Adapter.handle_publish/3` | Observe the legacy outbound-message stream. | `{:ok, state}` |
+| `c:Ircxd.Server.Adapter.init/1` | Open or identify application resources. | `{:ok, state}` or `{:error, reason}` |
+| `c:Ircxd.Server.Adapter.handle_event/3` | Consume an accepted domain event. | `{:ok, state}` |
+| `c:Ircxd.Server.Adapter.handle_query/3` | Answer `Ircxd.Server.query/2`. | `{:ok, value, state}` or `{:error, reason, state}` |
+| `c:Ircxd.Server.Adapter.handle_operation/3` | Execute `Ircxd.Server.execute/2`. | `{:ok, value, state}` or `{:error, reason, state}` |
+| `c:Ircxd.Server.Adapter.authorize/3` | Allow or reject a protocol action. | `{:ok, state}` or `{:error, reason, state}` |
+| `c:Ircxd.Server.Adapter.handle_command/3` | Handle an unknown IRC command. | `{:unhandled, state}`, `{:reply, messages, state}`, or `{:error, reason, state}` |
+| `c:Ircxd.Server.Adapter.authenticate/4` | Verify SASL credentials and resolve an account. | `{:ok, account, state}` or `{:error, reason, state}` |
+| `c:Ircxd.Server.Adapter.authentication_enabled?/1` | Report whether authentication is enabled. | boolean |
+| `c:Ircxd.Server.Adapter.handle_publish/3` | Observe the legacy outbound-message stream. | `{:ok, state}` |
 
 `context` always includes `:server_id` and `:server_name`. Policy and command
 contexts also include `:connection` and an `:actor` map containing the known
 `:nick`, `:username`, `:realname`, and `:account`. Policy contexts additionally
 include `:action`.
 
-`Ircxd.Server.Adapter.authorize/3` is called for `{:join, channel}` and
+`c:Ircxd.Server.Adapter.authorize/3` is called for `{:join, channel}` and
 `{:set_topic, channel}`. A rejection produces the applicable IRC error. The
 server does not commit the state change. Core IRC commands cannot be overridden
-by `Ircxd.Server.Adapter.handle_command/3`. That callback runs only after
+by `c:Ircxd.Server.Adapter.handle_command/3`. That callback runs only after
 built-in command matching. Reply messages without a source receive the
 configured server name.
 
 ## Committed events
 
-`Ircxd.Server.Adapter.handle_event/3` receives an `Ircxd.Server.Event` with
+`c:Ircxd.Server.Adapter.handle_event/3` receives an `Ircxd.Server.Event` with
 `:type`, `:server_id`, `:server_name`, UTC `:at`, and type-specific `:data`:
 
 | Type | Important data |
@@ -176,7 +176,7 @@ configured server name.
 | `:message_accepted` | normalized message, sender, target, recipients, and timestamp |
 
 Events represent accepted changes, not raw socket input, and never contain
-authentication passwords. `Ircxd.Server.Adapter.handle_publish/3` remains
+authentication passwords. `c:Ircxd.Server.Adapter.handle_publish/3` remains
 available for applications that must observe all outbound IRC messages,
 including numerics. New persistence integrations should use committed events.
 
@@ -224,10 +224,10 @@ membership, migrations, and recovery; ircxd does not make those cluster-wide
 choices automatically.
 
 An Ecto adapter should receive a repository or context module from
-`Ircxd.Server.Adapter.init/1`. Use transactions in
-`Ircxd.Server.Adapter.handle_operation/3`. Query through application contexts
-in `Ircxd.Server.Adapter.handle_query/3`. Resolve credentials in
-`Ircxd.Server.Adapter.authenticate/4`. Do not put a database transaction or
+`c:Ircxd.Server.Adapter.init/1`. Use transactions in
+`c:Ircxd.Server.Adapter.handle_operation/3`. Query through application contexts
+in `c:Ircxd.Server.Adapter.handle_query/3`. Resolve credentials in
+`c:Ircxd.Server.Adapter.authenticate/4`. Do not put a database transaction or
 connection process under the IRC connection lifecycle. Supervise it as normal
 application infrastructure.
 
