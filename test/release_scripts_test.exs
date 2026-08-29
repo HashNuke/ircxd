@@ -16,10 +16,13 @@ defmodule Ircxd.ReleaseScriptsTest do
     defmodule Fixture.MixProject do
       use Mix.Project
 
+      @version "1.2.3"
+
       def project do
         [
           app: :fixture,
-          version: "1.2.3"
+          version: @version,
+          docs: [source_ref: "v\#{@version}"]
         ]
       end
     end
@@ -32,14 +35,16 @@ defmodule Ircxd.ReleaseScriptsTest do
     test "bump-version increments the #{part} SemVer component", %{repo: repo} do
       assert {output, 0} = run(repo, "bin/bump-version", [unquote(to_string(part))])
       assert output =~ "bumped version 1.2.3 -> #{unquote(expected)}"
-      assert File.read!(Path.join(repo, "mix.exs")) =~ ~s(version: "#{unquote(expected)}")
+      mix_exs = File.read!(Path.join(repo, "mix.exs"))
+      assert mix_exs =~ ~s(@version "#{unquote(expected)}")
+      refute mix_exs =~ ~s(@version "1.2.3")
     end
   end
 
   test "bump-version rejects unsupported increments without changing the version", %{repo: repo} do
     assert {output, 2} = run(repo, "bin/bump-version", ["prerelease"])
     assert output =~ "usage: bump-version <major|minor|patch>"
-    assert File.read!(Path.join(repo, "mix.exs")) =~ ~s(version: "1.2.3")
+    assert File.read!(Path.join(repo, "mix.exs")) =~ ~s(@version "1.2.3")
   end
 
   test "release creates a v-prefixed tag for the project version", %{repo: repo} do

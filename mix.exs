@@ -1,10 +1,12 @@
 defmodule Ircxd.MixProject do
   use Mix.Project
 
+  @version "1.0.0"
+
   def project do
     [
       app: :ircxd,
-      version: "1.0.0",
+      version: @version,
       elixir: "~> 1.19",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -51,7 +53,7 @@ defmodule Ircxd.MixProject do
   defp docs do
     [
       main: "readme",
-      source_ref: "v#{Mix.Project.config()[:version]}",
+      source_ref: "v#{@version}",
       extras: [
         "README.md",
         "docs/client-adapters.md",

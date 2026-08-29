@@ -19,7 +19,7 @@ part = sys.argv[1]
 mix_path = Path(sys.argv[2])
 mix_exs = mix_path.read_text(encoding="utf-8")
 match = re.search(
-    r'(?m)^(\s*version:\s*")([0-9]+)\.([0-9]+)\.([0-9]+)("\s*,?\s*)$',
+    r'(?m)^(\s*@version\s+")([0-9]+)\.([0-9]+)\.([0-9]+)("\s*)$',
     mix_exs,
 )
 if not match:
