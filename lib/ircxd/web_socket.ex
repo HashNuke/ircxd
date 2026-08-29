@@ -15,9 +15,13 @@ defmodule Ircxd.WebSocket do
   @binary_subprotocol "binary.ircv3.net"
   @text_subprotocol "text.ircv3.net"
 
+  @doc "Returns the IRCv3 binary WebSocket subprotocol name."
   def binary_subprotocol, do: @binary_subprotocol
+
+  @doc "Returns the IRCv3 text WebSocket subprotocol name."
   def text_subprotocol, do: @text_subprotocol
 
+  @doc "Returns subprotocol names in preference order."
   def subprotocols(preferences \\ [:binary, :text]) do
     Enum.map(preferences, fn
       :binary -> @binary_subprotocol
@@ -26,6 +30,7 @@ defmodule Ircxd.WebSocket do
     end)
   end
 
+  @doc "Encodes one IRC message for a `:text` or `:binary` WebSocket frame."
   def encode_line(message_or_line, mode \\ :text)
 
   def encode_line(%Message{} = message, mode) do
@@ -44,6 +49,7 @@ defmodule Ircxd.WebSocket do
     end
   end
 
+  @doc "Decodes one `:text` or `:binary` WebSocket payload as an IRC message."
   def decode_message(payload, mode \\ :text)
 
   def decode_message(payload, mode) when is_binary(payload) and mode in [:binary, :text] do
@@ -54,12 +60,14 @@ defmodule Ircxd.WebSocket do
     end
   end
 
+  @doc "Encodes one IRC line and sends it through a WebSocket adapter."
   def send_frame(adapter, adapter_state, message_or_line, mode \\ :text) do
     with {:ok, payload} <- encode_line(message_or_line, mode) do
       adapter.send_frame(adapter_state, mode, payload)
     end
   end
 
+  @doc "Closes a WebSocket adapter if it implements the optional callback."
   def close(adapter, adapter_state, reason) do
     if function_exported?(adapter, :close, 2) do
       adapter.close(adapter_state, reason)
