@@ -74,3 +74,36 @@ scripts/run_standard_replies_integration.sh
 scripts/run_irssi_manual_check.sh
 scripts/run_irssi_server_check.sh
 ```
+
+## Versioning and release tags
+
+The package version follows [Semantic Versioning](https://semver.org/). Choose
+the increment based on the public API change, then update `mix.exs` with:
+
+```bash
+bin/bump-version <major|minor|patch>
+```
+
+- `major` is for incompatible public API changes.
+- `minor` is for backward-compatible functionality.
+- `patch` is for backward-compatible fixes.
+
+For versions below `1.0.0`, Hex recommends using a minor increment for breaking
+changes. The package version remains plain `MAJOR.MINOR.PATCH`, as required by
+Hex. After committing the version change and completing the release checks,
+create its local Git tag with:
+
+```bash
+bin/release
+```
+
+The release script reads the version from `mix.exs`, creates the corresponding
+`vMAJOR.MINOR.PATCH` tag, and refuses to replace an existing local or remote
+tag. The `v` prefix follows the Git-tag example in the SemVer specification;
+it is not part of the Hex package version. The script does not publish the
+package or push the tag. Do those explicitly after reviewing the release:
+
+```bash
+mix hex.publish
+git push origin vMAJOR.MINOR.PATCH
+```

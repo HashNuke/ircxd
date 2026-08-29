@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 1 || ! "$1" =~ ^(major|minor|patch)$ ]]; then
+  printf 'usage: %s <major|minor|patch>\n' "${0##*/}" >&2
+  exit 2
+fi
+
+part="$1"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd -- "${script_dir}/.." && pwd)"
+
+python3 - "${part}" "${repo_root}/mix.exs" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+part = sys.argv[1]
+mix_path = Path(sys.argv[2])
+mix_exs = mix_path.read_text(encoding="utf-8")
+match = re.search(
+    r'(?m)^(\s*version:\s*")([0-9]+)\.([0-9]+)\.([0-9]+)("\s*,?\s*)$',
+    mix_exs,
+)
+if not match:
+    raise SystemExit(f"error: could not find a stable semantic version in {mix_path}")
+
+major, minor, patch = (int(match.group(index)) for index in (2, 3, 4))
+if part == "major":
+    major += 1
+    minor = 0
+    patch = 0
+elif part == "minor":
+    minor += 1
+    patch = 0
+else:
+    patch += 1
+
+old_version = f"{match.group(2)}.{match.group(3)}.{match.group(4)}"
+new_version = f"{major}.{minor}.{patch}"
+mix_path.write_text(
+    mix_exs[: match.start(2)] + new_version + mix_exs[match.end(4) :],
+    encoding="utf-8",
+)
+
+print(f"bumped version {old_version} -> {new_version}")
+PY

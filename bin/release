@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd -- "${script_dir}/.." && pwd)"
+
+version="$(
+  python3 - "${repo_root}/mix.exs" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+mix_path = Path(sys.argv[1])
+mix_exs = mix_path.read_text(encoding="utf-8")
+match = re.search(
+    r'(?m)^\s*version:\s*"([0-9]+\.[0-9]+\.[0-9]+)"\s*,?\s*$',
+    mix_exs,
+)
+if not match:
+    raise SystemExit(f"error: could not find a stable semantic version in {mix_path}")
+
+print(match.group(1))
+PY
+)"
+tag="v${version}"
+
+if git -C "${repo_root}" rev-parse --verify --quiet "refs/tags/${tag}" >/dev/null; then
+  printf 'error: tag already exists locally: %s\n' "${tag}" >&2
+  exit 1
+fi
+
+if git -C "${repo_root}" ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+  printf 'error: tag already exists on origin: %s\n' "${tag}" >&2
+  exit 1
+fi
+
+git -C "${repo_root}" tag "${tag}"
+printf 'created tag %s\n' "${tag}"
