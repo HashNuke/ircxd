@@ -51,6 +51,7 @@ defmodule Ircxd.MixProject do
   defp docs do
     [
       main: "readme",
+      source_ref: "v#{Mix.Project.config()[:version]}",
       extras: [
         "README.md",
         "docs/client-adapters.md",
