@@ -75,7 +75,6 @@ defmodule Ircxd.MixProject do
       files: [
         "lib",
         "docs",
-        "scripts",
         "mix.exs",
         "README.md",
         "LICENSE",

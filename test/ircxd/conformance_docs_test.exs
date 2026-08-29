@@ -146,7 +146,6 @@ defmodule Ircxd.ConformanceDocsTest do
     assert Keyword.fetch!(package, :files) == [
              "lib",
              "docs",
-             "scripts",
              "mix.exs",
              "README.md",
              "LICENSE",
@@ -156,9 +155,7 @@ defmodule Ircxd.ConformanceDocsTest do
     assert Keyword.fetch!(package, :licenses) == ["Apache-2.0"]
 
     assert Keyword.fetch!(package, :links) == %{
-             "Repository" => "https://github.com/HashNuke/ircxd",
-             "Modern IRC" => "https://modern.ircdocs.horse/",
-             "IRCv3" => "https://ircv3.net/irc/"
+             "Repository" => "https://github.com/HashNuke/ircxd"
            }
   end
 
