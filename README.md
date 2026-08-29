@@ -167,8 +167,7 @@ production integration.
 ## Story
 
 I've tried to build IRC client many times. But priorities and other shiny stars
-kept me away. Because it's 2026, and now thanks to AI, I have ircxd to show you
-:)
+kept me away. Because it's 2026, and now thanks to AI, I have ircxd :)
 
 ![IRC client prototype from November 2017](docs/assets/irc-client-2017nov21-1855hrs.png)
 
