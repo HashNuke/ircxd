@@ -158,8 +158,6 @@ production integration.
   authentication, custom commands, and event contract.
 - [Development and testing](docs/development.md): local setup, automated tests,
   benchmarks, integration checks, and release verification.
-- [Security](docs/security.md): security model, review findings, and remediation
-  priorities.
 
 ## License
 

@@ -58,7 +58,6 @@ defmodule Ircxd.MixProject do
         "README.md",
         "docs/client-adapters.md",
         "docs/development.md",
-        "docs/security.md",
         "docs/server-adapters.md"
       ],
       groups_for_extras: [
@@ -66,8 +65,7 @@ defmodule Ircxd.MixProject do
           "docs/client-adapters.md",
           "docs/development.md",
           "docs/server-adapters.md"
-        ],
-        Security: ["docs/security.md"]
+        ]
       ]
     ]
   end
