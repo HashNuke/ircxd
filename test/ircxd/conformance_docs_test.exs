@@ -106,7 +106,6 @@ defmodule Ircxd.ConformanceDocsTest do
           "Ircxd.Server.Adapter",
           "adapter: {Module, init_arg}",
           "handle_event/3",
-          "Ircxd.Handler",
           "[server adapter guide](server-adapters.md)"
         ] do
       assert guide =~ required

@@ -16,19 +16,6 @@ defmodule Ircxd.ClientEventsTest do
     end
   end
 
-  defmodule LegacyHandler do
-    @behaviour Ircxd.Handler
-
-    @impl true
-    def init(owner), do: {:ok, owner}
-
-    @impl true
-    def handle_event(event, owner) do
-      send(owner, {:legacy_handler_event, event})
-      {:ok, owner}
-    end
-  end
-
   test "emits Modern IRC state-change events" do
     server =
       start_supervised!(
@@ -127,31 +114,7 @@ defmodule Ircxd.ClientEventsTest do
                    1_000
   end
 
-  test "keeps the legacy handler option working" do
-    server =
-      start_supervised!(
-        {ScriptedIrcServer,
-         test_pid: self(),
-         script: fn
-           "CAP LS 302", _state -> [":irc.test CAP * LS :"]
-           "CAP END", _state -> [":irc.test 001 nick :Welcome"]
-           _line, _state -> []
-         end}
-      )
-
-    {:ok, _client} =
-      Ircxd.start_link(
-        host: "127.0.0.1",
-        port: ScriptedIrcServer.port(server),
-        nick: "nick",
-        handler: {LegacyHandler, self()}
-      )
-
-    assert_receive {:legacy_handler_event, {:connected, _context}}, 1_000
-    assert_receive {:legacy_handler_event, :registered}, 1_000
-  end
-
-  test "rejects configuring both client integration styles" do
+  test "rejects the removed handler option" do
     previous_trap_exit = Process.flag(:trap_exit, true)
 
     result =
@@ -159,12 +122,11 @@ defmodule Ircxd.ClientEventsTest do
         host: "127.0.0.1",
         port: 1,
         nick: "nick",
-        adapter: {TestAdapter, self()},
-        handler: {LegacyHandler, self()}
+        handler: {OldHandler, self()}
       )
 
     Process.flag(:trap_exit, previous_trap_exit)
-    assert {:error, {:adapter_init_failed, :conflicting_adapter_and_handler}} = result
+    assert {:error, {:adapter_init_failed, :handler_option_removed}} = result
   end
 
   defp assert_event(expected) do

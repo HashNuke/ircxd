@@ -98,9 +98,6 @@ Client behavior and integration options are:
 | `:msgid_dedupe` | `false` | Use `:mark` to identify repeated IRCv3 message IDs. |
 | `:server_time_order` | `false` | Buffer server-time events with `:manual` or `[flush_after: milliseconds]`. |
 
-The legacy `handler: {Module, init_arg}` option is described in the migration
-section below. Do not configure it together with `:adapter`.
-
 Server-time ordering delays publication, not IRC protocol bookkeeping.
 Timestamped batch members are attached to and collected into their active
 batch as they arrive. An untimed batch close can therefore publish complete
@@ -238,7 +235,7 @@ unambiguous logical response boundary. `:labeled_response` is also derivative:
 consumers can use it for correlation without treating it as another content
 row.
 
-Legacy atom and tuple events remain the default. Start a client with
+Atom and tuple events remain the default. Start a client with
 `events: :envelope` to receive one `%Ircxd.Client.Event{}` for each published
 event, or `events: :both` during migration. An envelope provides `:name`,
 `:payload`, `:message`, `:label`, `:batch`, server-time and duplicate metadata,
@@ -512,21 +509,3 @@ An invalid callback return retains the previous state. Adapter initialization
 failure stops client startup as `{:adapter_init_failed, reason}`. Do not use the
 callback state as the only copy of durable data; it ends with the client
 process.
-
-## Migrating from `Ircxd.Handler`
-
-`Ircxd.Handler` and the `handler: {Module, init_arg}` option remain supported
-for compatibility. New code should use `Ircxd.Client.Adapter` and `:adapter`.
-The migration adds a context argument:
-
-```elixir
-# Legacy
-def handle_event(event, state), do: {:ok, state}
-
-# Current
-def handle_event(event, context, state), do: {:ok, state}
-```
-
-Do not configure both `:handler` and `:adapter` on the same client. Startup
-will fail with `:conflicting_adapter_and_handler`, which prevents an event from
-being applied twice accidentally.

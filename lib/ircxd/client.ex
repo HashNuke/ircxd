@@ -61,7 +61,6 @@ defmodule Ircxd.Client do
     * `:webirc` - Sets the options for the `WEBIRC` command.
     * `:msgid_dedupe` - Sets `false` or `:mark` for message-ID duplicates.
     * `:server_time_order` - Sets `false`, `:manual`, or flush timer options.
-    * `:handler` - Sets a legacy `{handler_module, init_arg}` pair.
 
   The process connects asynchronously. A successful return does not mean that
   IRC registration is complete.
@@ -591,7 +590,6 @@ defmodule Ircxd.Client do
       notify: Keyword.get(opts, :notify),
       adapter: nil,
       adapter_state: nil,
-      adapter_style: nil,
       active_batches: %{},
       cap_list_buffer: %{},
       multiline_batches: %{},
@@ -3550,24 +3548,20 @@ defmodule Ircxd.Client do
     end
   end
 
+  defp init_adapter(_state, _adapter, handler) when not is_nil(handler),
+    do: {:error, :handler_option_removed}
+
   defp init_adapter(state, nil, nil), do: {:ok, state}
 
-  defp init_adapter(_state, adapter, handler)
-       when not is_nil(adapter) and not is_nil(handler),
-       do: {:error, :conflicting_adapter_and_handler}
-
   defp init_adapter(state, {module, arg}, nil) when is_atom(module),
-    do: initialize_adapter(state, module, arg, :adapter)
-
-  defp init_adapter(state, nil, {module, arg}) when is_atom(module),
-    do: initialize_adapter(state, module, arg, :handler)
+    do: initialize_adapter(state, module, arg)
 
   defp init_adapter(_state, _adapter, _handler), do: {:error, :invalid_adapter}
 
-  defp initialize_adapter(state, module, arg, style) do
+  defp initialize_adapter(state, module, arg) do
     case module.init(arg) do
       {:ok, adapter_state} ->
-        {:ok, %{state | adapter: module, adapter_state: adapter_state, adapter_style: style}}
+        {:ok, %{state | adapter: module, adapter_state: adapter_state}}
 
       {:error, reason} ->
         {:error, reason}
@@ -3604,11 +3598,7 @@ defmodule Ircxd.Client do
         state
 
       module ->
-        result =
-          case state.adapter_style do
-            :adapter -> module.handle_event(event, adapter_context(state), state.adapter_state)
-            :handler -> module.handle_event(event, state.adapter_state)
-          end
+        result = module.handle_event(event, adapter_context(state), state.adapter_state)
 
         case result do
           {:ok, adapter_state} -> %{state | adapter_state: adapter_state}
