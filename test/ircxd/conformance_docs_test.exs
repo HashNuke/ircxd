@@ -117,14 +117,16 @@ defmodule Ircxd.ConformanceDocsTest do
              "IRC client library and embeddable IRC server for Elixir applications, with Modern IRC and IRCv3 support."
   end
 
-  test "all repository docs are included in generated ExDoc extras" do
+  test "all public repository guides are included in generated ExDoc extras" do
     repo_root = Path.expand("../..", __DIR__)
+    internal_reviews = ["docs/security.md"]
 
-    docs_files =
+    public_docs =
       repo_root
       |> Path.join("docs/*.md")
       |> Path.wildcard()
       |> Enum.map(&Path.relative_to(&1, repo_root))
+      |> Kernel.--(internal_reviews)
       |> Enum.sort()
 
     configured_extras =
@@ -134,7 +136,8 @@ defmodule Ircxd.ConformanceDocsTest do
       |> Enum.reject(&(&1 == "README.md"))
       |> Enum.sort()
 
-    assert docs_files == configured_extras
+    assert public_docs == configured_extras
+    refute Enum.any?(internal_reviews, &(&1 in configured_extras))
   end
 
   test "package metadata includes source docs license and protocol links" do
