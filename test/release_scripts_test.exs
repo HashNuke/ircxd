@@ -28,6 +28,12 @@ defmodule Ircxd.ReleaseScriptsTest do
     end
     """)
 
+    File.write!(Path.join(repo, "README.md"), """
+    # Fixture
+
+    [![CI](https://img.shields.io/github/check-suites/example/fixture/v1.2.3?label=CI)](https://github.com/example/fixture/actions/workflows/ci.yml)
+    """)
+
     %{repo: repo}
   end
 
@@ -38,12 +44,25 @@ defmodule Ircxd.ReleaseScriptsTest do
       mix_exs = File.read!(Path.join(repo, "mix.exs"))
       assert mix_exs =~ ~s(@version "#{unquote(expected)}")
       refute mix_exs =~ ~s(@version "1.2.3")
+
+      readme = File.read!(Path.join(repo, "README.md"))
+      assert readme =~ "/v#{unquote(expected)}?label=CI"
+      refute readme =~ "/v1.2.3?label=CI"
     end
   end
 
   test "bump-version rejects unsupported increments without changing the version", %{repo: repo} do
     assert {output, 2} = run(repo, "bin/bump-version", ["prerelease"])
     assert output =~ "usage: bump-version <major|minor|patch>"
+    assert File.read!(Path.join(repo, "mix.exs")) =~ ~s(@version "1.2.3")
+  end
+
+  test "bump-version rejects a stale CI badge without changing the version", %{repo: repo} do
+    readme_path = Path.join(repo, "README.md")
+    File.write!(readme_path, String.replace(File.read!(readme_path), "v1.2.3", "v1.2.2"))
+
+    assert {output, 1} = run(repo, "bin/bump-version", ["patch"])
+    assert output =~ "CI badge version 1.2.2 does not match 1.2.3"
     assert File.read!(Path.join(repo, "mix.exs")) =~ ~s(@version "1.2.3")
   end
 

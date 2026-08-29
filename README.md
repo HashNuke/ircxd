@@ -1,6 +1,6 @@
 # ircxd - IRC client & server library for Elixir
 
-[![CI](https://github.com/HashNuke/ircxd/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/HashNuke/ircxd/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/check-suites/HashNuke/ircxd/v1.1.0?label=CI)](https://github.com/HashNuke/ircxd/actions/workflows/ci.yml)
 [![Hex.pm](https://img.shields.io/hexpm/v/ircxd.svg)](https://hex.pm/packages/ircxd)
 [![HexDocs](https://img.shields.io/badge/hex-docs-blue.svg)](https://hexdocs.pm/ircxd)
 [![License](https://img.shields.io/hexpm/l/ircxd.svg)](https://hex.pm/packages/ircxd)

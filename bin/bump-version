@@ -10,14 +10,16 @@ part="$1"
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "${script_dir}/.." && pwd)"
 
-python3 - "${part}" "${repo_root}/mix.exs" <<'PY'
+python3 - "${part}" "${repo_root}/mix.exs" "${repo_root}/README.md" <<'PY'
 from pathlib import Path
 import re
 import sys
 
 part = sys.argv[1]
 mix_path = Path(sys.argv[2])
+readme_path = Path(sys.argv[3])
 mix_exs = mix_path.read_text(encoding="utf-8")
+readme = readme_path.read_text(encoding="utf-8")
 match = re.search(
     r'(?m)^(\s*@version\s+")([0-9]+)\.([0-9]+)\.([0-9]+)("\s*)$',
     mix_exs,
@@ -38,8 +40,25 @@ else:
 
 old_version = f"{match.group(2)}.{match.group(3)}.{match.group(4)}"
 new_version = f"{major}.{minor}.{patch}"
+
+badge_pattern = re.compile(
+    r'(https://img\.shields\.io/github/check-suites/[^/\s)]+/[^/\s)]+/v)'
+    r'([0-9]+\.[0-9]+\.[0-9]+)(\?[^)\s]*)'
+)
+badge_match = badge_pattern.search(readme)
+if not badge_match:
+    raise SystemExit(f"error: could not find a versioned CI badge in {readme_path}")
+if badge_match.group(2) != old_version:
+    raise SystemExit(
+        f"error: CI badge version {badge_match.group(2)} does not match {old_version}"
+    )
+
 mix_path.write_text(
     mix_exs[: match.start(2)] + new_version + mix_exs[match.end(4) :],
+    encoding="utf-8",
+)
+readme_path.write_text(
+    readme[: badge_match.start(2)] + new_version + readme[badge_match.end(2) :],
     encoding="utf-8",
 )
 
