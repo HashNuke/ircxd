@@ -10,11 +10,18 @@ defmodule Ircxd.ClientCommand do
 
   alias Ircxd.Message
 
+  @typedoc "A grammar feature policy."
   @type option ::
           {:tags, :allow | :forbid}
           | {:source, :allow | :forbid}
           | {:numerics, :allow | :forbid}
 
+  @doc """
+  Parses and validates one client command line.
+
+  Use `:tags`, `:source`, or `:numerics` with `:allow` to permit that grammar
+  feature. Each option defaults to `:forbid`.
+  """
   @spec parse(String.t(), [option()]) :: {:ok, Message.t()} | {:error, atom()}
   def parse(line, opts \\ [])
 
@@ -28,6 +35,7 @@ defmodule Ircxd.ClientCommand do
 
   def parse(_line, _opts), do: {:error, :invalid_line}
 
+  @doc "Validates a client message with the same options as `parse/2`."
   @spec validate(Message.t(), [option()]) :: :ok | {:error, atom()}
   def validate(message, opts \\ [])
 
@@ -46,6 +54,7 @@ defmodule Ircxd.ClientCommand do
 
   def validate(_message, _opts), do: {:error, :invalid_message}
 
+  @doc "Converts the message command to uppercase."
   @spec normalize(Message.t()) :: Message.t()
   def normalize(%Message{command: command} = message) when is_binary(command),
     do: %{message | command: String.upcase(command)}

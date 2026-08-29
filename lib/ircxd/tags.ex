@@ -3,6 +3,7 @@ defmodule Ircxd.Tags do
   Convenience helpers for common IRCv3 message tags.
   """
 
+  @doc "Parses the `time` tag as a `DateTime`."
   def server_time(%{tags: tags}), do: server_time(tags)
 
   def server_time(tags) when is_map(tags) do
@@ -15,25 +16,32 @@ defmodule Ircxd.Tags do
     end
   end
 
+  @doc "Returns the `msgid` tag value."
   def msgid(%{tags: tags}), do: msgid(tags)
   def msgid(tags) when is_map(tags), do: Map.get(tags, "msgid")
 
+  @doc "Returns the `label` tag value."
   def label(%{tags: tags}), do: label(tags)
   def label(tags) when is_map(tags), do: Map.get(tags, "label")
 
+  @doc "Returns the `batch` tag value."
   def batch(%{tags: tags}), do: batch(tags)
   def batch(tags) when is_map(tags), do: Map.get(tags, "batch")
 
+  @doc "Returns the account tag value, or `nil` for `*`."
   def account(%{tags: tags}), do: account(tags)
   def account(%{"account" => "*"}), do: nil
   def account(tags) when is_map(tags), do: Map.get(tags, "account")
 
+  @doc "Returns `true` if the tags contain the `bot` tag."
   def bot?(%{tags: tags}), do: bot?(tags)
   def bot?(tags) when is_map(tags), do: Map.has_key?(tags, "bot")
 
+  @doc "Returns the `+reply` client-tag value."
   def reply_to_msgid(%{tags: tags}), do: reply_to_msgid(tags)
   def reply_to_msgid(tags) when is_map(tags), do: Map.get(tags, "+reply")
 
+  @doc "Returns the `+draft/channel-context` client-tag value."
   def channel_context(%{tags: tags}), do: channel_context(tags)
   def channel_context(tags) when is_map(tags), do: Map.get(tags, "+draft/channel-context")
 end

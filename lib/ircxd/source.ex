@@ -8,6 +8,17 @@ defmodule Ircxd.Source do
 
   defstruct raw: nil, type: nil, nick: nil, user: nil, host: nil, server: nil
 
+  @typedoc "A parsed server name or user mask."
+  @type t :: %__MODULE__{
+          raw: String.t() | nil,
+          type: :server | :user | nil,
+          nick: String.t() | nil,
+          user: String.t() | nil,
+          host: String.t() | nil,
+          server: String.t() | nil
+        }
+
+  @doc "Parses a server name or user mask. Returns `nil` for a `nil` source."
   def parse(nil), do: nil
 
   def parse(source) when is_binary(source) do

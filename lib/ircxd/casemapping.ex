@@ -7,8 +7,10 @@ defmodule Ircxd.Casemapping do
   names.
   """
 
+  @typedoc "An IRC identifier casemapping."
   @type mapping :: :ascii | :rfc1459 | :strict_rfc1459
 
+  @doc "Normalizes an IRC identifier with the selected casemapping."
   def normalize(value, mapping \\ :rfc1459)
 
   def normalize(value, :ascii) when is_binary(value), do: ascii_downcase(value)
@@ -30,10 +32,12 @@ defmodule Ircxd.Casemapping do
     |> String.replace("\\", "|")
   end
 
+  @doc "Compares two IRC identifiers with the selected casemapping."
   def equal?(left, right, mapping \\ :rfc1459) do
     normalize(left, mapping) == normalize(right, mapping)
   end
 
+  @doc "Returns the casemapping for a `CASEMAPPING` token value."
   def from_isupport(nil), do: :rfc1459
   def from_isupport("ascii"), do: :ascii
   def from_isupport("rfc1459"), do: :rfc1459

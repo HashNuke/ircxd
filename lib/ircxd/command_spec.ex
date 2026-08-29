@@ -84,9 +84,16 @@ defmodule Ircxd.CommandSpec do
     "WHOWAS" => "<nick> [count]"
   }
 
+  @doc "Returns all commands with built-in metadata."
   @spec commands() :: [String.t()]
   def commands, do: @commands
 
+  @doc """
+  Returns protocol metadata for a command.
+
+  The result contains syntax, capability, ISUPPORT, sensitive-parameter, event,
+  and client-state information. Unknown commands return `known?: false`.
+  """
   @spec get(String.t()) :: map()
   def get(command) when is_binary(command) do
     command = String.upcase(command)
@@ -110,6 +117,7 @@ defmodule Ircxd.CommandSpec do
     end
   end
 
+  @doc "Classifies a command with its parameters and current client state."
   @spec classify(String.t(), [String.t()], Info.t() | map()) :: map()
   def classify(command, params, client_info) when is_binary(command) and is_list(params) do
     command = String.upcase(command)

@@ -16,6 +16,7 @@ defmodule Ircxd.Message do
   @max_received_wire_bytes @max_received_tag_section_bytes + @max_message_bytes
   @max_params 15
 
+  @typedoc "A parsed IRC message."
   @type t :: %__MODULE__{
           tags: %{optional(String.t()) => String.t() | true},
           source: String.t() | nil,
@@ -23,6 +24,7 @@ defmodule Ircxd.Message do
           params: [String.t()]
         }
 
+  @doc "Parses one IRC wire line."
   @spec parse(String.t()) :: {:ok, t()} | {:error, atom()}
   def parse(line) when is_binary(line) do
     with :ok <- validate_received_wire_size(line) do
@@ -82,6 +84,7 @@ defmodule Ircxd.Message do
     |> Kernel.<=(@max_message_bytes)
   end
 
+  @doc "Serializes a message and adds the final CRLF sequence."
   @spec serialize(t() | {String.t(), [String.t()]} | {String.t(), [String.t()], map()}) ::
           String.t()
   def serialize(%__MODULE__{} = message) do
@@ -104,6 +107,7 @@ defmodule Ircxd.Message do
     serialize(%__MODULE__{command: command, params: params, tags: tags})
   end
 
+  @doc "Returns `true` if an outgoing line meets IRC wire-size limits."
   def valid_wire_size?("@" <> rest) do
     case String.split(rest, " ", parts: 2) do
       [tag_data, message] ->
@@ -117,26 +121,41 @@ defmodule Ircxd.Message do
 
   def valid_wire_size?(line) when is_binary(line), do: byte_size(line) <= @max_message_bytes
 
+  @doc "Returns `true` if client tag data meets the IRCv3 size limit."
   def valid_client_tag_data_size?(tag_data) when is_binary(tag_data) do
     byte_size(tag_data) <= @max_client_tag_data_bytes
   end
 
+  @doc "Returns `true` if a received tag section meets the IRCv3 size limit."
   def valid_received_tag_section_size?(tag_section) when is_binary(tag_section) do
     String.starts_with?(tag_section, "@") and String.ends_with?(tag_section, " ") and
       byte_size(tag_section) <= @max_received_tag_section_bytes
   end
 
+  @doc "Returns `true` if a command is alphabetic or a three-digit numeric."
   def valid_command?(command) when is_binary(command) do
     String.match?(command, ~r/\A([A-Za-z]+|\d{3})\z/)
   end
 
+  @doc "Returns the maximum IRC message size, including CRLF."
   def max_message_bytes, do: @max_message_bytes
+
+  @doc "Returns the maximum IRC message size, excluding CRLF."
   def max_message_bytes_without_crlf, do: @max_message_bytes_without_crlf
+
+  @doc "Returns the maximum size of outgoing client tag data."
   def max_client_tag_data_bytes, do: @max_client_tag_data_bytes
+
+  @doc "Returns the maximum size of a received tag section."
   def max_received_tag_section_bytes, do: @max_received_tag_section_bytes
+
+  @doc "Returns the maximum received wire size with message tags."
   def max_received_wire_bytes, do: @max_received_wire_bytes
+
+  @doc "Returns the maximum number of IRC message parameters."
   def max_params, do: @max_params
 
+  @doc "Escapes an IRCv3 message-tag value."
   def escape_tag_value(value) when is_binary(value) do
     value
     |> String.replace("\\", "\\\\")
@@ -146,6 +165,7 @@ defmodule Ircxd.Message do
     |> String.replace("\n", "\\n")
   end
 
+  @doc "Unescapes an IRCv3 message-tag value."
   def unescape_tag_value(value) when is_binary(value) do
     value
     |> String.graphemes()
