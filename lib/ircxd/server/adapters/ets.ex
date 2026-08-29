@@ -6,6 +6,13 @@ defmodule Ircxd.Server.Adapters.ETS do
   memberships, and accepted messages. The adapter is suitable for tests and
   for production servers whose state may be rebuilt after a node restart. ETS
   does not provide disk durability.
+
+  Configure this adapter as `{Ircxd.Server.Adapters.ETS, options}`. It accepts
+  these options:
+
+    * `:authenticate` - Sets a three-argument credential verification function.
+    * `:history_limit` - Sets the maximum number of accepted messages. The
+      default is `1_000`.
   """
 
   @behaviour Ircxd.Server.Adapter

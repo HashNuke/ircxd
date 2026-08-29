@@ -4,8 +4,12 @@ defmodule Ircxd.Server.Event do
 
   Events describe accepted state changes rather than raw socket input. In
   particular, credential-bearing commands are never represented as events.
+
+  The `:type` field identifies the change. The `:data` field contains the
+  event-specific data. The other fields identify the server and event time.
   """
 
+  @typedoc "A committed server state change."
   @type t :: %__MODULE__{
           type: atom(),
           server_id: term(),

@@ -1,10 +1,9 @@
 defmodule Ircxd.Server do
   @moduledoc """
-  Embeddable IRC server.
+  Provides an embeddable IRC server.
 
-  Add `{Ircxd.Server, id: :public_irc, port: 6667}` to an application's
-  supervision tree. Each server owns its listener and connections, so multiple
-  instances can run in the same VM when they have distinct child IDs.
+  Use `start_link/1` or add this module to a supervision tree. Each server owns
+  one listener and its client connections.
   """
 
   use GenServer
@@ -27,25 +26,62 @@ defmodule Ircxd.Server do
     }
   end
 
+  @doc """
+  Starts an IRC server.
+
+  This function accepts these options:
+
+    * `:port` - Sets the listener port. The default is `6667`. Use `0` to select
+      an available port.
+    * `:ip` - Sets the listener address. The default is `{127, 0, 0, 1}`.
+    * `:server_name` - Sets the IRC server name. The default is `"ircxd.local"`.
+    * `:name` - Registers the server process with a name.
+    * `:id` - Sets the child ID and the adapter server ID.
+    * `:tls` - Enables implicit TLS. The default is `false`.
+    * `:tls_options` - Sets the Erlang TLS listener options.
+    * `:password` - Requires a server password during registration.
+    * `:allow_insecure_auth` - Permits credentials on TCP. The default is `false`.
+    * `:external_auth` - Enables SASL EXTERNAL with peer certificates.
+    * `:adapter` - Sets an `{adapter_module, init_arg}` pair.
+    * `:authentication_timeout` - Sets the adapter authentication timeout.
+    * `:registration_timeout` - Sets the client registration timeout.
+    * `:handshake_timeout` - Sets the TLS handshake timeout.
+    * `:max_handshakes` - Sets the maximum number of concurrent TLS handshakes.
+    * `:max_connections` - Sets the maximum number of client connections.
+    * `:command_rate_limit` - Sets the command limit for each one-second window.
+    * `:history_limit` - Sets the maximum in-memory message count.
+    * `:motd` - Sets the message-of-the-day lines.
+    * `:info` - Sets the server information lines.
+    * `:help` - Sets the server help map.
+    * `:isupport` - Sets the advertised `ISUPPORT` tokens.
+    * `:admin` - Sets the server administrator information.
+  """
   def start_link(opts) when is_list(opts) do
     GenServer.start_link(__MODULE__, opts, Keyword.take(opts, [:name]))
   end
 
+  @doc "Returns the active listener port."
   def port(server), do: GenServer.call(server, :port)
 
   @doc """
-  Runs an application-state query against the configured server adapter.
+  Runs a read-only query through the configured server adapter.
+
+  Returns `{:error, :adapter_not_configured}` if the server has no adapter.
   """
   def query(server, query), do: GenServer.call(server, {:adapter_query, query})
 
   @doc """
-  Executes an application-owned state operation through the configured adapter.
+  Runs a state operation through the configured server adapter.
+
+  Returns `{:error, :adapter_not_configured}` if the server has no adapter.
   """
   def execute(server, operation), do: GenServer.call(server, {:adapter_execute, operation})
 
+  @doc false
   def publish(server, message, metadata),
     do: GenServer.cast(server, {:publish, message, metadata})
 
+  @doc false
   def authenticate(server, username, password, metadata) do
     result =
       case GenServer.call(server, :adapter) do
@@ -61,6 +97,7 @@ defmodule Ircxd.Server do
     result
   end
 
+  @doc false
   def command(server, connection, message) do
     GenServer.call(server, {:client_command, connection, message})
   catch
@@ -68,21 +105,27 @@ defmodule Ircxd.Server do
       {:error, :server_stopped}
   end
 
+  @doc false
   def capabilities(server, connection, capabilities),
     do: GenServer.cast(server, {:client_capabilities, connection, capabilities})
 
+  @doc false
   def identity(server, connection, username, realname),
     do: GenServer.cast(server, {:client_identity, connection, username, realname})
 
+  @doc false
   def account(server, connection, account),
     do: GenServer.cast(server, {:client_account, connection, account})
 
+  @doc false
   def register(server, connection, nick),
     do: GenServer.call(server, {:register, connection, nick})
 
+  @doc false
   def change_nick(server, connection, nick),
     do: GenServer.call(server, {:change_nick, connection, nick})
 
+  @doc false
   def verify_password(server, password),
     do: GenServer.call(server, {:verify_password, password})
 
