@@ -80,9 +80,11 @@ defmodule Ircxd.Client.Event do
           derivative?: boolean()
         }
 
+  @doc "Returns all public client event names."
   @spec names() :: [atom()]
   def names, do: @names
 
+  @doc "Returns the event properties for a public event name."
   @spec spec(atom()) :: map() | nil
   def spec(name) when name in @names do
     %{
@@ -94,6 +96,7 @@ defmodule Ircxd.Client.Event do
 
   def spec(_name), do: nil
 
+  @doc "Builds an event envelope from a legacy event."
   @spec from_legacy!(legacy(), Message.t() | nil) :: t()
   def from_legacy!(legacy, message_override \\ nil) do
     {name, payload} = split_legacy(legacy)

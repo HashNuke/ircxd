@@ -1,28 +1,9 @@
 defmodule Ircxd.Client do
   @moduledoc """
-  GenServer IRC client.
+  Provides a supervised IRC client and command functions.
 
-  Options:
-
-    * `:host` - IRC server host.
-    * `:port` - IRC server port.
-    * `:tls` - true for implicit TLS.
-    * `:sni` - TLS Server Name Indication hostname, defaults to `:host`.
-    * `:tls_options` - additional Erlang `:ssl.connect/4` options. TLS verifies
-      the peer certificate and hostname against the system trust store by
-      default. Development-only callers may explicitly set `verify: :verify_none`.
-    * `:password` - optional server password sent with `PASS` before registration.
-    * `:allow_insecure_auth` - allow credential-bearing commands over cleartext TCP.
-      Defaults to `false`.
-    * `:nick` - desired nickname.
-    * `:username` - username sent in registration.
-    * `:realname` - realname sent in registration.
-    * `:caps` - IRCv3 capabilities to request.
-    * `:notify` - pid to receive `{:ircxd, event}` messages.
-    * `:adapter` - `{module, init_arg}` implementing `Ircxd.Client.Adapter`.
-    * `:events` - `:legacy` (default), `:envelope`, or `:both` event delivery.
-    * `:handler` - legacy `{module, init_arg}` implementing `Ircxd.Handler`.
-      Prefer `:adapter` for new integrations.
+  Use `start_link/1` to configure a connection. Use the command functions only
+  after the client emits the `:registered` event.
   """
 
   use GenServer
@@ -53,6 +34,38 @@ defmodule Ircxd.Client do
   alias Ircxd.Who
   alias Ircxd.Whois
 
+  @doc """
+  Starts a client process and schedules a connection attempt.
+
+  This function accepts these options:
+
+    * `:host` - Required server host.
+    * `:nick` - Required initial nickname.
+    * `:port` - Server port. The default is `6697` for TLS or `6667` for TCP.
+    * `:tls` - Enables implicit TLS. The default is `false`.
+    * `:sni` - Sets the TLS server name. The default is `:host`.
+    * `:tls_options` - Adds options for `:ssl.connect/4`.
+    * `:username` - Sets the registration username. The default is `:nick`.
+    * `:realname` - Sets the registration real name. The default is `:nick`.
+    * `:nick_retry_fun` - Sets the nickname-collision function.
+    * `:name` - Registers the client process with a name.
+    * `:caps` - Sets the IRCv3 capabilities to request.
+    * `:notify` - Sets the process that receives `{:ircxd, event}` messages.
+    * `:adapter` - Sets an `{adapter_module, init_arg}` pair.
+    * `:events` - Sets `:legacy`, `:envelope`, or `:both` event delivery.
+    * `:reconnect` - Sets `false`, `true`, or a reconnect option list.
+    * `:password` - Sets the server password for registration.
+    * `:sasl` - Sets one SASL mechanism or an ordered mechanism list.
+    * `:sasl_failure` - Sets `:continue` or `:abort`. The default is `:continue`.
+    * `:allow_insecure_auth` - Permits credentials on TCP. The default is `false`.
+    * `:webirc` - Sets the options for the `WEBIRC` command.
+    * `:msgid_dedupe` - Sets `false` or `:mark` for message-ID duplicates.
+    * `:server_time_order` - Sets `false`, `:manual`, or flush timer options.
+    * `:handler` - Sets a legacy `{handler_module, init_arg}` pair.
+
+  The process connects asynchronously. A successful return does not mean that
+  IRC registration is complete.
+  """
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, Keyword.take(opts, [:name]))
   end
@@ -66,27 +79,42 @@ defmodule Ircxd.Client do
     }
   end
 
+  @doc "Sends a `CAP REQ` command for one or more capabilities."
   def request_capabilities(client, caps) do
     GenServer.call(client, {:request_caps, List.wrap(caps)})
   end
 
+  @doc "Sends a `CAP REQ` command that disables one or more capabilities."
   def disable_capabilities(client, caps) do
     GenServer.call(client, {:disable_caps, List.wrap(caps)})
   end
 
+  @doc "Sends a `CAP LIST` command."
   def cap_list(client), do: GenServer.call(client, :cap_list)
+
+  @doc "Returns the cached, secret-free connection state."
   def connection_info(client), do: GenServer.call(client, :connection_info)
+
+  @doc "Returns `true` if `nick` identifies the current client."
   def self_nick?(client, nick), do: GenServer.call(client, {:self_nick?, nick})
 
+  @doc "Compares two identifiers with the negotiated IRC casemapping."
   def same_identifier?(client, left, right),
     do: GenServer.call(client, {:same_identifier?, left, right})
 
+  @doc "Sends a `PASS` command."
   def pass(client, password), do: GenServer.call(client, {:send, "PASS", [password]})
+
+  @doc "Sends a `NICK` command."
   def nick(client, nick), do: GenServer.call(client, {:send, "NICK", [nick]})
+
+  @doc "Sends a `JOIN` command."
   def join(client, channel), do: GenServer.call(client, {:send, "JOIN", [channel]})
 
+  @doc "Sends a `NAMES` command."
   def names(client, target), do: GenServer.call(client, {:send, "NAMES", [target]})
 
+  @doc "Sends a `LIST` command for optional channels and a server."
   def list(client, channels \\ nil, server \\ nil)
   def list(client, nil, nil), do: GenServer.call(client, {:send, "LIST", []})
 
@@ -96,31 +124,43 @@ defmodule Ircxd.Client do
   def list(client, channels, server),
     do: GenServer.call(client, {:send, "LIST", [join_targets(channels), server]})
 
+  @doc "Sends an `INVITE` command."
   def invite(client, nick, channel),
     do: GenServer.call(client, {:send, "INVITE", [nick, channel]})
 
+  @doc "Sends a `PART` command."
   def part(client, channel, reason \\ ""),
     do: GenServer.call(client, {:send, "PART", [channel, reason]})
 
+  @doc "Gets or sets a channel topic with a `TOPIC` command."
   def topic(client, channel, topic \\ nil)
   def topic(client, channel, nil), do: GenServer.call(client, {:send, "TOPIC", [channel]})
 
   def topic(client, channel, topic),
     do: GenServer.call(client, {:send, "TOPIC", [channel, topic]})
 
+  @doc "Sets IRC modes on a target."
   def mode(client, target, modes, params \\ []),
     do: GenServer.call(client, {:send, "MODE", [target, modes | params]})
 
+  @doc "Gets the IRC modes for a target."
   def mode_query(client, target), do: GenServer.call(client, {:send, "MODE", [target]})
+
+  @doc "Gets the IRC modes for a channel."
   def channel_modes(client, channel), do: mode_query(client, channel)
+
+  @doc "Gets the IRC modes for a user."
   def user_modes(client, nick), do: mode_query(client, nick)
 
+  @doc "Sends a `KICK` command."
   def kick(client, channel, nick, reason \\ ""),
     do: GenServer.call(client, {:send, "KICK", [channel, nick, reason]})
 
+  @doc "Sends a `PRIVMSG` command."
   def privmsg(client, target, body),
     do: GenServer.call(client, {:send, "PRIVMSG", [target, body]})
 
+  @doc "Sends a tagged `PRIVMSG` command."
   def privmsg(client, target, body, tags) when is_map(tags),
     do:
       GenServer.call(
@@ -128,16 +168,21 @@ defmodule Ircxd.Client do
         {:send, %Message{command: "PRIVMSG", params: [target, body], tags: tags}}
       )
 
+  @doc "Sends a CTCP `ACTION` message."
   def action(client, target, body), do: privmsg(client, target, CTCP.encode("ACTION", body))
 
+  @doc "Sends a reply with the `+reply` client tag."
   def reply(client, target, body, reply_to_msgid),
     do: privmsg(client, target, body, %{"+reply" => reply_to_msgid})
 
+  @doc "Sends a `PRIVMSG` command with a channel-context tag."
   def context_privmsg(client, target, channel_context, body),
     do: context_message(client, "PRIVMSG", target, channel_context, body)
 
+  @doc "Sends a `NOTICE` command."
   def notice(client, target, body), do: GenServer.call(client, {:send, "NOTICE", [target, body]})
 
+  @doc "Sends a tagged `NOTICE` command."
   def notice(client, target, body, tags) when is_map(tags),
     do:
       GenServer.call(
@@ -145,23 +190,29 @@ defmodule Ircxd.Client do
         {:send, %Message{command: "NOTICE", params: [target, body], tags: tags}}
       )
 
+  @doc "Sends a `NOTICE` command with a channel-context tag."
   def context_notice(client, target, channel_context, body),
     do: context_message(client, "NOTICE", target, channel_context, body)
 
+  @doc "Sends a `TAGMSG` command."
   def tagmsg(client, target, tags) when is_map(tags),
     do: GenServer.call(client, {:send, %Message{command: "TAGMSG", params: [target], tags: tags}})
 
+  @doc "Sends an `:active`, `:paused`, or `:done` typing status."
   def typing(client, target, status) when status in [:active, :paused, :done],
     do: tagmsg(client, target, %{"+typing" => Atom.to_string(status)})
 
   def typing(_client, _target, _status), do: {:error, :invalid_typing_status}
 
+  @doc "Adds a reaction to a message."
   def react(client, target, reply_to_msgid, reaction),
     do: reaction_tagmsg(client, target, reply_to_msgid, "+draft/react", reaction)
 
+  @doc "Removes a reaction from a message."
   def unreact(client, target, reply_to_msgid, reaction),
     do: reaction_tagmsg(client, target, reply_to_msgid, "+draft/unreact", reaction)
 
+  @doc "Sends a `REDACT` command with an optional reason."
   def redact(client, target, msgid, reason \\ nil)
 
   def redact(client, target, msgid, nil),
@@ -170,8 +221,10 @@ defmodule Ircxd.Client do
   def redact(client, target, msgid, reason),
     do: GenServer.call(client, {:send, "REDACT", [target, msgid, reason]})
 
+  @doc "Sends a `SETNAME` command."
   def setname(client, realname), do: GenServer.call(client, {:send, "SETNAME", [realname]})
 
+  @doc "Sends a `RENAME` command with an optional reason."
   def rename(client, old_channel, new_channel, reason \\ nil)
 
   def rename(client, old_channel, new_channel, nil),
@@ -180,52 +233,70 @@ defmodule Ircxd.Client do
   def rename(client, old_channel, new_channel, reason),
     do: GenServer.call(client, {:send, "RENAME", [old_channel, new_channel, reason]})
 
+  @doc "Sends a `QUIT` command and suppresses automatic reconnection."
   def quit(client, reason \\ "leaving"), do: GenServer.call(client, {:send, "QUIT", [reason]})
+
+  @doc "Starts a new connection attempt for a disconnected client."
   def reconnect(client), do: GenServer.call(client, :reconnect)
+
+  @doc "Validates and sends an IRC command with parameters."
   def raw(client, command, params \\ []), do: GenServer.call(client, {:send, command, params})
 
+  @doc "Gets the message of the day from the local server or a target server."
   def motd(client, target \\ nil)
   def motd(client, nil), do: GenServer.call(client, {:send, "MOTD", []})
   def motd(client, target), do: GenServer.call(client, {:send, "MOTD", [target]})
 
+  @doc "Gets version information from the local server or a target server."
   def version(client, target \\ nil)
   def version(client, nil), do: GenServer.call(client, {:send, "VERSION", []})
   def version(client, target), do: GenServer.call(client, {:send, "VERSION", [target]})
 
+  @doc "Gets administrator information from the local server or a target server."
   def admin(client, target \\ nil)
   def admin(client, nil), do: GenServer.call(client, {:send, "ADMIN", []})
   def admin(client, target), do: GenServer.call(client, {:send, "ADMIN", [target]})
 
+  @doc "Gets user statistics with an optional mask and target server."
   def lusers(client, mask \\ nil, target \\ nil)
   def lusers(client, nil, nil), do: GenServer.call(client, {:send, "LUSERS", []})
   def lusers(client, mask, nil), do: GenServer.call(client, {:send, "LUSERS", [mask]})
   def lusers(client, mask, target), do: GenServer.call(client, {:send, "LUSERS", [mask, target]})
 
+  @doc "Gets the time from the local server or a target server."
   def time(client, target \\ nil)
   def time(client, nil), do: GenServer.call(client, {:send, "TIME", []})
   def time(client, target), do: GenServer.call(client, {:send, "TIME", [target]})
 
+  @doc "Gets server statistics for an optional query and target server."
   def stats(client, query \\ nil, target \\ nil)
   def stats(client, nil, nil), do: GenServer.call(client, {:send, "STATS", []})
   def stats(client, query, nil), do: GenServer.call(client, {:send, "STATS", [query]})
   def stats(client, query, target), do: GenServer.call(client, {:send, "STATS", [query, target]})
 
+  @doc "Gets server help for an optional subject."
   def help(client, subject \\ nil)
   def help(client, nil), do: GenServer.call(client, {:send, "HELP", []})
   def help(client, subject), do: GenServer.call(client, {:send, "HELP", [subject]})
 
+  @doc "Gets information from the local server or a target server."
   def info(client, target \\ nil)
   def info(client, nil), do: GenServer.call(client, {:send, "INFO", []})
   def info(client, target), do: GenServer.call(client, {:send, "INFO", [target]})
 
+  @doc "Gets users that match a `WHO` mask and optional flags."
   def who(client, mask, options \\ nil)
   def who(client, mask, nil), do: GenServer.call(client, {:send, "WHO", [mask]})
   def who(client, mask, options), do: GenServer.call(client, {:send, "WHO", [mask, options]})
+  @doc "Gets current information about a nickname."
   def whois(client, nick), do: GenServer.call(client, {:send, "WHOIS", [nick]})
+
+  @doc "Gets historical information about a nickname."
   def whowas(client, nick, count \\ nil)
   def whowas(client, nick, nil), do: GenServer.call(client, {:send, "WHOWAS", [nick]})
   def whowas(client, nick, count), do: GenServer.call(client, {:send, "WHOWAS", [nick, count]})
 
+  @doc "Gets server links with an optional remote server and mask."
   def links(client, remote_server \\ nil, mask \\ nil)
   def links(client, nil, nil), do: GenServer.call(client, {:send, "LINKS", []})
 
@@ -235,25 +306,33 @@ defmodule Ircxd.Client do
   def links(client, remote_server, mask),
     do: GenServer.call(client, {:send, "LINKS", [remote_server, mask]})
 
+  @doc "Gets host information for one or more nicknames."
   def userhost(client, nicks),
     do: GenServer.call(client, {:send, "USERHOST", List.wrap(nicks)})
 
+  @doc "Gets the online status of one or more nicknames."
   def ison(client, nicks), do: GenServer.call(client, {:send, "ISON", List.wrap(nicks)})
 
+  @doc "Sends a `WALLOPS` message."
   def wallops(client, message), do: GenServer.call(client, {:send, "WALLOPS", [message]})
 
+  @doc "Sends operator credentials with an `OPER` command."
   def oper(client, name, password), do: GenServer.call(client, {:send, "OPER", [name, password]})
 
+  @doc "Sends a `KILL` command."
   def kill(client, nick, comment),
     do: GenServer.call(client, {:send, "KILL", [nick, comment]})
 
+  @doc "Sends an `SQUERY` command to a service."
   def squery(client, service, text),
     do: GenServer.call(client, {:send, "SQUERY", [service, text]})
 
+  @doc "Gets route information for an optional target."
   def trace(client, target \\ nil)
   def trace(client, nil), do: GenServer.call(client, {:send, "TRACE", []})
   def trace(client, target), do: GenServer.call(client, {:send, "TRACE", [target]})
 
+  @doc "Requests a server connection with a `CONNECT` command."
   def connect_server(client, target_server, port, remote_server \\ nil)
 
   def connect_server(client, target_server, port, nil),
@@ -263,12 +342,17 @@ defmodule Ircxd.Client do
     do:
       GenServer.call(client, {:send, "CONNECT", [target_server, to_string(port), remote_server]})
 
+  @doc "Disconnects a server with an `SQUIT` command."
   def squit(client, server, comment),
     do: GenServer.call(client, {:send, "SQUIT", [server, comment]})
 
+  @doc "Requests a server configuration reload."
   def rehash(client), do: GenServer.call(client, {:send, "REHASH", []})
+
+  @doc "Requests a server restart."
   def restart(client), do: GenServer.call(client, {:send, "RESTART", []})
 
+  @doc "Sends a `SUMMON` command."
   def summon(client, user, target \\ nil, channel \\ nil)
   def summon(client, user, nil, nil), do: GenServer.call(client, {:send, "SUMMON", [user]})
 
@@ -278,67 +362,92 @@ defmodule Ircxd.Client do
   def summon(client, user, target, channel),
     do: GenServer.call(client, {:send, "SUMMON", [user, target, channel]})
 
+  @doc "Gets server users from the local server or a target server."
   def users(client, target \\ nil)
   def users(client, nil), do: GenServer.call(client, {:send, "USERS", []})
   def users(client, target), do: GenServer.call(client, {:send, "USERS", [target]})
 
+  @doc "Gets services that match an optional mask and type."
   def servlist(client, mask \\ nil, type \\ nil)
   def servlist(client, nil, nil), do: GenServer.call(client, {:send, "SERVLIST", []})
   def servlist(client, mask, nil), do: GenServer.call(client, {:send, "SERVLIST", [mask]})
   def servlist(client, mask, type), do: GenServer.call(client, {:send, "SERVLIST", [mask, type]})
 
+  @doc "Enables or disables the user `+B` bot mode."
   def bot_mode(client, enabled \\ true), do: GenServer.call(client, {:bot_mode, enabled})
 
+  @doc "Builds an account extban mask from the current `EXTBAN` token."
   def account_extban_mask(client, account, preferred_name \\ nil),
     do: GenServer.call(client, {:account_extban_mask, account, preferred_name})
 
+  @doc "Returns `true` if the server denies the client-only tag."
   def client_tag_denied?(client, tag), do: GenServer.call(client, {:client_tag_denied?, tag})
 
+  @doc "Sends an account `REGISTER` command."
   def register_account(client, account, email, password),
     do: GenServer.call(client, {:send, "REGISTER", [account, email, password]})
 
+  @doc "Sends an account `VERIFY` command."
   def verify_account(client, account, code),
     do: GenServer.call(client, {:send, "VERIFY", [account, code]})
 
+  @doc "Sets or clears the away state."
   def away(client, message \\ nil)
   def away(client, nil), do: GenServer.call(client, {:send, "AWAY", []})
   def away(client, message), do: GenServer.call(client, {:send, "AWAY", [message]})
 
+  @doc "Sets the pre-registration away state without a reason."
   def preaway_unspecified(client), do: GenServer.call(client, {:send, "AWAY", ["*"]})
 
+  @doc "Gets the read marker for a target."
   def markread_get(client, target), do: GenServer.call(client, {:send, "MARKREAD", [target]})
 
+  @doc "Sets the read marker for a target."
   def markread_set(client, target, timestamp),
     do: GenServer.call(client, {:send, "MARKREAD", [target, "timestamp=#{timestamp}"]})
 
+  @doc "Adds one or more targets to the monitor list."
   def monitor_add(client, targets),
     do: GenServer.call(client, {:send, "MONITOR", ["+", join_targets(targets)]})
 
+  @doc "Removes one or more targets from the monitor list."
   def monitor_remove(client, targets),
     do: GenServer.call(client, {:send, "MONITOR", ["-", join_targets(targets)]})
 
+  @doc "Clears the monitor list."
   def monitor_clear(client), do: GenServer.call(client, {:send, "MONITOR", ["C"]})
+
+  @doc "Gets the monitor list."
   def monitor_list(client), do: GenServer.call(client, {:send, "MONITOR", ["L"]})
+
+  @doc "Gets the current status of monitored targets."
   def monitor_status(client), do: GenServer.call(client, {:send, "MONITOR", ["S"]})
 
+  @doc "Gets metadata keys for a target."
   def metadata_get(client, target, keys),
     do: GenServer.call(client, {:send, "METADATA", [target, "GET" | List.wrap(keys)]})
 
+  @doc "Subscribes to metadata keys."
   def metadata_sub(client, keys),
     do: GenServer.call(client, {:send, "METADATA", ["*", "SUB" | List.wrap(keys)]})
 
+  @doc "Unsubscribes from metadata keys."
   def metadata_unsub(client, keys),
     do: GenServer.call(client, {:send, "METADATA", ["*", "UNSUB" | List.wrap(keys)]})
 
+  @doc "Sets a metadata key on a target."
   def metadata_set(client, target, key, value),
     do: GenServer.call(client, {:send, "METADATA", [target, "SET", key, value]})
 
+  @doc "Clears a metadata key on a target."
   def metadata_clear_key(client, target, key),
     do: GenServer.call(client, {:send, "METADATA", [target, "SET", key]})
 
+  @doc "Requests a metadata synchronization for a target."
   def metadata_sync(client, target),
     do: GenServer.call(client, {:send, "METADATA", [target, "SYNC"]})
 
+  @doc "Gets the latest chat history for a target."
   def chathistory_latest(client, target, selector, limit),
     do:
       GenServer.call(
@@ -346,6 +455,7 @@ defmodule Ircxd.Client do
         {:send, "CHATHISTORY", ChatHistory.params({:latest, target, selector, limit})}
       )
 
+  @doc "Gets chat history before a message selector."
   def chathistory_before(client, target, selector, limit),
     do:
       GenServer.call(
@@ -353,6 +463,7 @@ defmodule Ircxd.Client do
         {:send, "CHATHISTORY", ChatHistory.params({:before, target, selector, limit})}
       )
 
+  @doc "Gets chat history after a message selector."
   def chathistory_after(client, target, selector, limit),
     do:
       GenServer.call(
@@ -360,6 +471,7 @@ defmodule Ircxd.Client do
         {:send, "CHATHISTORY", ChatHistory.params({:after, target, selector, limit})}
       )
 
+  @doc "Gets chat history around a message selector."
   def chathistory_around(client, target, selector, limit),
     do:
       GenServer.call(
@@ -367,6 +479,7 @@ defmodule Ircxd.Client do
         {:send, "CHATHISTORY", ChatHistory.params({:around, target, selector, limit})}
       )
 
+  @doc "Gets chat history between two message selectors."
   def chathistory_between(client, target, first_selector, second_selector, limit),
     do:
       GenServer.call(
@@ -375,6 +488,7 @@ defmodule Ircxd.Client do
          ChatHistory.params({:between, target, first_selector, second_selector, limit})}
       )
 
+  @doc "Gets history targets between two timestamps."
   def chathistory_targets(client, first_timestamp, second_timestamp, limit),
     do:
       GenServer.call(
@@ -383,26 +497,52 @@ defmodule Ircxd.Client do
          ChatHistory.params({:targets, first_timestamp, second_timestamp, limit})}
       )
 
+  @doc "Requests the server `ISUPPORT` tokens."
   def isupport(client), do: GenServer.call(client, :send_isupport)
+
+  @doc "Returns the upload URL from the current `FHOST` token."
   def filehost_upload_url(client), do: GenServer.call(client, :filehost_upload_url)
 
+  @doc "Validates and sends a tagged IRC command."
   def raw_tagged(client, command, params, tags),
     do: GenServer.call(client, {:send, %Message{command: command, params: params, tags: tags}})
 
+  @doc "Validates and sends an IRC command with a `label` tag."
   def labeled_raw(client, label, command, params \\ []),
     do: raw_tagged(client, command, params, %{"label" => label})
 
+  @doc "Validates and sends an `Ircxd.Message`."
   def transmit(client, %Message{} = message), do: GenServer.call(client, {:send, message})
+
+  @doc "Publishes all events in the manual server-time buffer."
   def flush_server_time(client), do: GenServer.call(client, :flush_server_time)
 
+  @doc """
+  Sends an IRCv3 client batch.
+
+  Use `:required_cap` to require an active capability. `:capability` is an alias
+  for `:required_cap`.
+  """
   def client_batch(client, reference, type, params, messages, opts \\ []) do
     GenServer.call(client, {:send_client_batch, reference, type, params, messages, opts})
   end
 
+  @doc """
+  Sends a multiline `PRIVMSG` batch.
+
+  Use `:ref` to set the batch reference. The client creates a reference if this
+  option is absent.
+  """
   def multiline_privmsg(client, target, body, opts \\ []) do
     GenServer.call(client, {:send_multiline, "PRIVMSG", target, body, opts})
   end
 
+  @doc """
+  Sends a multiline `NOTICE` batch.
+
+  Use `:ref` to set the batch reference. The client creates a reference if this
+  option is absent.
+  """
   def multiline_notice(client, target, body, opts \\ []) do
     GenServer.call(client, {:send_multiline, "NOTICE", target, body, opts})
   end

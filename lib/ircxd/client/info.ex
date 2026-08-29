@@ -44,6 +44,7 @@ defmodule Ircxd.Client.Info do
           casemapping: Ircxd.Casemapping.mapping()
         }
 
+  @doc "Compares two identifiers with the snapshot's IRC casemapping."
   @spec same_identifier?(t(), String.t(), String.t()) :: boolean()
   def same_identifier?(%__MODULE__{isupport: isupport}, left, right)
       when is_binary(left) and is_binary(right),
@@ -51,6 +52,7 @@ defmodule Ircxd.Client.Info do
 
   def same_identifier?(%__MODULE__{}, _left, _right), do: false
 
+  @doc "Returns `true` if `nick` identifies the client in the snapshot."
   @spec self_nick?(t(), String.t()) :: boolean()
   def self_nick?(%__MODULE__{current_nick: current_nick} = info, nick)
       when is_binary(current_nick) and is_binary(nick),
