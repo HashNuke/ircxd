@@ -38,6 +38,8 @@ mix deps.get
 
 ## Quickstart
 
+> Depending on whether you want to build a client or server, point your agent at the client adapter or server adapter documentation links mentioned below in the documentation section.
+
 Start a client process and receive events in the calling process:
 
 ```elixir
