@@ -53,14 +53,18 @@ defmodule Ircxd.Client do
     * `:notify` - Sets the process that receives `{:ircxd, event}` messages.
     * `:adapter` - Sets an `{adapter_module, init_arg}` pair.
     * `:events` - Sets `:legacy`, `:envelope`, or `:both` event delivery.
-    * `:reconnect` - Sets `false`, `true`, or a reconnect option list.
+    * `:reconnect` - Sets `false`, `true`, or a list with `:max_attempts` and
+      `:delay`.
     * `:password` - Sets the server password for registration.
-    * `:sasl` - Sets one SASL mechanism or an ordered mechanism list.
+    * `:sasl` - Sets one SASL mechanism or an ordered mechanism list. A SCRAM
+      mechanism can use `:nonce` for a fixed client nonce.
     * `:sasl_failure` - Sets `:continue` or `:abort`. The default is `:continue`.
     * `:allow_insecure_auth` - Permits credentials on TCP. The default is `false`.
-    * `:webirc` - Sets the options for the `WEBIRC` command.
+    * `:webirc` - Sets `:password`, `:gateway`, `:hostname`, `:ip`, and optional
+      WebIRC `:options`.
     * `:msgid_dedupe` - Sets `false` or `:mark` for message-ID duplicates.
-    * `:server_time_order` - Sets `false`, `:manual`, or flush timer options.
+    * `:server_time_order` - Sets `false`, `:manual`, or a list with
+      `:flush_after`.
 
   The process connects asynchronously. A successful return does not mean that
   IRC registration is complete.
@@ -69,6 +73,7 @@ defmodule Ircxd.Client do
     GenServer.start_link(__MODULE__, opts, Keyword.take(opts, [:name]))
   end
 
+  @doc "Returns a child specification with the same options as `start_link/1`."
   def child_spec(opts) do
     %{
       id: Keyword.get(opts, :name) || __MODULE__,

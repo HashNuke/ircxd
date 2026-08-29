@@ -145,7 +145,7 @@ The callback contract is:
 | `c:Ircxd.Server.Adapter.handle_command/3` | Handle an unknown IRC command. | `{:unhandled, state}`, `{:reply, messages, state}`, or `{:error, reason, state}` |
 | `c:Ircxd.Server.Adapter.authenticate/4` | Verify SASL credentials and resolve an account. | `{:ok, account, state}` or `{:error, reason, state}` |
 | `c:Ircxd.Server.Adapter.authentication_enabled?/1` | Report whether authentication is enabled. | boolean |
-| `c:Ircxd.Server.Adapter.handle_publish/3` | Observe the legacy outbound-message stream. | `{:ok, state}` |
+| `c:Ircxd.Server.Adapter.handle_publish/3` | Observe each outbound IRC message. | `{:ok, state}` |
 
 `context` always includes `:server_id` and `:server_name`. Policy and command
 contexts also include `:connection` and an `:actor` map containing the known
@@ -178,7 +178,8 @@ configured server name.
 Events represent accepted changes, not raw socket input, and never contain
 authentication passwords. `c:Ircxd.Server.Adapter.handle_publish/3` remains
 available for applications that must observe all outbound IRC messages,
-including numerics. New persistence integrations should use committed events.
+including numerics. Use committed events for application state and persistence.
+Use published messages for wire-level auditing or diagnostics.
 
 WHOIS channel reporting asks the adapter for `{:channels_for, nick}` and falls
 back to live protocol state if that query is unsupported or fails. The other

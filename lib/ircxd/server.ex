@@ -16,6 +16,7 @@ defmodule Ircxd.Server do
 
   @default_server_name "ircxd.local"
 
+  @doc "Returns a child specification with the same options as `start_link/1`."
   def child_spec(opts) do
     %{
       id: Keyword.get(opts, :id, __MODULE__),
@@ -66,12 +67,20 @@ defmodule Ircxd.Server do
   @doc """
   Runs a read-only query through the configured server adapter.
 
+  The built-in ETS adapter accepts `:users`, `:channels`, `{:channel, name}`,
+  `{:channels_for, nick}`, `{:channel_roles, channel, account}`, and
+  `{:messages, target, options}`. The message options accept `:limit`, which
+  defaults to `50`.
+
   Returns `{:error, :adapter_not_configured}` if the server has no adapter.
   """
   def query(server, query), do: GenServer.call(server, {:adapter_query, query})
 
   @doc """
   Runs a state operation through the configured server adapter.
+
+  The built-in ETS adapter accepts `{:put_channel, name, attributes}` and
+  `{:put_channel_roles, channel, account, roles}`.
 
   Returns `{:error, :adapter_not_configured}` if the server has no adapter.
   """

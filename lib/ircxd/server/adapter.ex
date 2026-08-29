@@ -3,7 +3,7 @@ defmodule Ircxd.Server.Adapter do
   Application-owned server integration contract.
 
   Adapters may authenticate accounts, consume committed domain events, answer
-  application state queries, and observe the legacy published-message stream.
+  application state queries, and observe outbound IRC messages.
   All callbacks are serialized by the server's adapter worker except
   authentication, which runs in a bounded task.
   """
@@ -56,7 +56,7 @@ defmodule Ircxd.Server.Adapter do
               | {:reply, [Message.t()], state()}
               | {:error, term(), state()}
 
-  @doc "Observes one message in the legacy publication stream."
+  @doc "Observes one outbound IRC message, including numerics."
   @callback handle_publish(Message.t(), map(), state()) :: {:ok, state()}
 
   @doc "Verifies SASL credentials and returns an application account."
