@@ -18,6 +18,7 @@ defmodule Ircxd.DCC do
             reverse?: false,
             extra: []
 
+  @typedoc "A decoded DCC negotiation payload."
   @type t :: %__MODULE__{
           type: String.t(),
           argument: String.t(),
@@ -29,6 +30,7 @@ defmodule Ircxd.DCC do
           extra: [String.t()]
         }
 
+  @doc "Parses a CTCP DCC payload."
   @spec parse(CTCP.t() | String.t()) :: {:ok, t()} | {:error, atom()}
   def parse(%CTCP{command: command, params: params}) when is_binary(command) do
     if String.upcase(command) == "DCC", do: parse(params), else: {:error, :not_dcc}
@@ -70,27 +72,32 @@ defmodule Ircxd.DCC do
     end
   end
 
+  @doc "Encodes a DCC `CHAT` payload."
   @spec encode_chat(String.t(), non_neg_integer(), String.t()) :: String.t()
   def encode_chat(host, port, argument \\ "chat") do
     encode("CHAT", argument, host, port)
   end
 
+  @doc "Encodes a DCC `SEND` payload."
   @spec encode_send(String.t(), String.t(), non_neg_integer(), [String.t() | integer()]) ::
           String.t()
   def encode_send(filename, host, port, extra \\ []) do
     encode("SEND", filename, host, port, extra)
   end
 
+  @doc "Encodes a DCC `RESUME` payload."
   @spec encode_resume(String.t(), String.t(), non_neg_integer(), non_neg_integer()) :: String.t()
   def encode_resume(filename, host, port, position) do
     encode("RESUME", filename, host, port, [position])
   end
 
+  @doc "Encodes a DCC `ACCEPT` payload."
   @spec encode_accept(String.t(), String.t(), non_neg_integer(), non_neg_integer()) :: String.t()
   def encode_accept(filename, host, port, position) do
     encode("ACCEPT", filename, host, port, [position])
   end
 
+  @doc "Encodes a DCC payload for a command type."
   @spec encode(String.t(), String.t(), String.t() | tuple(), non_neg_integer(), [
           String.t() | integer()
         ]) :: String.t()

@@ -6,6 +6,7 @@ defmodule Ircxd.Formatting do
   the host application.
   """
 
+  @typedoc "IRC text style properties."
   @type style :: %{
           optional(:bold) => true,
           optional(:italic) => true,
@@ -19,6 +20,7 @@ defmodule Ircxd.Formatting do
           optional(:hex_background) => String.t()
         }
 
+  @typedoc "A text segment with one style."
   @type span :: %{text: String.t(), style: style()}
 
   @bold 0x02
@@ -44,6 +46,7 @@ defmodule Ircxd.Formatting do
     hex_background: nil
   }
 
+  @doc "Parses IRC formatting codes into styled text segments."
   @spec parse(String.t()) :: [span()]
   def parse(text) when is_binary(text) do
     text
@@ -51,6 +54,7 @@ defmodule Ircxd.Formatting do
     |> Enum.reverse()
   end
 
+  @doc "Removes IRC formatting codes from text."
   @spec strip(String.t()) :: String.t()
   def strip(text) when is_binary(text) do
     text

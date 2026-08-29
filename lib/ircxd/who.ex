@@ -3,6 +3,7 @@ defmodule Ircxd.Who do
   Parsers for WHO/WHOX replies.
   """
 
+  @doc "Parses an `RPL_WHOREPLY` message."
   def parse_reply(params, bot_flag \\ nil)
 
   def parse_reply(
@@ -29,6 +30,7 @@ defmodule Ircxd.Who do
 
   def parse_reply(_params, _bot_flag), do: nil
 
+  @doc "Parses a WHOX reply that uses the default client field order."
   def parse_whox([_me, _token | fields]) do
     parse_whox_fields(fields)
   end

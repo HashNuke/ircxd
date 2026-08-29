@@ -5,6 +5,7 @@ defmodule Ircxd.UserHost do
 
   @reply_pattern ~r/\A(?<nick>[^*=]+)(?<oper>\*)?=(?<away>[+-])(?<username>[^@]+)@(?<host>.+)\z/
 
+  @doc "Parses all entries in an `RPL_USERHOST` reply."
   def parse_replies(replies) when is_binary(replies) do
     replies
     |> String.split(" ", trim: true)
@@ -13,6 +14,7 @@ defmodule Ircxd.UserHost do
 
   def parse_replies(_replies), do: []
 
+  @doc "Parses one entry from an `RPL_USERHOST` reply."
   def parse_reply(reply) when is_binary(reply) do
     case Regex.named_captures(@reply_pattern, reply) do
       %{"nick" => nick, "oper" => oper, "away" => away, "username" => username, "host" => host} ->

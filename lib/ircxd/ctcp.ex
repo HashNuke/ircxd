@@ -10,8 +10,10 @@ defmodule Ircxd.CTCP do
 
   defstruct command: nil, params: nil
 
+  @typedoc "A decoded CTCP payload."
   @type t :: %__MODULE__{command: String.t(), params: String.t()}
 
+  @doc "Encodes a CTCP command and its optional parameters."
   def encode(command, params \\ "") do
     params = to_string(params)
 
@@ -25,6 +27,7 @@ defmodule Ircxd.CTCP do
     @delimiter <> payload <> @delimiter
   end
 
+  @doc "Decodes a CTCP payload."
   def decode(@delimiter <> rest) do
     case String.split(rest, @delimiter, parts: 2) do
       [payload, _] -> decode_payload(payload)

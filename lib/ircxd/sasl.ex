@@ -13,16 +13,19 @@ defmodule Ircxd.SASL do
   @max_scram_iterations 1_000_000
   @gs2_header "n,,"
 
+  @doc "Builds a base64-encoded SASL PLAIN payload."
   def plain_payload(username, password, authzid \\ "") do
     [authzid, <<0>>, username, <<0>>, password]
     |> IO.iodata_to_binary()
     |> Base.encode64()
   end
 
+  @doc "Builds a base64-encoded SASL EXTERNAL payload."
   def external_payload(nil), do: "+"
   def external_payload(""), do: "+"
   def external_payload(authzid) when is_binary(authzid), do: Base.encode64(authzid)
 
+  @doc "Builds the first SCRAM-SHA-256 client message."
   def scram_sha256_client_first(username, nonce) when is_binary(username) and is_binary(nonce) do
     bare = "n=#{scram_escape(username)},r=#{nonce}"
     message = @gs2_header <> bare
@@ -30,6 +33,7 @@ defmodule Ircxd.SASL do
     %{bare: bare, message: message, payload: Base.encode64(message)}
   end
 
+  @doc "Builds the final SCRAM-SHA-256 client message and server signature."
   def scram_sha256_client_final(client_first_bare, server_first, password)
       when is_binary(client_first_bare) and is_binary(server_first) and is_binary(password) do
     with {:ok, attrs} <- parse_scram_attributes(server_first),
@@ -55,6 +59,7 @@ defmodule Ircxd.SASL do
     end
   end
 
+  @doc "Verifies the signature in a final SCRAM-SHA-256 server message."
   def verify_scram_sha256_server_final(server_final, expected_signature)
       when is_binary(server_final) and is_binary(expected_signature) do
     with {:ok, attrs} <- parse_scram_attributes(server_final),
@@ -67,6 +72,7 @@ defmodule Ircxd.SASL do
     end
   end
 
+  @doc "Splits a SASL payload into IRC `AUTHENTICATE` chunks."
   def authenticate_chunks(payload) when is_binary(payload) do
     chunks =
       payload
@@ -83,6 +89,7 @@ defmodule Ircxd.SASL do
     end
   end
 
+  @doc "Returns the maximum payload size of one `AUTHENTICATE` command."
   def max_authenticate_payload_bytes, do: @max_authenticate_payload_bytes
 
   defp parse_scram_attributes(message) do
