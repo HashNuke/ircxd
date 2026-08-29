@@ -7,6 +7,7 @@ defmodule Ircxd.ISupport do
   @default_chanmodes "b,k,l,imnpst"
   @empty_value_as_valueless_keys ~w(MODES SILENCE)
 
+  @doc "Parses the token parameters from an `RPL_ISUPPORT` message."
   def parse_params(params) when is_list(params) do
     params
     |> Enum.drop(1)
@@ -14,6 +15,7 @@ defmodule Ircxd.ISupport do
     |> Map.new(&parse_token/1)
   end
 
+  @doc "Parses one `ISUPPORT` token into a key-value pair."
   def parse_token("-" <> key), do: {key, false}
 
   def parse_token(token) do
@@ -25,6 +27,7 @@ defmodule Ircxd.ISupport do
     end
   end
 
+  @doc "Returns the user modes and symbols from the `PREFIX` token."
   def prefix_modes(isupport) when is_map(isupport) do
     case Map.get(isupport, "PREFIX", "(ov)@+") do
       value when value in [true, false] ->
@@ -46,6 +49,7 @@ defmodule Ircxd.ISupport do
     end
   end
 
+  @doc "Returns the status prefix for a user mode."
   def prefix_for_mode(isupport, mode)
       when is_map(isupport) and is_binary(mode) and byte_size(mode) == 1 do
     isupport
@@ -57,6 +61,7 @@ defmodule Ircxd.ISupport do
 
   def prefix_for_mode(_isupport, _mode), do: nil
 
+  @doc "Returns the user mode for a status prefix."
   def mode_for_prefix(isupport, prefix)
       when is_map(isupport) and is_binary(prefix) and byte_size(prefix) == 1 do
     isupport
@@ -68,6 +73,7 @@ defmodule Ircxd.ISupport do
 
   def mode_for_prefix(_isupport, _prefix), do: nil
 
+  @doc "Returns the four mode groups from the `CHANMODES` token."
   def chanmodes(isupport) when is_map(isupport) do
     parts =
       isupport
@@ -84,6 +90,7 @@ defmodule Ircxd.ISupport do
     }
   end
 
+  @doc "Returns the parameter type for a channel mode."
   def channel_mode_type(isupport, mode)
       when is_map(isupport) and is_binary(mode) and byte_size(mode) == 1 do
     modes = chanmodes(isupport)
@@ -100,6 +107,7 @@ defmodule Ircxd.ISupport do
 
   def channel_mode_type(_isupport, _mode), do: nil
 
+  @doc "Returns channel limits by channel prefix."
   def chanlimit(isupport) when is_map(isupport) do
     isupport
     |> Map.get("CHANLIMIT", "")
@@ -112,6 +120,7 @@ defmodule Ircxd.ISupport do
     |> Map.new()
   end
 
+  @doc "Returns the channel limit for a target name."
   def channel_limit(isupport, target) when is_map(isupport) and is_binary(target) do
     isupport
     |> chanlimit()
@@ -122,6 +131,7 @@ defmodule Ircxd.ISupport do
 
   def channel_limit(_isupport, _target), do: nil
 
+  @doc "Returns list-mode limits from the `MAXLIST` token."
   def maxlist(isupport) when is_map(isupport) do
     isupport
     |> Map.get("MAXLIST", "")
@@ -129,6 +139,7 @@ defmodule Ircxd.ISupport do
     |> Map.new()
   end
 
+  @doc "Returns the entry limit for a list mode."
   def list_limit(isupport, mode)
       when is_map(isupport) and is_binary(mode) and byte_size(mode) == 1 do
     isupport
@@ -140,6 +151,7 @@ defmodule Ircxd.ISupport do
 
   def list_limit(_isupport, _mode), do: nil
 
+  @doc "Returns target limits by command from the `TARGMAX` token."
   def targmax(isupport) when is_map(isupport) do
     isupport
     |> Map.get("TARGMAX", "")
@@ -147,10 +159,12 @@ defmodule Ircxd.ISupport do
     |> Map.new(fn {command, limit} -> {String.upcase(command), limit} end)
   end
 
+  @doc "Returns the legacy `MAXTARGETS` limit."
   def max_targets(isupport) when is_map(isupport) do
     positive_integer(isupport, "MAXTARGETS")
   end
 
+  @doc "Returns the number of mode changes allowed in one command."
   def mode_limit(isupport) when is_map(isupport) do
     case Map.fetch(isupport, "MODES") do
       {:ok, true} -> :unlimited
@@ -159,6 +173,7 @@ defmodule Ircxd.ISupport do
     end
   end
 
+  @doc "Returns the maximum number of silence-list entries."
   def silence_limit(isupport) when is_map(isupport) do
     case Map.fetch(isupport, "SILENCE") do
       {:ok, true} -> :unlimited
@@ -167,6 +182,7 @@ defmodule Ircxd.ISupport do
     end
   end
 
+  @doc "Returns the target limit for a command."
   def target_limit(isupport, command) when is_map(isupport) and is_binary(command) do
     normalized_command = String.upcase(command)
 
@@ -181,6 +197,7 @@ defmodule Ircxd.ISupport do
 
   def target_limit(_isupport, _command), do: nil
 
+  @doc "Returns `true` if a command can use the specified target count."
   def target_allowed?(_isupport, _command, count) when not is_integer(count) or count < 0,
     do: false
 
@@ -192,6 +209,7 @@ defmodule Ircxd.ISupport do
     end
   end
 
+  @doc "Returns a nonnegative integer token value or a default value."
   def integer(isupport, key, default \\ nil) when is_map(isupport) and is_binary(key) do
     case Map.fetch(isupport, key) do
       {:ok, value} -> parse_integer_value(value, default)
@@ -199,12 +217,15 @@ defmodule Ircxd.ISupport do
     end
   end
 
+  @doc "Returns the network name from the `NETWORK` token."
   def network_name(%{"NETWORK" => value}) when is_binary(value) and value != "", do: value
   def network_name(_isupport), do: nil
 
+  @doc "Returns the bot mode from the `BOT` token."
   def bot_mode(%{"BOT" => value}) when is_binary(value) and byte_size(value) == 1, do: value
   def bot_mode(_isupport), do: nil
 
+  @doc "Returns a supported text-length limit."
   def length_limit(isupport, key) when is_map(isupport) and is_binary(key) do
     normalized_key = String.upcase(key)
 
@@ -228,6 +249,7 @@ defmodule Ircxd.ISupport do
 
   defp legacy_target_limit(_isupport, _command), do: nil
 
+  @doc "Returns the characters in a token value."
   def characters(isupport, key) when is_map(isupport) and is_binary(key) do
     isupport
     |> Map.get(key, "")
@@ -235,12 +257,14 @@ defmodule Ircxd.ISupport do
     |> String.graphemes()
   end
 
+  @doc "Returns the lowercase `ELIST` extensions."
   def elist(isupport) when is_map(isupport) do
     isupport
     |> characters("ELIST")
     |> Enum.map(&String.downcase/1)
   end
 
+  @doc "Returns `true` if the server supports a `LIST` extension."
   def list_extension?(isupport, extension)
       when is_map(isupport) and is_binary(extension) and byte_size(extension) == 1 do
     extension = String.downcase(extension)
@@ -252,14 +276,17 @@ defmodule Ircxd.ISupport do
 
   def list_extension?(_isupport, _extension), do: false
 
+  @doc "Returns the ban-exception mode from the `EXCEPTS` token."
   def exception_mode(isupport) when is_map(isupport) do
     mode_token(isupport, "EXCEPTS", "e")
   end
 
+  @doc "Returns the invite-exception mode from the `INVEX` token."
   def invite_exception_mode(isupport) when is_map(isupport) do
     mode_token(isupport, "INVEX", "I")
   end
 
+  @doc "Returns the extban prefix and supported types."
   def extban(%{"EXTBAN" => value}) when is_binary(value) do
     case String.split(value, ",", parts: 2) do
       [prefix, types] when byte_size(prefix) <= 1 and types != "" ->
@@ -276,6 +303,7 @@ defmodule Ircxd.ISupport do
 
   def extban(_isupport), do: nil
 
+  @doc "Returns `true` if the server supports an extban type."
   def extban_type?(isupport, type)
       when is_map(isupport) and is_binary(type) and byte_size(type) == 1 do
     case extban(isupport) do
@@ -286,6 +314,7 @@ defmodule Ircxd.ISupport do
 
   def extban_type?(_isupport, _type), do: false
 
+  @doc "Returns `true` if an `ISUPPORT` token is enabled."
   def enabled?(isupport, key) when is_map(isupport) and is_binary(key) do
     case Map.fetch(isupport, key) do
       {:ok, false} -> false
@@ -294,6 +323,7 @@ defmodule Ircxd.ISupport do
     end
   end
 
+  @doc "Returns the advertised IRC casemapping."
   def casemap(isupport) when is_map(isupport) do
     case Map.get(isupport, "CASEMAPPING") do
       value when is_binary(value) -> Ircxd.Casemapping.from_isupport(value)
@@ -301,10 +331,12 @@ defmodule Ircxd.ISupport do
     end
   end
 
+  @doc "Compares two identifiers with the advertised IRC casemapping."
   def equal?(isupport, left, right) when is_map(isupport) do
     Ircxd.Casemapping.equal?(left, right, casemap(isupport))
   end
 
+  @doc "Returns `true` if a target starts with an advertised channel type."
   def channel?(isupport, target) when is_map(isupport) and is_binary(target) do
     isupport
     |> channel_types()
@@ -322,6 +354,7 @@ defmodule Ircxd.ISupport do
   defp channel_types(%{"CHANTYPES" => _value}), do: []
   defp channel_types(_isupport), do: ["#", "&"]
 
+  @doc "Returns `true` if a target uses a status-message prefix."
   def status_target?(isupport, target) when is_map(isupport) and is_binary(target) do
     isupport
     |> status_message_prefixes()
