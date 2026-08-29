@@ -12,6 +12,7 @@ defmodule Ircxd.MixProject do
       test_coverage: [summary: [threshold: 85]],
       deps: deps(),
       description: description(),
+      source_url: "https://github.com/HashNuke/ircxd",
       docs: docs(),
       package: package()
     ]

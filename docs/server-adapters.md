@@ -29,6 +29,9 @@ children = [
 ]
 ```
 
+See `Ircxd.Server.start_link/1` for all server options. See
+`Ircxd.Server.Adapters.ETS` for its adapter options.
+
 Each server gets private, isolated ETS tables. They project registered
 sessions, channels, memberships, topics, account ACLs, and accepted messages.
 An empty channel remains in the adapter's catalog even after the protocol
@@ -96,7 +99,8 @@ ETS adapter when no verifier is configured.
 
 ## Implementing an adapter
 
-An adapter must implement `init/1`; every other callback is optional:
+An adapter must implement `Ircxd.Server.Adapter.init/1`. Every other callback
+is optional:
 
 ```elixir
 defmodule MyApp.IrcAdapter do
@@ -133,31 +137,32 @@ The callback contract is:
 
 | Callback | Purpose | Return |
 | --- | --- | --- |
-| `init/1` | Open or identify application resources. | `{:ok, state}` or `{:error, reason}` |
-| `handle_event/3` | Consume an accepted, post-commit domain event. | `{:ok, state}` |
-| `handle_query/3` | Answer `Ircxd.Server.query/2`. | `{:ok, value, state}` or `{:error, reason, state}` |
-| `handle_operation/3` | Execute `Ircxd.Server.execute/2`. | `{:ok, value, state}` or `{:error, reason, state}` |
-| `authorize/3` | Allow or reject a supported protocol action. | `{:ok, state}` or `{:error, reason, state}` |
-| `handle_command/3` | Handle an otherwise unknown IRC command. | `{:unhandled, state}`, `{:reply, messages, state}`, or `{:error, reason, state}` |
-| `authenticate/4` | Verify SASL credentials and resolve an account. | `{:ok, account, state}` or `{:error, reason, state}` |
-| `authentication_enabled?/1` | Enable authentication conditionally for the initialized state. | boolean |
-| `handle_publish/3` | Observe the legacy outbound-message stream. | `{:ok, state}` |
+| `Ircxd.Server.Adapter.init/1` | Open or identify application resources. | `{:ok, state}` or `{:error, reason}` |
+| `Ircxd.Server.Adapter.handle_event/3` | Consume an accepted domain event. | `{:ok, state}` |
+| `Ircxd.Server.Adapter.handle_query/3` | Answer `Ircxd.Server.query/2`. | `{:ok, value, state}` or `{:error, reason, state}` |
+| `Ircxd.Server.Adapter.handle_operation/3` | Execute `Ircxd.Server.execute/2`. | `{:ok, value, state}` or `{:error, reason, state}` |
+| `Ircxd.Server.Adapter.authorize/3` | Allow or reject a protocol action. | `{:ok, state}` or `{:error, reason, state}` |
+| `Ircxd.Server.Adapter.handle_command/3` | Handle an unknown IRC command. | `{:unhandled, state}`, `{:reply, messages, state}`, or `{:error, reason, state}` |
+| `Ircxd.Server.Adapter.authenticate/4` | Verify SASL credentials and resolve an account. | `{:ok, account, state}` or `{:error, reason, state}` |
+| `Ircxd.Server.Adapter.authentication_enabled?/1` | Report whether authentication is enabled. | boolean |
+| `Ircxd.Server.Adapter.handle_publish/3` | Observe the legacy outbound-message stream. | `{:ok, state}` |
 
 `context` always includes `:server_id` and `:server_name`. Policy and command
 contexts also include `:connection` and an `:actor` map containing the known
 `:nick`, `:username`, `:realname`, and `:account`. Policy contexts additionally
 include `:action`.
 
-`authorize/3` is currently called for `{:join, channel}` and `{:set_topic,
-channel}`. A rejection is rendered as the applicable IRC error and the state
-change is not committed. Core IRC commands cannot be overridden by
-`handle_command/3`; that callback runs only after built-in command matching.
-Reply messages without a source receive the configured server name.
+`Ircxd.Server.Adapter.authorize/3` is called for `{:join, channel}` and
+`{:set_topic, channel}`. A rejection produces the applicable IRC error. The
+server does not commit the state change. Core IRC commands cannot be overridden
+by `Ircxd.Server.Adapter.handle_command/3`. That callback runs only after
+built-in command matching. Reply messages without a source receive the
+configured server name.
 
 ## Committed events
 
-`handle_event/3` receives an `Ircxd.Server.Event` with `:type`, `:server_id`,
-`:server_name`, UTC `:at`, and type-specific `:data`:
+`Ircxd.Server.Adapter.handle_event/3` receives an `Ircxd.Server.Event` with
+`:type`, `:server_id`, `:server_name`, UTC `:at`, and type-specific `:data`:
 
 | Type | Important data |
 | --- | --- |
@@ -171,9 +176,9 @@ Reply messages without a source receive the configured server name.
 | `:message_accepted` | normalized message, sender, target, recipients, and timestamp |
 
 Events represent accepted changes, not raw socket input, and never contain
-authentication passwords. `handle_publish/3` remains available for compatibility
-when an application needs to observe all outbound IRC messages, including
-numerics; new persistence integrations should prefer committed events.
+authentication passwords. `Ircxd.Server.Adapter.handle_publish/3` remains
+available for applications that must observe all outbound IRC messages,
+including numerics. New persistence integrations should use committed events.
 
 WHOIS channel reporting asks the adapter for `{:channels_for, nick}` and falls
 back to live protocol state if that query is unsupported or fails. The other
@@ -218,11 +223,13 @@ application must decide schema creation, `disc_copies` versus `ram_copies`, node
 membership, migrations, and recovery; ircxd does not make those cluster-wide
 choices automatically.
 
-An Ecto adapter should receive a repository or context module from `init/1`,
-use transactions in `handle_operation/3`, query through application contexts in
-`handle_query/3`, and resolve credentials in `authenticate/4`. Avoid putting a
-database transaction or connection process directly under the IRC connection
-lifecycle; supervise it as normal application infrastructure.
+An Ecto adapter should receive a repository or context module from
+`Ircxd.Server.Adapter.init/1`. Use transactions in
+`Ircxd.Server.Adapter.handle_operation/3`. Query through application contexts
+in `Ircxd.Server.Adapter.handle_query/3`. Resolve credentials in
+`Ircxd.Server.Adapter.authenticate/4`. Do not put a database transaction or
+connection process under the IRC connection lifecycle. Supervise it as normal
+application infrastructure.
 
 The reusable adapter checks in `test/support/server_adapter_case.ex` exercise
 basic channel/role operations and instance isolation. The built-in ETS adapter

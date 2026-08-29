@@ -66,6 +66,8 @@ connection supervised by the same application.
 
 ## Connection options
 
+See `Ircxd.Client.start_link/1` for all client options.
+
 The core identity and transport options are:
 
 | Option | Required/default | Purpose |
@@ -203,7 +205,7 @@ confirmed self NICK, and disconnect/reconnect transitions. It never contains
 PASS, SASL, OPER, WEBIRC, or account-registration credentials. Adapter
 callbacks receive the same snapshot as `context.client_info`; they must use
 that value instead of synchronously calling the client GenServer from inside
-`handle_event/3`.
+`Ircxd.Client.Adapter.handle_event/3`.
 
 Source-bearing normalized events include `:source_self?`. Events with a nick
 target, including KICK, MODE, PRIVMSG, NOTICE, and TAGMSG, also include
@@ -319,12 +321,13 @@ Argument-aware MODE classification uses the supplied snapshot's CHANTYPES,
 CHANMODES, and PREFIX values. Command completion metadata is a correlation hint,
 not a delivery guarantee.
 
-`quit/2` and a raw or transmitted `QUIT` are intentional disconnects. After
-the server closes the transport, the client emits `:disconnected` followed by
+`Ircxd.Client.quit/2` and a raw or transmitted `QUIT` are intentional
+disconnects. After the server closes the transport, the client emits
+`:disconnected` followed by
 `{:disconnect, %{reason: :quit, intentional?: true, reconnecting?: false}}`.
 The client process stays alive but disconnected, so a permanent OTP supervisor
-does not immediately start a replacement connection. Call `reconnect/1` to
-connect that process again explicitly.
+does not immediately start a replacement connection. Call
+`Ircxd.Client.reconnect/1` to connect that process again explicitly.
 
 ## Capabilities
 
@@ -343,8 +346,8 @@ Capabilities can also be changed after registration:
 The first two functions validate against the capabilities advertised or
 enabled by the current server. Their successful return means a `CAP REQ` was
 sent; wait for `:cap_ack` or `:cap_nak` to learn the server's decision. An IRCv3
-helper such as `chathistory_latest/4` returns an error if its required
-capability is not active.
+helper such as `Ircxd.Client.chathistory_latest/4` returns an error if its
+required capability is not active.
 
 ## TLS and authentication
 
@@ -430,8 +433,8 @@ Client and server integrations use parallel names and configuration:
 
 | Component | Behavior | Option | Primary event callback |
 | --- | --- | --- | --- |
-| IRC client | `Ircxd.Client.Adapter` | `adapter: {Module, init_arg}` | `handle_event/3` |
-| IRC server | `Ircxd.Server.Adapter` | `adapter: {Module, init_arg}` | `handle_event/3` |
+| IRC client | `Ircxd.Client.Adapter` | `adapter: {Module, init_arg}` | `Ircxd.Client.Adapter.handle_event/3` |
+| IRC server | `Ircxd.Server.Adapter` | `adapter: {Module, init_arg}` | `Ircxd.Server.Adapter.handle_event/3` |
 
 The client adapter reacts to events received from a remote IRC server. The
 server adapter projects and governs activity accepted by an embedded
@@ -470,8 +473,8 @@ The callback contract is deliberately small:
 
 | Callback | Purpose | Return |
 | --- | --- | --- |
-| `init/1` | Initialize application callback state. | `{:ok, state}` or `{:error, reason}` |
-| `handle_event/3` | Consume one normalized client event. | `{:ok, state}` |
+| `Ircxd.Client.Adapter.init/1` | Initialize application callback state. | `{:ok, state}` or `{:error, reason}` |
+| `Ircxd.Client.Adapter.handle_event/3` | Consume one normalized client event. | `{:ok, state}` |
 
 The event context contains:
 
@@ -499,11 +502,11 @@ material in an ordinary IRC message.
 
 ### Ordering, failure, and performance
 
-The client invokes `handle_event/3` synchronously in its GenServer, in protocol
-order. Updated callback state is used for the next event. Keep the callback
-fast: a slow database call also delays socket processing and may contribute to
-mailbox growth. For slow or retryable work, enqueue a compact event to an
-application-supervised worker or durable outbox.
+The client invokes `Ircxd.Client.Adapter.handle_event/3` synchronously in its
+GenServer, in protocol order. Updated callback state is used for the next
+event. Keep the callback fast. A slow database call also delays socket
+processing and can increase mailbox size. For slow or retryable work, enqueue
+a compact event to an application-supervised worker or durable outbox.
 
 An invalid callback return retains the previous state. Adapter initialization
 failure stops client startup as `{:adapter_init_failed, reason}`. Do not use the
