@@ -14,6 +14,8 @@ defmodule Ircxd.Client do
   alias Ircxd.ClientCommand
   alias Ircxd.Client.Info
   alias Ircxd.Client.Event
+  alias Ircxd.Client.Resume
+  alias Ircxd.Client.Transport.Socket, as: SocketTransport
   alias Ircxd.ClientTagDeny
   alias Ircxd.CTCP
   alias Ircxd.DCC
@@ -65,6 +67,10 @@ defmodule Ircxd.Client do
     * `:msgid_dedupe` - Sets `false` or `:mark` for message-ID duplicates.
     * `:server_time_order` - Sets `false`, `:manual`, or a list with
       `:flush_after`.
+    * `:resume_binding` - Sets an optional non-secret binary generation token. Rotate it when
+      credentials or security material change so a retained transport checkpoint is rejected.
+    * `:transport_adapter` - Sets an optional `{Ircxd.Client.Transport, init_arg}` pair. Existing
+      callers use `Ircxd.Client.Transport.Socket`, which preserves the built-in TCP/TLS behavior.
 
   The process connects asynchronously. A successful return does not mean that
   IRC registration is complete.
@@ -553,6 +559,8 @@ defmodule Ircxd.Client do
 
   @impl true
   def init(opts) do
+    transport_adapter_option = Keyword.get(opts, :transport_adapter)
+
     state = %{
       host: Keyword.fetch!(opts, :host),
       port: Keyword.get(opts, :port, if(Keyword.get(opts, :tls, false), do: 6697, else: 6667)),
@@ -574,6 +582,7 @@ defmodule Ircxd.Client do
       msgid_dedupe: Keyword.get(opts, :msgid_dedupe, false),
       seen_msgids: MapSet.new(),
       server_time_order: Keyword.get(opts, :server_time_order, false),
+      resume_binding: normalize_resume_binding(Keyword.get(opts, :resume_binding)),
       server_time_buffer: [],
       server_time_flush_timer: nil,
       server_time_flush_generation: 0,
@@ -591,6 +600,8 @@ defmodule Ircxd.Client do
       sasl_in_progress?: false,
       socket: nil,
       transport: nil,
+      transport_adapter: transport_adapter(transport_adapter_option),
+      transport_adapter_arg: transport_adapter_arg(transport_adapter_option, opts),
       registered?: false,
       notify: Keyword.get(opts, :notify),
       adapter: nil,
@@ -623,17 +634,27 @@ defmodule Ircxd.Client do
       ) do
     state = %{state | reconnect_timer: nil}
 
-    with {:ok, transport, socket} <- connect(state) do
+    with {:ok, transport, socket, mode} <- connect(state) do
       state = %{state | transport: transport, socket: socket}
-      maybe_send_webirc(state)
-      maybe_send_pass(state)
-      send_message(state, "CAP", ["LS", "302"])
-      send_message(state, "NICK", [state.nick])
-      send_message(state, "USER", [state.username, "0", "*", state.realname])
-      :ok = activate_socket(state)
-      state = emit(state, {:connected, %{host: state.host, port: state.port, tls: state.tls}})
-      {:noreply, state}
+
+      case establish_connected(state, mode) do
+        {:ok, state} ->
+          {:noreply, state}
+
+        {:error, reason} ->
+          case release_transport(state, {:connect_rejected, reason}) do
+            {:ok, state} ->
+              handle_connect_failure(emit(state, {:connect_error, reason}), origin, reason)
+
+            {:error, close_reason, state} ->
+              reason = {:transport_close_failed, close_reason}
+              {:stop, reason, emit(state, {:connect_error, reason})}
+          end
+      end
     else
+      {:error, {:transport_close_failed, _close_reason} = reason} ->
+        {:stop, reason, emit(state, {:connect_error, reason})}
+
       {:error, reason} ->
         state = emit(state, {:connect_error, reason})
         handle_connect_failure(state, origin, reason)
@@ -642,31 +663,21 @@ defmodule Ircxd.Client do
 
   def handle_info({:connect, _origin, _generation}, state), do: {:noreply, state}
 
-  def handle_info({:tcp, socket, line}, %{socket: socket} = state),
-    do: handle_active_line(line, state)
+  def handle_info(
+        {:ircxd_transport, handle, {:data, receipt, line}},
+        %{socket: handle} = state
+      )
+      when is_binary(line) do
+    handle_transport_line(line, receipt, state)
+  end
 
-  def handle_info({:ssl, socket, line}, %{socket: socket} = state),
-    do: handle_active_line(line, state)
+  def handle_info(
+        {:ircxd_transport, handle, {:closed, reason}},
+        %{socket: handle} = state
+      ),
+      do: handle_disconnect(state, reason)
 
-  def handle_info({:tcp, _socket, _line}, state), do: {:noreply, state}
-  def handle_info({:ssl, _socket, _line}, state), do: {:noreply, state}
-
-  def handle_info({:tcp_closed, socket}, %{socket: socket, transport: :gen_tcp} = state),
-    do: handle_disconnect(state, :transport_closed)
-
-  def handle_info({:ssl_closed, socket}, %{socket: socket, transport: :ssl} = state),
-    do: handle_disconnect(state, :transport_closed)
-
-  def handle_info({:tcp_error, socket, reason}, %{socket: socket, transport: :gen_tcp} = state),
-    do: handle_disconnect(state, {:transport_error, reason})
-
-  def handle_info({:ssl_error, socket, reason}, %{socket: socket, transport: :ssl} = state),
-    do: handle_disconnect(state, {:transport_error, reason})
-
-  def handle_info({:tcp_closed, _socket}, state), do: {:noreply, state}
-  def handle_info({:ssl_closed, _socket}, state), do: {:noreply, state}
-  def handle_info({:tcp_error, _socket, _reason}, state), do: {:noreply, state}
-  def handle_info({:ssl_error, _socket, _reason}, state), do: {:noreply, state}
+  def handle_info({:ircxd_transport, _handle, _event}, state), do: {:noreply, state}
 
   def handle_info(
         {:flush_server_time, generation},
@@ -676,6 +687,18 @@ defmodule Ircxd.Client do
   end
 
   def handle_info({:flush_server_time, _generation}, state), do: {:noreply, state}
+
+  def handle_info(message, %{socket: handle, transport_adapter: adapter} = state)
+      when not is_nil(handle) do
+    case adapter.handle_info(message, handle) do
+      {:data, receipt, line} when is_binary(line) -> handle_transport_line(line, receipt, state)
+      {:closed, reason} -> handle_disconnect(state, reason)
+      :unknown -> {:noreply, state}
+      _invalid -> handle_disconnect(state, :invalid_transport_event)
+    end
+  end
+
+  def handle_info(_message, state), do: {:noreply, state}
 
   @impl true
   def handle_call({:send, %Message{} = message}, _from, state) do
@@ -832,47 +855,40 @@ defmodule Ircxd.Client do
     end
   end
 
+  @impl true
+  def terminate(reason, state) do
+    _result = release_transport(state, {:client_terminated, reason})
+    :ok
+  end
+
   @doc false
   def __tls_connect_options__(state) do
-    tls_options = Map.get(state, :tls_options, [])
-
-    defaults = [
-      verify: :verify_peer,
-      server_name_indication:
-        state
-        |> Map.get(:sni, Map.fetch!(state, :host))
-        |> String.to_charlist(),
-      customize_hostname_check: [
-        match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
-      ]
-    ]
-
-    defaults =
-      if Enum.any?([:cacerts, :cacertfile], &Keyword.has_key?(tls_options, &1)) do
-        defaults
-      else
-        Keyword.put(defaults, :cacerts, :public_key.cacerts_get())
-      end
-
-    Keyword.merge(defaults, tls_options)
+    SocketTransport.tls_connect_options(state)
   end
 
-  defp connect(%{tls: true} = state) do
-    with {:ok, socket} <-
-           :ssl.connect(
-             String.to_charlist(state.host),
-             state.port,
-             tcp_options() ++ __tls_connect_options__(state),
-             10_000
-           ) do
-      {:ok, :ssl, socket}
-    end
-  end
+  defp connect(%{transport_adapter: adapter} = state) do
+    config = %{
+      host: state.host,
+      port: state.port,
+      tls?: state.tls,
+      sni: state.sni
+    }
 
-  defp connect(state) do
-    with {:ok, socket} <-
-           :gen_tcp.connect(String.to_charlist(state.host), state.port, tcp_options(), 10_000) do
-      {:ok, :gen_tcp, socket}
+    case adapter.connect(self(), config, state.transport_adapter_arg) do
+      {:ok, handle, :fresh} when not is_nil(handle) ->
+        {:ok, transport_name(adapter, handle), handle, :fresh}
+
+      {:ok, handle, {:resumed, resume, metadata}} when not is_nil(handle) and is_map(metadata) ->
+        {:ok, transport_name(adapter, handle), handle, {:resumed, resume, metadata}}
+
+      {:ok, handle, _invalid_mode} when not is_nil(handle) ->
+        reject_connected_handle(adapter, handle, :invalid_transport_result)
+
+      {:error, reason} ->
+        {:error, reason}
+
+      _invalid ->
+        {:error, :invalid_transport_result}
     end
   end
 
@@ -896,34 +912,49 @@ defmodule Ircxd.Client do
     delay = if reconnecting?, do: state.reconnect.delay
 
     state = fail_labeled_requests(state, if(intentional?, do: :quit, else: reason))
-    state = reset_connection_state(state)
-    state = emit(state, :disconnected)
 
-    state =
-      emit(
-        state,
-        {:disconnect,
-         %{
-           reason: if(intentional?, do: :quit, else: reason),
-           intentional?: intentional?,
-           reconnecting?: reconnecting?
-         }}
-      )
+    case release_transport(state, reason) do
+      {:ok, state} ->
+        state = state |> reset_connection_state() |> emit(:disconnected)
 
-    cond do
-      intentional? ->
-        {:noreply, state}
+        state =
+          emit(
+            state,
+            {:disconnect,
+             %{
+               reason: if(intentional?, do: :quit, else: reason),
+               intentional?: intentional?,
+               reconnecting?: reconnecting?
+             }}
+          )
 
-      reconnecting? ->
+        cond do
+          intentional? ->
+            {:noreply, state}
+
+          reconnecting? ->
+            state =
+              state
+              |> schedule_reconnect(attempt, delay)
+              |> emit({:reconnecting, %{attempt: attempt, delay: delay}})
+
+            {:noreply, state}
+
+          true ->
+            {:stop, :normal, state}
+        end
+
+      {:error, close_reason, state} ->
+        close_failure = {:transport_close_failed, close_reason}
+
         state =
           state
-          |> schedule_reconnect(attempt, delay)
-          |> emit({:reconnecting, %{attempt: attempt, delay: delay}})
+          |> emit(:disconnected)
+          |> emit(
+            {:disconnect, %{reason: close_failure, intentional?: false, reconnecting?: false}}
+          )
 
-        {:noreply, state}
-
-      true ->
-        {:stop, :normal, state}
+        {:stop, close_failure, state}
     end
   end
 
@@ -1269,12 +1300,19 @@ defmodule Ircxd.Client do
     {state, next_nick}
   end
 
-  defp handle_active_line(line, state) do
+  defp handle_transport_line(line, receipt, state) do
     case handle_line(line, state) do
       {:noreply, next_state} ->
-        case activate_socket(next_state) do
-          :ok -> {:noreply, next_state}
-          {:error, reason} -> {:stop, reason, next_state}
+        checkpoint =
+          if state.transport_adapter.checkpoint?(state.socket),
+            do: Resume.checkpoint(next_state),
+            else: nil
+
+        with :ok <- state.transport_adapter.accepted(state.socket, receipt, checkpoint),
+             :ok <- activate_socket(next_state) do
+          {:noreply, next_state}
+        else
+          {:error, reason} -> handle_disconnect(next_state, {:transport_error, reason})
         end
 
       other ->
@@ -1282,20 +1320,8 @@ defmodule Ircxd.Client do
     end
   end
 
-  defp tcp_options do
-    [
-      :binary,
-      packet: :line,
-      packet_size: Message.max_received_wire_bytes(),
-      active: false
-    ]
-  end
-
-  defp activate_socket(%{transport: :gen_tcp, socket: socket}),
-    do: :inet.setopts(socket, active: :once)
-
-  defp activate_socket(%{transport: :ssl, socket: socket}),
-    do: :ssl.setopts(socket, active: :once)
+  defp activate_socket(%{transport_adapter: adapter, socket: socket}),
+    do: adapter.activate(socket)
 
   defp update_current_nick(
          state,
@@ -2912,10 +2938,7 @@ defmodule Ircxd.Client do
     with :ok <- validate_outbound_message(state, message) do
       line = Message.serialize(message)
 
-      case state.transport do
-        :ssl -> :ssl.send(state.socket, line)
-        :gen_tcp -> :gen_tcp.send(state.socket, line)
-      end
+      state.transport_adapter.send_data(state.socket, line)
     end
   end
 
@@ -3090,6 +3113,13 @@ defmodule Ircxd.Client do
       max_attempts: Keyword.get(opts, :max_attempts, 3),
       delay: Keyword.get(opts, :delay, 1_000)
     }
+  end
+
+  defp normalize_resume_binding(nil), do: nil
+  defp normalize_resume_binding(binding) when is_binary(binding), do: binding
+
+  defp normalize_resume_binding(_binding) do
+    raise ArgumentError, ":resume_binding must be a binary or nil"
   end
 
   defp normalize_event_mode(mode) when mode in [:legacy, :envelope, :both], do: mode
@@ -3648,5 +3678,85 @@ defmodule Ircxd.Client do
       isupport: state.isupport,
       casemapping: ISupport.casemap(state.isupport)
     }
+  end
+
+  defp establish_connected(state, :fresh) do
+    with :ok <- maybe_send_webirc(state),
+         :ok <- maybe_send_pass(state),
+         :ok <- send_message(state, "CAP", ["LS", "302"]),
+         :ok <- send_message(state, "NICK", [state.nick]),
+         :ok <- send_message(state, "USER", [state.username, "0", "*", state.realname]),
+         :ok <- activate_socket(state) do
+      {:ok, emit(state, {:connected, connection_metadata(state)})}
+    end
+  end
+
+  defp establish_connected(state, {:resumed, resume, metadata}) do
+    with {:ok, state} <- Resume.restore(resume, state),
+         :ok <- activate_socket(state) do
+      state =
+        state
+        |> emit({:connected, connection_metadata(state)})
+        |> emit({:resumed, metadata})
+        |> emit(:registered)
+
+      {:ok, state}
+    end
+  end
+
+  defp connection_metadata(state), do: %{host: state.host, port: state.port, tls: state.tls}
+
+  defp transport_adapter(nil), do: SocketTransport
+
+  defp transport_adapter({adapter, _arg}) when is_atom(adapter) do
+    if Code.ensure_loaded?(adapter) and function_exported?(adapter, :connect, 3) and
+         function_exported?(adapter, :send_data, 2) and
+         function_exported?(adapter, :activate, 1) and
+         function_exported?(adapter, :checkpoint?, 1) and
+         function_exported?(adapter, :accepted, 3) and
+         function_exported?(adapter, :close, 2) and
+         function_exported?(adapter, :handle_info, 2) do
+      adapter
+    else
+      raise ArgumentError, "transport adapter must implement Ircxd.Client.Transport"
+    end
+  end
+
+  defp transport_adapter(_invalid) do
+    raise ArgumentError, ":transport_adapter must be an {adapter_module, init_arg} pair"
+  end
+
+  defp transport_adapter_arg(nil, opts),
+    do: [tls_options: Keyword.get(opts, :tls_options, [])]
+
+  defp transport_adapter_arg({_adapter, arg}, _opts), do: arg
+
+  defp transport_name(SocketTransport, handle), do: SocketTransport.type(handle)
+  defp transport_name(adapter, _handle), do: adapter
+
+  defp reject_connected_handle(adapter, handle, reason) do
+    case safe_close(adapter, handle, {:connect_rejected, reason}) do
+      :ok -> {:error, reason}
+      {:error, close_reason} -> {:error, {:transport_close_failed, close_reason}}
+    end
+  end
+
+  defp release_transport(%{socket: nil} = state, _reason), do: {:ok, state}
+
+  defp release_transport(state, reason) do
+    case safe_close(state.transport_adapter, state.socket, reason) do
+      :ok -> {:ok, %{state | socket: nil, transport: nil}}
+      {:error, close_reason} -> {:error, close_reason, state}
+    end
+  end
+
+  defp safe_close(adapter, handle, reason) do
+    case adapter.close(handle, reason) do
+      :ok -> :ok
+      {:error, close_reason} -> {:error, close_reason}
+      invalid -> {:error, {:invalid_close_result, invalid}}
+    end
+  catch
+    kind, close_reason -> {:error, {kind, close_reason}}
   end
 end

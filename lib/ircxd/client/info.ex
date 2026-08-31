@@ -35,7 +35,7 @@ defmodule Ircxd.Client.Info do
           host: String.t(),
           port: :inet.port_number(),
           tls?: boolean(),
-          transport: :gen_tcp | :ssl | nil,
+          transport: :gen_tcp | :ssl | module() | nil,
           desired_nick: String.t(),
           current_nick: String.t() | nil,
           available_caps: %{optional(String.t()) => String.t() | true},
