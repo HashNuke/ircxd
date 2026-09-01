@@ -124,7 +124,14 @@ defmodule Ircxd.Client do
   @doc "Sends a `JOIN` command."
   def join(client, channel), do: GenServer.call(client, {:send, "JOIN", [channel]})
 
-  @doc "Sends a `JOIN` with optional adapter-owned idempotency keys."
+  @doc """
+  Sends a `JOIN` with optional adapter-owned idempotency keys.
+
+  Pass a non-empty list of non-empty binaries as `:idempotency_keys`. Duplicate keys are removed.
+  A transport that implements `Ircxd.Client.Transport.send_data_once/3` receives the keys with the
+  serialized JOIN. A legacy or default socket transport falls back to its ordinary write callback
+  and therefore does not suppress a retry.
+  """
   def join(client, channel, opts) when is_list(opts),
     do: GenServer.call(client, {:send, "JOIN", [channel], opts})
 
@@ -531,7 +538,12 @@ defmodule Ircxd.Client do
   @doc "Validates and sends an `Ircxd.Message`."
   def transmit(client, %Message{} = message), do: GenServer.call(client, {:send, message})
 
-  @doc "Validates and sends an `Ircxd.Message` with optional adapter-owned idempotency keys."
+  @doc """
+  Validates and sends an `Ircxd.Message` with optional adapter-owned idempotency keys.
+
+  `:idempotency_keys` follows the same validation and optional transport behavior as `join/3`.
+  Ircxd serializes the message only after validating both the message and keys.
+  """
   def transmit(client, %Message{} = message, opts) when is_list(opts),
     do: GenServer.call(client, {:send, message, opts})
 

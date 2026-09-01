@@ -46,6 +46,12 @@ defmodule MyApp.IrcTransport do
   @impl true
   def send_data(handle, data), do: MyConnectionOwner.send_data(handle, data)
 
+  # Optional. Implement this only when the owner can suppress a repeated logical write.
+  @impl true
+  def send_data_once(handle, keys, data) do
+    MyConnectionOwner.send_data_once(handle, keys, data)
+  end
+
   @impl true
   def activate(_handle), do: :ok
 
@@ -80,6 +86,26 @@ TCP/TLS reads.
 
 Set `checkpoint?/1` to `false` when the transport cannot resume. This avoids constructing a parser
 checkpoint for each record. A resumable transport returns `true`.
+
+### Optional idempotent writes
+
+`send_data_once/3` is an optional callback for a connection owner that can remember logical writes
+for the lifetime of its handle. `Ircxd.Client.join/3` and `Ircxd.Client.transmit/3` accept an
+`:idempotency_keys` option. Ircxd requires a non-empty list of non-empty binaries, removes duplicate
+keys while preserving their first-seen order, serializes the IRC record once, and passes the keys
+and record to `send_data_once/3`.
+
+The adapter owns key retention and overlap policy; Ircxd does not place outbound keys in its parser
+checkpoint. A multi-key write should be atomic from the adapter's perspective: write when none of
+the keys were recorded, suppress the retry when all were recorded, and return an error on partial
+overlap instead of guessing that part of the IRC record was sent. Record keys only after the
+underlying write succeeds. If the outcome is uncertain, return an error and do not follow it with
+an ordinary write for the same attempt.
+
+If an adapter does not implement `send_data_once/3`, Ircxd deliberately falls back to
+`send_data/2`. This keeps existing adapters and the default TCP/TLS socket transport compatible, but
+the fallback provides no duplicate suppression. Callers that require the guarantee must select an
+adapter that implements the optional callback and defines a bounded key-retention policy.
 
 ## Inbound records and acceptance
 

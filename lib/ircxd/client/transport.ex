@@ -39,7 +39,14 @@ defmodule Ircxd.Client.Transport do
   @doc "Writes one serialized IRC record through the active transport."
   @callback send_data(handle(), iodata()) :: :ok | {:error, term()}
 
-  @doc "Writes one serialized record once for an adapter-owned set of idempotency keys."
+  @doc """
+  Writes one serialized record once for an adapter-owned set of idempotency keys.
+
+  This callback is optional. Ircxd supplies a deduplicated, non-empty list of non-empty binary keys.
+  The adapter defines bounded key retention and must decide all-key repeat and partial-overlap
+  semantics. When the callback is absent, Ircxd falls back to `send_data/2` without duplicate
+  suppression.
+  """
   @callback send_data_once(handle(), keys :: [binary()], iodata()) ::
               :ok | {:error, term()}
 
