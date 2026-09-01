@@ -55,6 +55,9 @@ defmodule Ircxd.Client do
     * `:notify` - Sets the process that receives `{:ircxd, event}` messages.
     * `:adapter` - Sets an `{adapter_module, init_arg}` pair.
     * `:events` - Sets `:legacy`, `:envelope`, or `:both` event delivery.
+    * `:additional_error_numerics` - Opts into treating selected three-digit
+      vendor numerics as generic `:irc_error` events. The default is `[]`, so
+      numerics outside Ircxd's built-in catalog continue to emit `:raw`.
     * `:reconnect` - Sets `false`, `true`, or a list with `:max_attempts` and
       `:delay`.
     * `:password` - Sets the server password for registration.
@@ -587,6 +590,8 @@ defmodule Ircxd.Client do
       server_time_flush_timer: nil,
       server_time_flush_generation: 0,
       event_mode: normalize_event_mode(Keyword.get(opts, :events, :legacy)),
+      additional_error_numerics:
+        normalize_additional_error_numerics(Keyword.get(opts, :additional_error_numerics, [])),
       available_caps: %{},
       active_caps: MapSet.new(),
       isupport: %{},
@@ -1280,7 +1285,7 @@ defmodule Ircxd.Client do
         handle_batch(message, state)
 
       {:ok, %Message{} = message} ->
-        event = attach_identity_metadata(state, event_for(message))
+        event = attach_identity_metadata(state, event_for(message, state))
         state = update_current_nick(state, message)
         state = emit_event(state, event, message)
         state = emit(state, {:message, message})
@@ -2132,14 +2137,7 @@ defmodule Ircxd.Client do
               "696",
               "723"
             ] do
-    {:irc_error,
-     %{
-       code: command,
-       target: error_target(params),
-       reason: List.last(params),
-       params: params,
-       message: message
-     }}
+    irc_error_event(command, params, message)
   end
 
   defp event_for(%Message{command: command, params: params} = message)
@@ -2151,6 +2149,31 @@ defmodule Ircxd.Client do
   end
 
   defp event_for(message), do: {:raw, message}
+
+  defp event_for(%Message{} = message, state) do
+    case event_for(message) do
+      {:raw, %Message{command: command, params: [_me | params]}} = raw ->
+        if MapSet.member?(state.additional_error_numerics, command) do
+          irc_error_event(command, params, message)
+        else
+          raw
+        end
+
+      event ->
+        event
+    end
+  end
+
+  defp irc_error_event(command, params, message) do
+    {:irc_error,
+     %{
+       code: command,
+       target: error_target(params),
+       reason: List.last(params),
+       params: params,
+       message: message
+     }}
+  end
 
   defp dcc_from_ctcp({:ok, ctcp}) do
     case DCC.parse(ctcp) do
@@ -3127,6 +3150,19 @@ defmodule Ircxd.Client do
   defp normalize_event_mode(mode) do
     raise ArgumentError,
           "expected :events to be :legacy, :envelope, or :both, got: #{inspect(mode)}"
+  end
+
+  defp normalize_additional_error_numerics(numerics) when is_list(numerics) do
+    if Enum.all?(numerics, &(is_binary(&1) and String.match?(&1, ~r/\A\d{3}\z/))) do
+      MapSet.new(numerics)
+    else
+      raise ArgumentError,
+            ":additional_error_numerics must be a list of three-digit strings"
+    end
+  end
+
+  defp normalize_additional_error_numerics(_numerics) do
+    raise ArgumentError, ":additional_error_numerics must be a list of three-digit strings"
   end
 
   defp should_start_sasl?(%{sasl: nil}, _acked_caps), do: false
