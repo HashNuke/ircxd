@@ -39,6 +39,12 @@ defmodule Ircxd.Client.Transport do
   @doc "Writes one serialized IRC record through the active transport."
   @callback send_data(handle(), iodata()) :: :ok | {:error, term()}
 
+  @doc "Writes one serialized record once for an adapter-owned set of idempotency keys."
+  @callback send_data_once(handle(), keys :: [binary()], iodata()) ::
+              :ok | {:error, term()}
+
+  @optional_callbacks send_data_once: 3
+
   @doc "Enables delivery of the next inbound record."
   @callback activate(handle()) :: :ok | {:error, term()}
 

@@ -31,6 +31,16 @@ defmodule Ircxd.TestClientTransport do
   end
 
   @impl true
+  def send_data_once(
+        {_module, _ref, owner, _close_result, send_result} = handle,
+        keys,
+        data
+      ) do
+    send(owner, {:test_transport_sent_once, handle, keys, IO.iodata_to_binary(data)})
+    send_result
+  end
+
+  @impl true
   def activate({_module, _ref, owner, _close_result, _send_result} = handle) do
     send(owner, {:test_transport_activated, handle})
     :ok

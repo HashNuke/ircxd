@@ -124,6 +124,10 @@ defmodule Ircxd.Client do
   @doc "Sends a `JOIN` command."
   def join(client, channel), do: GenServer.call(client, {:send, "JOIN", [channel]})
 
+  @doc "Sends a `JOIN` with optional adapter-owned idempotency keys."
+  def join(client, channel, opts) when is_list(opts),
+    do: GenServer.call(client, {:send, "JOIN", [channel], opts})
+
   @doc "Sends a `NAMES` command."
   def names(client, target), do: GenServer.call(client, {:send, "NAMES", [target]})
 
@@ -527,6 +531,10 @@ defmodule Ircxd.Client do
   @doc "Validates and sends an `Ircxd.Message`."
   def transmit(client, %Message{} = message), do: GenServer.call(client, {:send, message})
 
+  @doc "Validates and sends an `Ircxd.Message` with optional adapter-owned idempotency keys."
+  def transmit(client, %Message{} = message, opts) when is_list(opts),
+    do: GenServer.call(client, {:send, message, opts})
+
   @doc "Publishes all events in the manual server-time buffer."
   def flush_server_time(client), do: GenServer.call(client, :flush_server_time)
 
@@ -717,8 +725,26 @@ defmodule Ircxd.Client do
     end
   end
 
+  def handle_call({:send, %Message{} = message, opts}, _from, state) do
+    case send_message(state, message, opts) do
+      :ok ->
+        state = state |> maybe_track_labeled_request(message) |> maybe_mark_quit_intent(message)
+        {:reply, :ok, state}
+
+      error ->
+        {:reply, error, state}
+    end
+  end
+
   def handle_call({:send, command, params}, _from, state) do
     case send_message(state, command, params) do
+      :ok -> {:reply, :ok, maybe_mark_quit_intent(state, command)}
+      error -> {:reply, error, state}
+    end
+  end
+
+  def handle_call({:send, command, params, opts}, _from, state) do
+    case send_message(state, command, params, opts) do
       :ok -> {:reply, :ok, maybe_mark_quit_intent(state, command)}
       error -> {:reply, error, state}
     end
@@ -2945,11 +2971,30 @@ defmodule Ircxd.Client do
     %{state | net_batches: Map.delete(state.net_batches, ref)}
   end
 
-  defp send_message(%{transport: nil}, _command, _params), do: {:error, :not_connected}
+  defp send_message(%{transport: nil}, command, _params) when is_binary(command),
+    do: {:error, :not_connected}
 
-  defp send_message(state, command, params) do
+  defp send_message(state, command, params) when is_binary(command) do
     with {:ok, params} <- normalize_outbound_params(params) do
       send_message(state, %Message{command: command, params: params})
+    end
+  end
+
+  defp send_message(%{transport: nil}, %Message{}, _opts), do: {:error, :not_connected}
+
+  defp send_message(state, %Message{} = message, opts) do
+    message = ClientCommand.normalize(message)
+
+    with {:ok, keys} <- idempotency_keys(opts),
+         :ok <- validate_outbound_message(state, message) do
+      line = Message.serialize(message)
+      send_transport_data(state, keys, line)
+    end
+  end
+
+  defp send_message(state, command, params, opts) when is_binary(command) do
+    with {:ok, params} <- normalize_outbound_params(params) do
+      send_message(state, %Message{command: command, params: params}, opts)
     end
   end
 
@@ -2961,6 +3006,35 @@ defmodule Ircxd.Client do
     with :ok <- validate_outbound_message(state, message) do
       line = Message.serialize(message)
 
+      state.transport_adapter.send_data(state.socket, line)
+    end
+  end
+
+  defp idempotency_keys(opts) when is_list(opts) do
+    case Keyword.fetch(opts, :idempotency_keys) do
+      :error ->
+        {:ok, nil}
+
+      {:ok, keys} when is_list(keys) ->
+        if keys != [] and Enum.all?(keys, &(is_binary(&1) and byte_size(&1) > 0)) do
+          {:ok, Enum.uniq(keys)}
+        else
+          {:error, :invalid_idempotency_keys}
+        end
+
+      {:ok, _invalid} ->
+        {:error, :invalid_idempotency_keys}
+    end
+  end
+
+  defp send_transport_data(state, nil, line) do
+    state.transport_adapter.send_data(state.socket, line)
+  end
+
+  defp send_transport_data(state, keys, line) do
+    if function_exported?(state.transport_adapter, :send_data_once, 3) do
+      state.transport_adapter.send_data_once(state.socket, keys, line)
+    else
       state.transport_adapter.send_data(state.socket, line)
     end
   end

@@ -2,7 +2,45 @@ defmodule Ircxd.ClientTransportAdapterTest do
   use ExUnit.Case, async: false
 
   alias Ircxd.Client.Info
+  alias Ircxd.LegacyTestClientTransport
   alias Ircxd.TestClientTransport
+
+  test "an opt-in transport receives idempotency keys for one serialized JOIN" do
+    {:ok, client} =
+      Ircxd.Client.start_link(
+        host: "irc.example.test",
+        nick: "keeper",
+        transport_adapter: {TestClientTransport, owner: self()}
+      )
+
+    assert_receive {:test_transport_connected, ^client, handle, _config}
+    flush_registration_writes(handle)
+
+    assert :ok =
+             Ircxd.Client.join(client, "#elixir", idempotency_keys: ["join-attempt-1"])
+
+    assert_receive {:test_transport_sent_once, ^handle, ["join-attempt-1"], "JOIN #elixir\r\n"}
+  end
+
+  test "a legacy transport falls back to its ordinary write callback" do
+    {:ok, client} =
+      Ircxd.Client.start_link(
+        host: "irc.example.test",
+        nick: "keeper",
+        transport_adapter: {LegacyTestClientTransport, owner: self()}
+      )
+
+    assert_receive {:test_transport_connected, ^client, handle, _config}
+    flush_registration_writes(handle)
+
+    message = %Ircxd.Message{command: "JOIN", params: ["#one,#two"]}
+
+    assert :ok =
+             Ircxd.Client.transmit(client, message, idempotency_keys: ["attempt-1", "attempt-2"])
+
+    assert_receive {:test_transport_sent, ^handle, "JOIN #one,#two\r\n"}
+    refute_receive {:test_transport_sent_once, ^handle, _keys, _line}
+  end
 
   test "an opt-in fresh transport uses the existing registration and acceptance flow" do
     {:ok, client} =
@@ -409,5 +447,12 @@ defmodule Ircxd.ClientTransportAdapterTest do
     after
       1_000 -> flunk("expected a message")
     end
+  end
+
+  defp flush_registration_writes(handle) do
+    assert_receive {:test_transport_sent, ^handle, "CAP LS 302\r\n"}
+    assert_receive {:test_transport_sent, ^handle, "NICK keeper\r\n"}
+    assert_receive {:test_transport_sent, ^handle, "USER keeper 0 * keeper\r\n"}
+    :ok
   end
 end
