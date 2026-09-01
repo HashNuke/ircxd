@@ -77,6 +77,23 @@ defmodule Ircxd.ClientResumeTest do
              })
   end
 
+  test "binds checkpoints to selected vendor error numerics while accepting the old empty default" do
+    state = resume_state()
+    checkpoint = Resume.checkpoint(state)
+
+    selected = %{state | additional_error_numerics: MapSet.new(["479", "480"])}
+
+    assert {:error, :resume_binding_mismatch} = Resume.restore(checkpoint, selected)
+
+    legacy_checkpoint = %{
+      checkpoint
+      | binding: Map.delete(checkpoint.binding, :additional_error_numerics)
+    }
+
+    assert {:ok, _restored} = Resume.restore(legacy_checkpoint, state)
+    assert {:error, :resume_binding_mismatch} = Resume.restore(legacy_checkpoint, selected)
+  end
+
   test "binds checkpoints to public authentication identity and caller generation" do
     state = resume_state()
     checkpoint = Resume.checkpoint(state)
@@ -191,6 +208,7 @@ defmodule Ircxd.ClientResumeTest do
       caps: ["batch", "server-time"],
       msgid_dedupe: :mark,
       server_time_order: [flush_after: 50],
+      additional_error_numerics: MapSet.new(),
       password: "server-secret",
       sasl: {:plain, "account", "sasl-secret"},
       webirc: [

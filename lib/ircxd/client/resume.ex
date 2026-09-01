@@ -131,6 +131,8 @@ defmodule Ircxd.Client.Resume do
   end
 
   defp validate_binding(checkpoint_binding, state) do
+    checkpoint_binding = Map.put_new(checkpoint_binding, :additional_error_numerics, [])
+
     if checkpoint_binding == config_binding(state),
       do: :ok,
       else: {:error, :resume_binding_mismatch}
@@ -236,6 +238,10 @@ defmodule Ircxd.Client.Resume do
       username: state.username,
       realname: state.realname,
       caps: state.caps |> Enum.map(&to_string/1) |> Enum.sort(),
+      additional_error_numerics:
+        state
+        |> Map.get(:additional_error_numerics, MapSet.new())
+        |> Enum.sort(),
       msgid_dedupe: state.msgid_dedupe,
       server_time_order: server_time_order_binding(state.server_time_order)
     }

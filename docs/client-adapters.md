@@ -91,6 +91,7 @@ Client behavior and integration options are:
 | `:notify` | `nil` | PID that receives `{:ircxd, event}` messages. |
 | `:adapter` | `nil` | `{module, init_arg}` implementing `Ircxd.Client.Adapter`. |
 | `:events` | `:legacy` | Event delivery as `:legacy`, `:envelope`, or `:both`. |
+| `:additional_error_numerics` | `[]` | Promote selected three-digit vendor numerics from `:raw` to generic `:irc_error` events. |
 | `:reconnect` | `false` | Reconnect policy after an established transport closes. |
 | `:password` | `nil` | Server password sent with `PASS` before registration. |
 | `:sasl` | `nil` | One SASL mechanism or an ordered fallback list. |
