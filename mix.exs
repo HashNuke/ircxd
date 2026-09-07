@@ -76,7 +76,10 @@ defmodule Ircxd.MixProject do
     [
       files: [
         "lib",
-        "docs",
+        "docs/client-adapters.md",
+        "docs/client-transports.md",
+        "docs/development.md",
+        "docs/server-adapters.md",
         "mix.exs",
         "README.md",
         "LICENSE",
