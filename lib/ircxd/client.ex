@@ -128,7 +128,7 @@ defmodule Ircxd.Client do
   Sends a `JOIN` with optional adapter-owned idempotency keys.
 
   Pass a non-empty list of non-empty binaries as `:idempotency_keys`. Duplicate keys are removed.
-  A transport that implements `Ircxd.Client.Transport.send_data_once/3` receives the keys with the
+  A transport that implements `c:Ircxd.Client.Transport.send_data_once/3` receives the keys with the
   serialized JOIN. A legacy or default socket transport falls back to its ordinary write callback
   and therefore does not suppress a retry.
   """
