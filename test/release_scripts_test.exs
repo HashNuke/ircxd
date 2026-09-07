@@ -32,6 +32,17 @@ defmodule Ircxd.ReleaseScriptsTest do
     # Fixture
 
     [![CI](https://img.shields.io/github/check-suites/example/fixture/v1.2.3?label=CI)](https://github.com/example/fixture/actions/workflows/ci.yml)
+
+    ## Installation
+
+    ```elixir
+    def deps do
+      [
+        {:ircxd, "~> 1.2"},
+        {:other, "~> 1.1"}
+      ]
+    end
+    ```
     """)
 
     %{repo: repo}
@@ -85,6 +96,85 @@ defmodule Ircxd.ReleaseScriptsTest do
 
     assert {output, 1} = run(repo, "bin/release", [])
     assert output =~ "tag already exists on origin: v1.2.3"
+  end
+
+  for {version, requirement} <- [{"2.0.0", "2.0"}, {"1.3.0", "1.3"}, {"1.2.4", "1.2"}] do
+    test "release synchronizes installation for #{version} before tagging", %{repo: repo} do
+      mix_path = Path.join(repo, "mix.exs")
+      readme_path = Path.join(repo, "README.md")
+      File.write!(mix_path, String.replace(File.read!(mix_path), "1.2.3", unquote(version)))
+
+      readme =
+        String.replace(File.read!(readme_path), ~s({:ircxd, "~> 1.2"}), ~s({:ircxd, "~> 1.1"}))
+
+      File.write!(readme_path, readme)
+      initialize_repository(repo)
+
+      assert {output, 1} = run(repo, "bin/release", [])
+      assert output =~ "commit mix.exs and README.md changes, then rerun bin/release"
+
+      expected =
+        String.replace(readme, ~s({:ircxd, "~> 1.1"}), ~s({:ircxd, "~> #{unquote(requirement)}"}))
+
+      assert File.read!(readme_path) == expected
+      assert {"", 0} = System.cmd("git", ["tag", "--list"], cd: repo)
+
+      assert {_, 1} = run(repo, "bin/release", [])
+      assert {_, 0} = System.cmd("git", ["add", "README.md"], cd: repo)
+      assert {_, 0} = System.cmd("git", ["commit", "-m", "Update installation"], cd: repo)
+      assert {"created tag v#{unquote(version)}\n", 0} = run(repo, "bin/release", [])
+
+      assert {^expected, 0} =
+               System.cmd("git", ["show", "v#{unquote(version)}:README.md"], cd: repo)
+    end
+  end
+
+  for staged? <- [false, true] do
+    test "release requires committed README changes (staged: #{staged?})", %{repo: repo} do
+      initialize_repository(repo)
+      File.write!(Path.join(repo, "README.md"), "\nRelease notes\n", [:append])
+
+      if unquote(staged?) do
+        assert {_, 0} = System.cmd("git", ["add", "README.md"], cd: repo)
+      end
+
+      assert {output, 1} = run(repo, "bin/release", [])
+      assert output =~ "commit mix.exs and README.md changes, then rerun bin/release"
+      assert {"", 0} = System.cmd("git", ["tag", "--list"], cd: repo)
+    end
+  end
+
+  test "release requires a committed project version", %{repo: repo} do
+    initialize_repository(repo)
+    mix_path = Path.join(repo, "mix.exs")
+    File.write!(mix_path, String.replace(File.read!(mix_path), "1.2.3", "1.2.4"))
+
+    assert {output, 1} = run(repo, "bin/release", [])
+    assert output =~ "commit mix.exs and README.md changes, then rerun bin/release"
+    assert {"", 0} = System.cmd("git", ["tag", "--list"], cd: repo)
+  end
+
+  for count <- [0, 2] do
+    test "release rejects #{count} installation requirements without changing the README", %{
+      repo: repo
+    } do
+      readme_path = Path.join(repo, "README.md")
+
+      readme =
+        String.replace(
+          File.read!(readme_path),
+          ~s({:ircxd, "~> 1.2"}),
+          String.duplicate(~s({:ircxd, "~> 1.1"}), unquote(count))
+        )
+
+      File.write!(readme_path, readme)
+      initialize_repository(repo)
+
+      assert {output, 1} = run(repo, "bin/release", [])
+      assert output =~ "expected exactly one ircxd installation requirement"
+      assert File.read!(readme_path) == readme
+      assert {"", 0} = System.cmd("git", ["tag", "--list"], cd: repo)
+    end
   end
 
   defp initialize_repository(repo, origin \\ nil) do

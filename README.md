@@ -30,7 +30,7 @@ Add `ircxd` to your Mix dependencies:
 ```elixir
 def deps do
   [
-    {:ircxd, "~> 1.1"}
+    {:ircxd, "~> 1.2"}
   ]
 end
 ```

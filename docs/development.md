@@ -97,11 +97,18 @@ create its local Git tag with:
 bin/release
 ```
 
-The release script reads the version from `mix.exs`, creates the corresponding
-`vMAJOR.MINOR.PATCH` tag, and refuses to replace an existing local or remote
-tag. The `v` prefix follows the Git-tag example in the SemVer specification;
-it is not part of the Hex package version. The script does not publish the
-package or push the tag. Do those explicitly after reviewing the release:
+The release script reads the version from `mix.exs` and synchronizes the README
+installation requirement to `~> MAJOR.MINOR`. If `mix.exs` or `README.md` has
+uncommitted changes (including an installation update made by the script), it
+exits without creating a tag. Commit those changes and rerun `bin/release` so
+the tag includes the updated installation instructions.
+
+Once both files are committed, the script creates the corresponding
+`vMAJOR.MINOR.PATCH` tag. It refuses to replace an existing local or remote
+tag before changing the README. The `v` prefix follows the Git-tag example in
+the SemVer specification; it is not part of the Hex package version. The script
+does not publish the package or push the tag. Do those explicitly after
+reviewing the release:
 
 ```bash
 mix hex.publish

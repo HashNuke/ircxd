@@ -34,5 +34,36 @@ if git -C "${repo_root}" ls-remote --exit-code --tags origin "refs/tags/${tag}" 
   exit 1
 fi
 
+python3 - "${version}" "${repo_root}/README.md" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+requirement = ".".join(sys.argv[1].split(".")[:2])
+readme_path = Path(sys.argv[2])
+readme = readme_path.read_text(encoding="utf-8")
+matches = list(re.finditer(
+    r'(\{:ircxd,\s*"~>\s+)([0-9]+\.[0-9]+(?:\.[0-9]+)?)("\s*\})',
+    readme,
+))
+if len(matches) != 1:
+    raise SystemExit(
+        f"error: expected exactly one ircxd installation requirement in {readme_path}"
+    )
+
+match = matches[0]
+if match.group(2) != requirement:
+    readme_path.write_text(
+        readme[:match.start(2)] + requirement + readme[match.end(2):],
+        encoding="utf-8",
+    )
+    print(f"updated README.md installation requirement to ~> {requirement}")
+PY
+
+if ! git -C "${repo_root}" diff --quiet HEAD -- mix.exs README.md; then
+  printf 'error: commit mix.exs and README.md changes, then rerun bin/release\n' >&2
+  exit 1
+fi
+
 git -C "${repo_root}" tag "${tag}"
 printf 'created tag %s\n' "${tag}"
