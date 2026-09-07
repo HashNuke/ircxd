@@ -35,7 +35,7 @@ defmodule Ircxd.Client.Event do
     metadata_batch metadata_error metadata_reply metadata_reply_error mode monitor
     monitor_error motd motd_end motd_missing motd_start multiline names names_end netjoin
     netsplit nick nick_in_use none notice now_away parse_error part pong privmsg quit raw
-    reaction read_marker read_marker_error reconnect_exhausted reconnecting redact registered rehashing remote_isupport
+    reaction read_marker read_marker_error reconnect_exhausted reconnecting redact registered rehashing remote_isupport resumed
     sasl_failure sasl_mechanisms sasl_scram_error sasl_success server_created server_info
     servlist servlist_end setname standard_reply standard_reply_error starttls
     starttls_failed stats_command stats_end stats_line stats_linkinfo stats_uptime

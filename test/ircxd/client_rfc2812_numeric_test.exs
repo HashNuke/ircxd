@@ -68,6 +68,61 @@ defmodule Ircxd.ClientRFC2812NumericTest do
     assert_error("492", nil, "No service host")
   end
 
+  test "classifies application-selected vendor numerics without changing the default" do
+    default_server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state -> [":irc.test CAP * LS :"]
+           "CAP END", _state -> [":irc.test 001 nick :Welcome", numeric_480()]
+           _line, _state -> []
+         end},
+        id: :default_vendor_numeric_server
+      )
+
+    {:ok, _default_client} =
+      start_supervised(
+        {Ircxd.Client,
+         host: "127.0.0.1",
+         port: ScriptedIrcServer.port(default_server),
+         nick: "nick",
+         username: "nick",
+         realname: "Nick",
+         notify: self()},
+        id: :default_vendor_numeric_client
+      )
+
+    assert_receive {:ircxd, {:raw, %Ircxd.Message{command: "480"}}}, 1_000
+
+    selected_server =
+      start_supervised!(
+        {ScriptedIrcServer,
+         test_pid: self(),
+         script: fn
+           "CAP LS 302", _state -> [":irc.test CAP * LS :"]
+           "CAP END", _state -> [":irc.test 001 nick :Welcome", numeric_480()]
+           _line, _state -> []
+         end},
+        id: :selected_vendor_numeric_server
+      )
+
+    {:ok, _selected_client} =
+      start_supervised(
+        {Ircxd.Client,
+         host: "127.0.0.1",
+         port: ScriptedIrcServer.port(selected_server),
+         nick: "nick",
+         username: "nick",
+         realname: "Nick",
+         notify: self(),
+         additional_error_numerics: ["479", "480"]},
+        id: :selected_vendor_numeric_client
+      )
+
+    assert_error("480", "#startups", "Cannot join channel (+S) - SSL/TLS required")
+  end
+
   test "distinguishes labeled empty USERS success from disabled failure" do
     server =
       start_supervised!(
@@ -125,6 +180,10 @@ defmodule Ircxd.ClientRFC2812NumericTest do
                        reason: {:users_disabled, %{text: "USERS has been disabled"}}
                      }}},
                    1_000
+  end
+
+  defp numeric_480 do
+    ":irc.test 480 nick #startups :Cannot join channel (+S) - SSL/TLS required"
   end
 
   defp assert_error(code, target, reason) do
