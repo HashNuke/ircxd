@@ -143,6 +143,10 @@ Listeners bind to localhost by default. Use `ip: {0, 0, 0, 0}` to expose the
 listener, or enable implicit TLS with `tls: true` and standard Erlang
 `tls_options`.
 
+See the [runnable embedded-server example](https://github.com/HashNuke/ircxd/tree/main/examples/embedded_server)
+for a complete supervised Mix application, an integration test, and irssi
+commands.
+
 ## Adapters
 
 Both sides accept `adapter: {Module, init_arg}`. Use `Ircxd.Client.Adapter` for
